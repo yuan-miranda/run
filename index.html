@@ -68,7 +68,6 @@
 </head>
 
 <body x-data="app()" x-init="init()" @contextmenu.prevent @keydown.window.c="if(targetUser) fetchSingle(targetUser)"
-    @mouseenter="targerUser = user" @mouseleave="if(!showMenu) targetUser = null"
     @keydown.window.v="if(targetUser) viewOutput(targetUser)" @keydown.window.s="if(targetUser) quickCommand('speak')"
     @keydown.window.a="if(targetUser) quickCommand('popup')">
 
