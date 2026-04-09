@@ -146,7 +146,7 @@
                     this.showMenu = false;
                     if (this.getStatusColor(user) !== 'green') return;
 
-                    let msg = prompt(`Enter message for ${user.username}:`);
+                    let msg = prompt(`Enter message to ${type === 'speak' ? 'speak' : 'popup'} for ${user.username}:`);
                     if (!msg) return;
 
                     msg = msg.replace(/'/g, "''");
