@@ -68,12 +68,13 @@
 </head>
 
 <body x-data="app()" x-init="init()" @contextmenu.prevent @keydown.window.c="if(targetUser) fetchSingle(targetUser)"
+    @mouseenter="targerUser = user" @mouseleave="if(!showMenu) targetUser = null"
     @keydown.window.v="if(targetUser) viewOutput(targetUser)" @keydown.window.s="if(targetUser) quickCommand('speak')"
     @keydown.window.a="if(targetUser) quickCommand('popup')">
 
     <div x-show="!selected">
         <template x-for="user in rows" :key="user.username">
-            <div style="padding: 3px;">
+            <div style="padding: 3px;" @mouseenter="targetUser = user" @mouseleave="if(!showMenu) targetUser = null">
                 <span :style="{ color: getStatusColor(user) }">●</span>
                 <small @contextmenu.prevent="openMenu($event, user)" class="user-link" style="cursor: pointer;">
                     <span x-text="user.username" style="font-weight: bold; margin-left: 5px;"></span>
@@ -87,10 +88,10 @@
     <div x-cloak x-show="showMenu" class="context-menu" :style="`top: ${menuPos.y}px; left: ${menuPos.x}px;`"
         x-transition @click.away="showMenu = false">
         <div class="context-menu-item" @click="fetchSingle(targetUser); showMenu = false">
-            <span>Send Custom</span> <span class="hint">C</span>
+            <span>Send Command</span> <span class="hint">C</span>
         </div>
         <div class="context-menu-item" @click="viewOutput(targetUser); showMenu = false">
-            <span>View Output</span> <span class="hint">V</span>
+            <span>View Output (col)</span> <span class="hint">V</span>
         </div>
 
         <div class="divider"></div>
@@ -122,7 +123,7 @@
 
                         if (!u || !k) {
                             alert('Both URL and API Key are required!');
-                            location.reload(); 
+                            location.reload();
                         }
 
                         this.url = u;
