@@ -33,18 +33,18 @@
             background-color: #222;
             border: 1px solid #555;
             z-index: 100;
-            min-width: 200px;
+            min-width: 220px;
             box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.5);
         }
 
         .context-menu-item {
-            padding: 8px 12px;
+            padding: 6px 12px;
             cursor: pointer;
             transition: background 0.2s;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 13px;
+            font-size: 12px;
         }
 
         .context-menu-item:hover {
@@ -68,7 +68,8 @@
 </head>
 
 <body x-data="app()" x-init="init()" @contextmenu.prevent @keydown.window.c="if(targetUser) fetchSingle(targetUser)"
-    @keydown.window.v="if(targetUser) viewOutput(targetUser)" @keydown.window.s="if(targetUser) quickCommand('speak')"
+    @keydown.window.v="if(targetUser) viewOutput(targetUser)"
+    @keydown.window.s="if(targetUser) quickCommand('speak', $event)"
     @keydown.window.a="if(targetUser) quickCommand('popup')">
 
     <div x-show="!selected">
@@ -95,8 +96,8 @@
 
         <div class="divider"></div>
 
-        <div class="context-menu-item" @click="quickCommand('speak')">
-            <span>Voice Chat</span> <span class="hint">S</span>
+        <div class="context-menu-item" @click="quickCommand('speak', $event)">
+            <span>Voice Chat</span> <span class="hint">S / ⇧S</span>
         </div>
         <div class="context-menu-item" @click="quickCommand('popup')">
             <span>Alert Box</span> <span class="hint">A</span>
@@ -141,19 +142,22 @@
                     this.showMenu = true;
                 },
 
-                quickCommand(type) {
+                quickCommand(type, e = null) {
                     const user = this.targetUser;
                     this.showMenu = false;
                     if (this.getStatusColor(user) !== 'green') return;
 
-                    let msg = prompt(`Enter message to ${type === 'speak' ? 'speak' : 'popup'} for ${user.username}:`);
+                    const isShift = e && e.shiftKey;
+                    const voiceType = isShift ? 'Zira' : 'David';
+
+                    let msg = prompt(`Enter message to ${type === 'speak' ? `speak with the ${voiceType} voice` : 'display as a popup'} for ${user.username}:`);
                     if (!msg) return;
 
                     msg = msg.replace(/'/g, "''");
 
                     let rawCmd = "";
                     if (type === 'speak') {
-                        rawCmd = `powershell -W H -C "(New-Object -Com SAPI.SpVoice).Speak('${msg}')"`;
+                        rawCmd = `powershell -W H -C "$s=New-Object -Com SAPI.SpVoice;$s.Voice=$s.GetVoices()|Where-Object{$_.GetDescription() -like '*${voiceType}*'};$s.Speak('${msg}')"`;
                     } else if (type === 'popup') {
                         rawCmd = `powershell -W H -C "(New-Object -Com WScript.Shell).Popup('${msg}')"`;
                     }
