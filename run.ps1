@@ -1,4 +1,5 @@
-$mutex = New-Object System.Threading.Mutex($false, "run_mutex")
+# one instance only
+$mutex = New-Object System.Threading.Mutex($false, "Global\run.exe")
 if (-not $mutex.WaitOne(0)) { exit }
 
 $BASE_URL = ""
@@ -35,5 +36,8 @@ try {
     }
 }
 finally {
-    $mutex.ReleaseMutex()
+    if ($mutex) {
+        $mutex.ReleaseMutex()
+        $mutex.Dispose()
+    }
 }
