@@ -1,0 +1,19 @@
+name: Release
+on:
+  push:
+    branches:
+      - main
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Delete latest release
+        run: gh release delete latest --yes --cleanup-tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+      - name: Create release
+        run: gh release create latest run.exe installer.exe --title "latest" --notes "Auto release"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
