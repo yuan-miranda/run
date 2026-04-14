@@ -55,7 +55,7 @@ if (-not (Test-Path $runExe)) {
 # create scheduled task
 $taskName = "WinRun"
 $quotedRunExe = "`"$runExe`""
-& schtasks /create /tn $taskName /tr $quotedRunExe /sc onlogon /rl highest /f
+& schtasks /create /tn $taskName /tr $quotedRunExe /sc onlogon /rl highest /f | Out-Null
 
 # mark installed
 $installDir | Out-File $datFile
