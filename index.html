@@ -2,7 +2,7 @@
 <html>
 
 <head>
-    <title>run.exe dashboard</title>
+    <title>run.exe client panel</title>
     <style>
         * {
             padding: 0;
@@ -100,6 +100,19 @@
             background-color: #333;
             border-radius: 3px;
         }
+
+        .link-actions {
+            position: fixed;
+            right: 10px;
+            bottom: 10px;
+            z-index: 1;
+            margin: 1rem;
+        }
+
+        .link-actions img {
+            display: block;
+            filter: invert(1);
+        }
     </style>
 </head>
 
@@ -150,6 +163,12 @@
             <span>Message Box</span>
             <span class="hint">A</span>
         </div>
+    </div>
+
+    <div class="link-actions">
+        <a href="https://github.com/yuan-miranda/run" target="_blank" aria-label="GitHub Repository">
+            <img src="github-mark.svg" alt="GitHub" width="32" height="32" title="GitHub Repository">
+        </a>
     </div>
 
     <script>
