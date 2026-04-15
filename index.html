@@ -11,8 +11,8 @@
         }
 
         body {
-            background: #0a0a0a;
-            color: #e0e0e0;
+            background: #000;
+            color: #fff;
             font-family: 'Consolas', 'Monaco', monospace;
             min-height: 100vh;
             user-select: none;
@@ -33,15 +33,15 @@
             justify-content: space-between;
             margin-bottom: 2rem;
             padding-bottom: 1rem;
-            border-bottom: 1px solid #222;
+            border-bottom: 1px solid #333;
         }
 
         .toolbar-title {
             font-size: 16px;
-            color: #777;
-            letter-spacing: 0.2em;
+            letter-spacing: 0.1em;
             text-transform: uppercase;
             font-weight: bold;
+            color: #fff;
         }
 
         .toolbar-right {
@@ -51,7 +51,7 @@
         }
 
         .github-link {
-            color: #555;
+            color: #888;
             transition: color 0.2s;
             display: flex;
             align-items: center;
@@ -64,39 +64,39 @@
 
         .count-badge {
             font-size: 13px;
-            padding: 4px 10px;
+            padding: 4px 12px;
             border-radius: 4px;
-            background: #1a1a1a;
-            border: 1px solid #333;
-            color: #666;
+            background: #111;
+            border: 1px solid #444;
+            color: #bbb;
         }
 
         .count-badge span {
-            color: #e0e0e0;
+            color: #fff;
             font-weight: bold;
         }
 
         .grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 15px;
+            gap: 20px;
         }
 
         .user-card {
-            background: #111;
-            border: 1px solid #222;
-            border-radius: 8px;
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 4px;
             padding: 1.25rem;
             cursor: default;
-            transition: border-color 0.15s, background 0.15s, transform 0.1s;
+            transition: all 0.2s;
             display: flex;
             flex-direction: column;
             gap: 15px;
         }
 
         .user-card:hover {
-            background: #161616;
-            border-color: #444;
+            background: #111;
+            border-color: #666;
             transform: translateY(-2px);
         }
 
@@ -114,19 +114,18 @@
         }
 
         .status-green {
-            background: #2ecc71;
-            box-shadow: 0 0 8px #2ecc7166;
+            background: #fff;
+            box-shadow: 0 0 5px #fff;
         }
 
         .status-yellow {
             background: #f0c040;
-            box-shadow: 0 0 8px #f0c04066;
         }
 
         .status-red {
-            background: #e05050;
-            box-shadow: 0 0 8px #e0505066;
+            background: #444;
         }
+
 
         .card-username {
             font-size: 15px;
@@ -138,9 +137,14 @@
             flex: 1;
         }
 
+        .card-username.offline {
+            color: #666;
+            font-weight: normal;
+        }
+
         .card-ts {
             font-size: 12px;
-            color: #555;
+            color: #999;
             height: 18px;
         }
 
@@ -153,32 +157,43 @@
 
         .card-btn {
             font-size: 11px;
-            padding: 8px 0;
-            border-radius: 4px;
+            height: 30px;
+            border-radius: 2px;
             cursor: pointer;
-            background: #1a1a1a;
-            border: 1px solid #2a2a2a;
-            color: #888;
+            background: #111;
+            border: 1px solid #333;
+            color: #ccc;
             font-family: inherit;
             transition: all 0.1s;
             text-align: center;
             font-weight: bold;
+            position: relative;
+        }
+
+        .card-btn .btn-hint {
+            position: absolute;
+            top: 3px;
+            right: 3px;
+            font-size: 9px;
+            padding: 1px 4px;
+            line-height: 1;
+            pointer-events: none;
         }
 
         .card-btn:hover {
-            border-color: #666;
-            color: #eee;
-            background: #252525;
+            border-color: #fff;
+            color: #fff;
+            background: #222;
         }
 
         .card-btn.primary {
-            border-color: #2a4a3a !important;
-            color: #2ecc71 !important;
-            background: #0e1a0e !important;
+            border-color: #444 !important;
+            color: #fff !important;
+            background: #1a1a1a !important;
         }
 
         .card-btn.disabled {
-            opacity: 0.15;
+            opacity: 0.3;
             pointer-events: none;
         }
 
@@ -186,11 +201,11 @@
             position: fixed;
             inset: 0;
             z-index: 100;
-            background: rgba(0, 0, 0, 0.85);
+            background: rgba(0, 0, 0, 0.9);
             display: none;
             align-items: center;
             justify-content: center;
-            backdrop-filter: blur(4px);
+            backdrop-filter: blur(8px);
         }
 
         .popup-overlay.open {
@@ -198,139 +213,139 @@
         }
 
         .popup-box {
-            background: #111;
-            border: 1px solid #333;
-            border-radius: 12px;
-            padding: 2rem;
+            background: #0a0a0a;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 1.5rem;
             min-width: 450px;
-            max-width: 600px;
+            max-width: 550px;
             width: 95%;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+            box-shadow: 0 0 0 1px #000, 0 20px 50px rgba(0, 0, 0, 1);
         }
 
         .popup-header {
             display: flex;
             justify-content: space-between;
-            align-items: baseline;
-            margin-bottom: 20px;
-            border-bottom: 1px solid #222;
-            padding-bottom: 12px;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
         }
 
         .popup-title {
-            font-size: 13px;
-            color: #888;
+            font-size: 11px;
+            color: #999;
             letter-spacing: 0.15em;
             text-transform: uppercase;
         }
 
         .popup-target {
-            color: #2ecc71;
-            font-size: 18px;
+            color: #fff;
+            font-size: 16px;
             font-weight: bold;
         }
 
         .popup-input {
             width: 100%;
-            background: #050505;
-            border: 1px solid #333;
-            border-radius: 6px;
-            color: #2ecc71;
+            background: #000;
+            border: 1px solid #444;
+            border-radius: 2px;
+            color: #fff;
             font-family: inherit;
-            font-size: 15px;
-            padding: 15px;
+            font-size: 14px;
+            padding: 12px;
             outline: none;
             resize: vertical;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
 
-        .option-row {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 20px;
+        .popup-input:focus {
+            border-color: #888;
         }
 
         .opt-btn {
             flex: 1;
-            background: #1a1a1a;
-            border: 1px solid #2a2a2a;
+            background: #111;
+            border: 1px solid #333;
             padding: 8px;
-            color: #444;
-            font-size: 11px;
+            color: #888;
+            font-size: 10px;
             font-weight: bold;
             font-family: inherit;
             cursor: pointer;
-            border-radius: 4px;
             transition: 0.2s;
             text-transform: uppercase;
         }
 
         .opt-btn.active {
-            border-color: #2ecc71;
-            color: #2ecc71;
-            background: #0e1a0e;
+            border-color: #fff;
+            color: #fff;
+            background: #222;
+        }
+
+        .option-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .option-row .btn-hint {
+            margin-left: 2px;
+            white-space: nowrap;
         }
 
         .popup-footer {
             display: flex;
             justify-content: flex-end;
             align-items: center;
-            border-top: 1px solid #222;
+            border-top: 1px solid #333;
             padding-top: 20px;
         }
 
         .popup-actions {
             display: flex;
-            gap: 12px;
+            gap: 10px;
         }
 
         .popup-btn {
-            font-size: 13px;
-            padding: 10px 18px;
-            border-radius: 6px;
+            font-size: 12px;
+            padding: 8px 16px;
+            border-radius: 2px;
             cursor: pointer;
             font-family: inherit;
-            border: 1px solid #333;
-            background: #1a1a1a;
-            color: #aaa;
+            border: 1px solid #444;
+            background: #111;
+            color: #fff;
             font-weight: bold;
             display: flex;
             align-items: center;
             gap: 8px;
         }
 
-        /* Inline Key Hint Styling */
+        .popup-btn.confirm {
+            background: #fff;
+            color: #000;
+            border-color: #fff;
+        }
+
+        .popup-btn.confirm:hover {
+            background: #ccc;
+        }
+
         .btn-hint {
             font-size: 10px;
-            background: #2a2a2a;
-            color: #666;
-            padding: 2px 6px;
-            border-radius: 3px;
-            text-transform: uppercase;
-            font-weight: normal;
-        }
-
-        .popup-btn.confirm {
-            border-color: #2a4a3a;
-            color: #2ecc71;
-            background: #0e1a0e;
-        }
-
-        .popup-btn.confirm .btn-hint {
-            background: #16261c;
-            color: #2ecc7199;
-        }
-
-        .popup-btn:hover {
-            background: #222;
+            background: #333;
             color: #fff;
+            padding: 2px 5px;
+            border-radius: 2px;
         }
 
         .empty {
-            color: #333;
+            color: #555;
             text-align: center;
             padding: 100px 0;
-            font-size: 16px;
+            font-size: 14px;
             letter-spacing: 2px;
         }
     </style>
@@ -368,13 +383,15 @@
             <textarea class="popup-input" id="popup-input" rows="4" placeholder="Enter payload or text..."></textarea>
 
             <div id="vis-section" style="display:none;" class="option-row">
-                <button class="opt-btn" id="vis-true">Visible</button>
-                <button class="opt-btn" id="vis-false">Hidden</button>
+                <button class="opt-btn" id="vis-true" tabindex="-1">Visible</button>
+                <button class="opt-btn" id="vis-false" tabindex="-1">Hidden</button>
+                <span class="btn-hint">SHIFT</span>
             </div>
 
             <div id="voice-section" style="display:none;" class="option-row">
-                <button class="opt-btn" id="voice-david">David</button>
-                <button class="opt-btn" id="voice-zira">Zira</button>
+                <button class="opt-btn" id="voice-david" tabindex="-1">David</button>
+                <button class="opt-btn" id="voice-zira" tabindex="-1">Zira</button>
+                <span class="btn-hint">SHIFT</span>
             </div>
 
             <div class="popup-footer">
@@ -436,32 +453,47 @@
             }
 
             grid.innerHTML = '';
-            sorted.forEach(user => {
+            sorted.forEach((user, index) => {
                 const status = getStatus(user);
                 const alive = status === 'green';
                 const card = document.createElement('div');
                 card.className = 'user-card';
-                const tsText = alive ? '' : `Last seen: ${new Date(user.updated_at).toLocaleTimeString()}`;
+
+                const lastSeenDate = new Date(user.updated_at);
+                const tsText = alive ? '' : `Last seen: ${lastSeenDate.toLocaleDateString()} ${lastSeenDate.toLocaleTimeString()}`;
+
+                const showHint = index === 0;
 
                 card.innerHTML = `
-                    <div class="card-header">
-                        <div class="status-ring status-${status}"></div>
-                        <span class="card-username">${user.username}</span>
-                    </div>
-                    <div class="card-ts">${tsText}</div>
-                    <div class="card-actions">
-                        <button class="card-btn primary ${alive ? '' : 'disabled'}" data-action="cmd">CMD</button>
-                        <button class="card-btn ${alive ? '' : 'disabled'}" data-action="speak">SPK</button>
-                        <button class="card-btn ${alive ? '' : 'disabled'}" data-action="popup_msg">MSG</button>
-                        <button class="card-btn" data-action="output">OUT</button>
-                    </div>
-                `;
+            <div class="card-header">
+                <div class="status-ring status-${status}"></div>
+                <span class="card-username ${alive ? '' : 'offline'}">${user.username}</span>
+            </div>
+            <div class="card-ts">${tsText}</div>
+            <div class="card-actions">
+                <button class="card-btn primary ${alive ? '' : 'disabled'}" data-action="cmd">
+                    CMD ${showHint ? '<span class="btn-hint">C</span>' : ''}
+                </button>
+                <button class="card-btn ${alive ? '' : 'disabled'}" data-action="speak">
+                    SPK ${showHint ? '<span class="btn-hint">S</span>' : ''}
+                </button>
+                <button class="card-btn ${alive ? '' : 'disabled'}" data-action="popup_msg">
+                    MSG ${showHint ? '<span class="btn-hint">A</span>' : ''}
+                </button>
+                <button class="card-btn" data-action="output">
+                    OUT ${showHint ? '<span class="btn-hint">V</span>' : ''}
+                </button>
+            </div>
+        `;
 
                 card.addEventListener('mouseenter', () => state.hoveredUser = user);
                 card.addEventListener('mouseleave', () => state.hoveredUser = null);
 
                 card.addEventListener('click', e => {
-                    const action = e.target.dataset.action;
+                    const btn = e.target.closest('.card-btn');
+                    if (!btn) return;
+
+                    const action = btn.dataset.action;
                     if (!action) return;
                     if (action === 'cmd') openPopup('cmd', user);
                     if (action === 'speak') openPopup('speak', user);
