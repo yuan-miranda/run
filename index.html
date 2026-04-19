@@ -726,7 +726,7 @@
         function getStatus(user, nowMs = Date.now()) {
             const diff = (nowMs - new Date(user.updated_at).getTime()) / 1000;
             if (diff < 10) return 'green';
-            if (diff < 60) return 'yellow';
+            if (diff < 30) return 'yellow';
             return 'red';
         }
 
