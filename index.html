@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 
 <head>
@@ -11,52 +11,94 @@
             padding: 0;
         }
 
-        body {
-            background: #000;
+        .btn-hint {
+            background: #333;
+            border-radius: 2px;
             color: #fff;
-            font-family: 'Consolas', 'Monaco', monospace;
-            min-height: 100vh;
-            user-select: none;
-            overflow-x: hidden;
-            line-height: 1.5;
+            font-size: 10px;
+            padding: 2px 5px;
         }
 
-        .panel {
-            padding: 2rem;
-            min-height: 100vh;
-            max-width: 1600px;
-            margin: 0 auto;
+        .card-actions {
+            display: grid;
+            gap: 6px;
+            grid-template-columns: repeat(4, 1fr);
+            width: 100%;
         }
 
-        .toolbar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid #333;
-        }
-
-        .toolbar-title {
-            font-size: 16px;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
+        .card-btn {
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 2px;
+            color: #ccc;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 11px;
             font-weight: bold;
-            color: #fff;
+            height: 30px;
+            position: relative;
+            text-align: center;
+            transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
+                background-color 160ms ease,
+                border-color 160ms ease,
+                color 160ms ease,
+                opacity 160ms ease;
         }
 
-        .toolbar-right {
+        .card-btn .btn-hint {
+            font-size: 9px;
+            line-height: 1;
+            padding: 1px 4px;
+            pointer-events: none;
+            position: absolute;
+            right: 3px;
+            top: 3px;
+        }
+
+        .card-btn.disabled {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .card-btn.primary {
+            background: #1a1a1a !important;
+            border-color: #444 !important;
+            color: #fff !important;
+        }
+
+        .card-header {
+            align-items: center;
             display: flex;
             gap: 12px;
-            align-items: center;
+        }
+
+        .card-ts {
+            color: #999;
+            font-size: 12px;
+            height: 18px;
+        }
+
+        .card-username {
+            color: #fff;
+            flex: 1;
+            font-size: 15px;
+            font-weight: bold;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .card-username.offline {
+            color: #666;
+            font-weight: normal;
         }
 
         .github-link {
-            color: #888;
-            transition: color 0.2s;
-            display: flex;
             align-items: center;
+            color: #888;
+            display: flex;
             margin-right: 10px;
+            transition: color 0.2s;
         }
 
         .github-link:hover {
@@ -65,56 +107,271 @@
 
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 10px;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        }
+
+        .opt-btn {
+            background: #111;
+            border: 1px solid #333;
+            color: #888;
+            cursor: pointer;
+            flex: 1;
+            font-family: inherit;
+            font-size: 10px;
+            font-weight: bold;
+            padding: 8px;
+            text-transform: uppercase;
+            transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .opt-btn.active {
+            background: #222;
+            border-color: #fff;
+            color: #fff;
+        }
+
+        .option-row {
+            align-items: center;
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .option-row .btn-hint {
+            margin-left: 2px;
+            white-space: nowrap;
+        }
+
+        .panel {
+            margin: 0 auto;
+            max-width: 1600px;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .popup-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .popup-box {
+            background: #0a0a0a;
+            border: 1px solid #444;
+            border-radius: 4px;
+            box-shadow: 0 0 0 1px #000, 0 20px 50px rgba(0, 0, 0, 1);
+            flex-shrink: 0;
+            margin: auto;
+            max-width: 550px;
+            min-width: 300px;
+            opacity: 0;
+            padding: 1.5rem;
+            position: relative;
+            transform: translateY(10px) scale(0.985);
+            transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+                opacity 220ms ease;
+            width: 100%;
+        }
+
+        .popup-btn {
+            align-items: center;
+            background: #111;
+            border: 1px solid #444;
+            border-radius: 2px;
+            color: #fff;
+            cursor: pointer;
+            display: flex;
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: bold;
+            gap: 8px;
+            padding: 8px 16px;
+            transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .popup-btn.confirm {
+            background: #fff;
+            border-color: #fff;
+            color: #000;
+        }
+
+        .popup-btn.confirm:hover {
+            background: #ccc;
+        }
+
+        .popup-footer {
+            align-items: center;
+            border-top: 1px solid #333;
+            display: flex;
+            justify-content: flex-end;
+            padding-top: 20px;
+        }
+
+        .popup-header {
+            align-items: center;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+        }
+
+        .popup-input {
+            background: #000;
+            border: 1px solid #444;
+            border-radius: 2px;
+            color: #fff;
+            font-family: inherit;
+            font-size: 14px;
+            margin-bottom: 0;
+            outline: none;
+            padding: 12px;
+            resize: vertical;
+            transition: border-color 160ms ease, box-shadow 160ms ease;
+            width: 100%;
+        }
+
+        .popup-input:focus {
+            border-color: #888;
+        }
+
+        .popup-overlay {
+            backdrop-filter: blur(8px);
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            inset: 0;
+            opacity: 0;
+            overflow: auto;
+            padding: 20px;
+            position: fixed;
+            transition: opacity 220ms ease;
+            z-index: 100;
+        }
+
+        .popup-overlay.open {
+            align-items: flex-start;
+            display: flex;
+            justify-content: center;
+            opacity: 1;
+        }
+
+        .popup-overlay.open .popup-box {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        .popup-target {
+            color: #fff;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .popup-title {
+            color: #999;
+            font-size: 11px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+        }
+
+        .status-green {
+            background: #fff;
+            box-shadow: 0 0 10px #fff;
+        }
+
+        .status-red {
+            background: #444;
+        }
+
+        .status-ring {
+            border-radius: 50%;
+            flex-shrink: 0;
+            height: 10px;
+            width: 10px;
+        }
+
+        .status-yellow {
+            background: #bdbdbd;
+        }
+
+        .tab-hint {
+            align-items: flex-end;
+            bottom: 15px;
+            color: #666;
+            display: none;
+            flex-direction: column;
+            font-family: inherit;
+            font-size: 10px;
+            gap: 4px;
+            pointer-events: none;
+            position: absolute;
+            right: 15px;
+        }
+
+        .tab-hint-row {
+            align-items: center;
+            background: transparent;
+            border: 0;
+            color: inherit;
+            cursor: pointer;
+            display: flex;
+            font: inherit;
+            gap: 5px;
+            padding: 0;
+            pointer-events: auto;
+        }
+
+        .textarea-wrap {
+            margin-bottom: 15px;
+            position: relative;
+        }
+
+        .textarea-wrap.show-hint .tab-hint {
+            display: flex;
+        }
+
+        .toolbar {
+            align-items: center;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+        }
+
+        .toolbar-right {
+            align-items: center;
+            display: flex;
+            gap: 12px;
+        }
+
+        .toolbar-title {
+            color: #fff;
+            font-size: 16px;
+            font-weight: bold;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
         }
 
         .user-card {
             background: #0a0a0a;
             border: 1px solid #333;
             border-radius: 4px;
-            padding: 1.25rem;
             cursor: default;
-            transition:
-                transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
-                background-color 240ms ease,
-                border-color 240ms ease,
-                box-shadow 240ms ease;
             display: flex;
             flex-direction: column;
             gap: 15px;
-            position: relative;
             overflow: hidden;
+            padding: 1.25rem;
+            position: relative;
+            transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+                background-color 240ms ease,
+                border-color 240ms ease,
+                box-shadow 240ms ease;
             will-change: transform;
-        }
-
-        body:not(.kb-mode) .user-card:hover {
-            background: #111;
-            border-color: #666;
-            transform: translateY(-2px);
-        }
-
-        .user-card.selected {
-            background: #111;
-            border-color: #666;
-            transform: translateY(-2px);
         }
 
         .user-card.offline {
             background: #080808;
-        }
-
-        .user-card.offline::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: repeating-linear-gradient(135deg,
-                    rgba(255, 255, 255, 0.06) 0,
-                    rgba(255, 255, 255, 0.06) 5px,
-                    transparent 5px,
-                    transparent 14px);
-            opacity: 0.35;
-            pointer-events: none;
         }
 
         .user-card.offline .card-header,
@@ -128,23 +385,71 @@
         }
 
         .user-card.offline .card-btn {
+            background: #0c0c0c;
+            border-color: #222;
+            color: #666;
             position: relative;
             z-index: 2;
         }
 
-        .user-card.offline .card-btn {
-            background: #0c0c0c;
-            color: #666;
-            border-color: #222;
+        .user-card.offline .card-btn.primary {
+            background: #111 !important;
+            border-color: #2a2a2a !important;
+            color: #777 !important;
         }
 
         .user-card.offline .card-btn[data-action="output"] {
-            z-index: 3;
             background: #111;
-            color: #ccc;
             border-color: #333;
             box-shadow: none;
+            color: #ccc;
             opacity: 1;
+            z-index: 3;
+        }
+
+        .user-card.offline .card-ts {
+            color: #666;
+        }
+
+        .user-card.offline::before {
+            background: repeating-linear-gradient(135deg,
+                    rgba(255, 255, 255, 0.06) 0,
+                    rgba(255, 255, 255, 0.06) 5px,
+                    transparent 5px,
+                    transparent 14px);
+            content: '';
+            inset: 0;
+            opacity: 0.35;
+            pointer-events: none;
+            position: absolute;
+        }
+
+        .user-card.selected {
+            background: #111;
+            border-color: #666;
+            transform: translateY(-2px);
+        }
+
+        body {
+            background: #000;
+            color: #fff;
+            font-family: 'Consolas', 'Monaco', monospace;
+            line-height: 1.5;
+            min-height: 100vh;
+            overflow-x: hidden;
+            user-select: none;
+        }
+
+        body:not(.kb-mode) .card-btn.primary:hover {
+            background: #222 !important;
+            border-color: #fff !important;
+            color: #fff !important;
+        }
+
+        body:not(.kb-mode) .card-btn:hover {
+            background: #222;
+            border-color: #fff;
+            color: #fff;
         }
 
         body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
@@ -153,361 +458,42 @@
             color: #fff;
         }
 
-        .user-card.offline .card-btn.primary {
-            background: #111 !important;
-            color: #777 !important;
-            border-color: #2a2a2a !important;
-        }
-
-        .user-card.offline .card-ts {
-            color: #666;
-        }
-
-        .card-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .status-ring {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            flex-shrink: 0;
-        }
-
-        .status-green {
-            background: #fff;
-            box-shadow: 0 0 10px #fff;
-        }
-
-        .status-yellow {
-            background: #bdbdbd;
-        }
-
-        .status-red {
-            background: #444;
-        }
-
-
-        .card-username {
-            font-size: 15px;
-            font-weight: bold;
-            color: #fff;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            flex: 1;
-        }
-
-        .card-username.offline {
-            color: #666;
-            font-weight: normal;
-        }
-
-        .card-ts {
-            font-size: 12px;
-            color: #999;
-            height: 18px;
-        }
-
-        .card-actions {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 6px;
-            width: 100%;
-        }
-
-        .card-btn {
-            font-size: 11px;
-            height: 30px;
-            border-radius: 2px;
-            cursor: pointer;
+        body:not(.kb-mode) .user-card:hover {
             background: #111;
-            border: 1px solid #333;
-            color: #ccc;
-            font-family: inherit;
-            transition:
-                transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
-                background-color 160ms ease,
-                border-color 160ms ease,
-                color 160ms ease,
-                opacity 160ms ease;
-            text-align: center;
-            font-weight: bold;
-            position: relative;
-        }
-
-        .card-btn .btn-hint {
-            position: absolute;
-            top: 3px;
-            right: 3px;
-            font-size: 9px;
-            padding: 1px 4px;
-            line-height: 1;
-            pointer-events: none;
-        }
-
-        body:not(.kb-mode) .card-btn:hover {
-            border-color: #fff;
-            color: #fff;
-            background: #222;
-        }
-
-        .card-btn.primary {
-            border-color: #444 !important;
-            color: #fff !important;
-            background: #1a1a1a !important;
-        }
-
-        body:not(.kb-mode) .card-btn.primary:hover {
-            border-color: #fff !important;
-            color: #fff !important;
-            background: #222 !important;
-        }
-
-        .card-btn.disabled {
-            opacity: 0.3;
-            pointer-events: none;
-        }
-
-        .popup-overlay {
-            position: fixed;
-            inset: 0;
-            z-index: 100;
-            background: rgba(0, 0, 0, 0.9);
-            backdrop-filter: blur(8px);
-            display: none;
-            overflow: auto;
-            padding: 20px;
-            opacity: 0;
-            transition: opacity 220ms ease;
-        }
-
-        .popup-overlay.open {
-            display: flex;
-            align-items: flex-start;
-            justify-content: center;
-            opacity: 1;
-        }
-
-        .popup-box {
-            background: #0a0a0a;
-            border: 1px solid #444;
-            border-radius: 4px;
-            padding: 1.5rem;
-            width: 100%;
-            max-width: 550px;
-            min-width: 300px;
-            margin: auto;
-            box-shadow: 0 0 0 1px #000, 0 20px 50px rgba(0, 0, 0, 1);
-            position: relative;
-            flex-shrink: 0;
-            transform: translateY(10px) scale(0.985);
-            opacity: 0;
-            transition:
-                transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
-                opacity 220ms ease;
-        }
-
-        .popup-overlay.open .popup-box {
-            transform: translateY(0) scale(1);
-            opacity: 1;
-        }
-
-        .popup-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            border-bottom: 1px solid #333;
-            padding-bottom: 10px;
-        }
-
-        .popup-title {
-            font-size: 11px;
-            color: #999;
-            letter-spacing: 0.15em;
-            text-transform: uppercase;
-        }
-
-        .popup-target {
-            color: #fff;
-            font-size: 16px;
-            font-weight: bold;
-        }
-
-        .popup-input {
-            width: 100%;
-            background: #000;
-            border: 1px solid #444;
-            border-radius: 2px;
-            color: #fff;
-            font-family: inherit;
-            font-size: 14px;
-            padding: 12px;
-            outline: none;
-            resize: vertical;
-            margin-bottom: 0;
-            transition: border-color 160ms ease, box-shadow 160ms ease;
-        }
-
-        .popup-input:focus {
-            border-color: #888;
-        }
-
-        .textarea-wrap {
-            position: relative;
-            margin-bottom: 15px;
-        }
-
-        .tab-hint {
-            position: absolute;
-            bottom: 15px;
-            right: 15px;
-            font-size: 10px;
-            color: #666;
-            pointer-events: none;
-            display: none;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 4px;
-            font-family: inherit;
-        }
-
-        .tab-hint-row {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            pointer-events: auto;
-            cursor: pointer;
-            border: 0;
-            background: transparent;
-            color: inherit;
-            padding: 0;
-            font: inherit;
-        }
-
-        .textarea-wrap.show-hint .tab-hint {
-            display: flex;
-        }
-
-        .opt-btn {
-            flex: 1;
-            background: #111;
-            border: 1px solid #333;
-            padding: 8px;
-            color: #888;
-            font-size: 10px;
-            font-weight: bold;
-            font-family: inherit;
-            cursor: pointer;
-            transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
-            text-transform: uppercase;
-        }
-
-        .opt-btn.active {
-            border-color: #fff;
-            color: #fff;
-            background: #222;
-        }
-
-        .option-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 15px;
-        }
-
-        .option-row .btn-hint {
-            margin-left: 2px;
-            white-space: nowrap;
-        }
-
-        .popup-footer {
-            display: flex;
-            justify-content: flex-end;
-            align-items: center;
-            border-top: 1px solid #333;
-            padding-top: 20px;
-        }
-
-        .popup-actions {
-            display: flex;
-            gap: 10px;
-        }
-
-        .popup-btn {
-            font-size: 12px;
-            padding: 8px 16px;
-            border-radius: 2px;
-            cursor: pointer;
-            font-family: inherit;
-            border: 1px solid #444;
-            background: #111;
-            color: #fff;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
-        }
-
-        .popup-btn.confirm {
-            background: #fff;
-            color: #000;
-            border-color: #fff;
-        }
-
-        .popup-btn.confirm:hover {
-            background: #ccc;
-        }
-
-        .btn-hint {
-            font-size: 10px;
-            background: #333;
-            color: #fff;
-            padding: 2px 5px;
-            border-radius: 2px;
+            border-color: #666;
+            transform: translateY(-2px);
         }
 
         @media (max-width: 600px) {
-            .panel {
-                padding: 0.75rem;
+            .btn-hint {
+                display: none;
             }
 
-            .toolbar {
-                margin-bottom: 0.75rem;
-                flex-wrap: nowrap;
-                gap: 8px;
+            .card-actions {
+                gap: 5px;
+                grid-template-columns: repeat(2, 1fr);
             }
 
-            .toolbar-title {
-                font-size: 12px;
-                white-space: nowrap;
+            .card-btn {
+                border-radius: 3px;
+                font-size: 11px;
+                height: 36px;
+                /* Larger tap targets */
+                touch-action: manipulation;
+            }
+
+            .card-header {
+                gap: 6px;
+            }
+
+            .card-ts {
+                color: #777;
+                font-size: 9px;
+                margin-top: 2px;
+                min-height: 1.3em;
                 overflow: hidden;
                 text-overflow: ellipsis;
-            }
-
-            .toolbar-right {
-                flex-shrink: 0;
-                gap: 8px;
-            }
-
-            .grid {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 8px;
-            }
-
-            .user-card {
-                padding: 0.75rem;
-                gap: 10px;
-            }
-
-            .status-ring {
-                width: 8px;
-                height: 8px;
-                flex-shrink: 0;
+                white-space: nowrap;
             }
 
             .card-username {
@@ -515,101 +501,107 @@
                 line-height: 1.3;
             }
 
-            .card-ts {
-                font-size: 9px;
-                color: #777;
-                min-height: 1.3em;
-                margin-top: 2px;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-            }
-
-            .card-header {
-                gap: 6px;
-            }
-
-            .card-actions {
+            .grid {
+                gap: 8px;
                 grid-template-columns: repeat(2, 1fr);
-                gap: 5px;
-            }
-
-            .card-btn {
-                height: 36px;
-                font-size: 11px;
-                border-radius: 3px;
-                /* Larger tap targets */
-                touch-action: manipulation;
-            }
-
-            .btn-hint {
-                display: none;
-            }
-
-            .popup-overlay {
-                padding: 0;
-                align-items: flex-end;
-            }
-
-            .popup-overlay.open {
-                align-items: flex-end;
-            }
-
-            .popup-box {
-                max-width: 100%;
-                min-width: 0;
-                width: 100%;
-                border-radius: 12px 12px 0 0;
-                border-left: none;
-                border-right: none;
-                border-bottom: none;
-                padding: 1.25rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom));
-                transform: translateY(100%);
-                transition:
-                    transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
-                    opacity 220ms ease;
-                margin: 0;
-            }
-
-            .popup-overlay.open .popup-box {
-                transform: translateY(0);
-                opacity: 1;
-            }
-
-            .popup-input {
-                font-size: 16px;
             }
 
             .opt-btn {
-                padding: 12px 8px;
                 font-size: 12px;
+                padding: 12px 8px;
             }
 
-            .popup-btn {
-                padding: 12px 20px;
-                font-size: 14px;
-                min-height: 44px;
-            }
-
-            .popup-footer {
-                padding-top: 16px;
+            .panel {
+                padding: 0.75rem;
             }
 
             .popup-actions {
-                width: 100%;
                 gap: 10px;
+                width: 100%;
             }
 
             .popup-actions .popup-btn {
                 flex: 1;
                 justify-content: center;
             }
+
+            .popup-box {
+                border-bottom: none;
+                border-left: none;
+                border-radius: 12px 12px 0 0;
+                border-right: none;
+                margin: 0;
+                max-width: 100%;
+                min-width: 0;
+                padding: 1.25rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom));
+                transform: translateY(100%);
+                transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+                    opacity 220ms ease;
+                width: 100%;
+            }
+
+            .popup-btn {
+                font-size: 14px;
+                min-height: 44px;
+                padding: 12px 20px;
+            }
+
+            .popup-footer {
+                padding-top: 16px;
+            }
+
+            .popup-input {
+                font-size: 16px;
+            }
+
+            .popup-overlay {
+                align-items: flex-end;
+                padding: 0;
+            }
+
+            .popup-overlay.open {
+                align-items: flex-end;
+            }
+
+            .popup-overlay.open .popup-box {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            .status-ring {
+                flex-shrink: 0;
+                height: 8px;
+                width: 8px;
+            }
+
+            .toolbar {
+                flex-wrap: nowrap;
+                gap: 8px;
+                margin-bottom: 0.75rem;
+            }
+
+            .toolbar-right {
+                flex-shrink: 0;
+                gap: 8px;
+            }
+
+            .toolbar-title {
+                font-size: 12px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .user-card {
+                gap: 10px;
+                padding: 0.75rem;
+            }
         }
 
         @media (min-width: 601px) and (max-width: 900px) {
             .grid {
-                grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
                 gap: 14px;
+                grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
             }
 
             .panel {
@@ -692,6 +684,7 @@
     <script>
         const state = {
             rows: [],
+            sortedRows: [],
             url: localStorage.getItem('supa_url'),
             apiKey: localStorage.getItem('supa_key'),
             popupMode: null,
@@ -702,7 +695,24 @@
             pause: false,
             activeUsername: null,
             interactionMode: null,
-            lastRenderSignature: null
+            lastRenderSignature: null,
+            fetchInFlight: false,
+            hintUsername: null,
+            isRendering: false,
+            popupExampleText: ''
+        };
+
+        const popupExamples = {
+            speak: [
+                'Audio test, all systems ready.',
+                'Status update: task completed.',
+                'Heads up, check your dashboard.'
+            ],
+            popup_msg: [
+                'Reminder: save your work now.',
+                'Notice: update available.',
+                'Quick check: please confirm.'
+            ]
         };
 
         const $ = id => document.getElementById(id);
@@ -716,11 +726,31 @@
             }
         }, true);
 
-        function getSortedRows() {
-            return [...state.rows].sort((a, b) => {
+        function sortRows(rows) {
+            return [...rows].sort((a, b) => {
                 const order = { green: 0, yellow: 1, red: 2 };
                 return order[getStatus(a)] - order[getStatus(b)] || a.username.localeCompare(b.username);
             });
+        }
+
+        function getSortedRows() {
+            return state.sortedRows;
+        }
+
+        function getHintUsername(sorted = getSortedRows()) {
+            if (!sorted.length) return null;
+            if (state.activeUsername && sorted.some(user => user.username === state.activeUsername)) {
+                return state.activeUsername;
+            }
+            return sorted[0].username;
+        }
+
+        function refreshHintsIfNeeded() {
+            if (state.isRendering) return;
+            const nextHintUsername = getHintUsername();
+            if (nextHintUsername === state.hintUsername) return;
+            state.hintUsername = nextHintUsername;
+            renderGrid();
         }
 
         function getStatus(user, nowMs = Date.now()) {
@@ -730,11 +760,12 @@
             return 'red';
         }
 
-        function buildRowsRenderSignature(rows) {
+        function buildRowsRenderSignature(rows, isSorted = false) {
             const nowMs = Date.now();
             const order = { green: 0, yellow: 1, red: 2 };
+            const sourceRows = isSorted ? rows : sortRows(rows);
 
-            return rows
+            return sourceRows
                 .map(user => {
                     const status = getStatus(user, nowMs);
                     return {
@@ -757,10 +788,29 @@
                     ? 'Get-Process | Where-Object { $_.CPU -gt 100 }'
                     : 'echo hello\nping 127.0.0.1 -n 3';
             } else if (m === 'speak') {
-                ta.placeholder = 'Text to speak aloud on target...';
+                ta.placeholder = `Type speech text i.e. "${state.popupExampleText || 'Audio test, all systems ready.'}"`;
             } else if (m === 'popup_msg') {
-                ta.placeholder = 'Message to display in popup box...';
+                ta.placeholder = `Type popup note i.e. "${state.popupExampleText || 'Reminder: save your work now.'}"`;
             }
+        }
+
+        function pickRandomPopupExample(mode) {
+            const list = popupExamples[mode];
+            if (!list || !list.length) return '';
+            return list[Math.floor(Math.random() * list.length)];
+        }
+
+        function getPopupAutofillText() {
+            if (state.popupMode === 'cmd') {
+                return $('popup-input').placeholder;
+            }
+            if (state.popupMode === 'speak') {
+                return state.popupExampleText || pickRandomPopupExample('speak');
+            }
+            if (state.popupMode === 'popup_msg') {
+                return state.popupExampleText || pickRandomPopupExample('popup_msg');
+            }
+            return $('popup-input').placeholder;
         }
 
         function updateOptionsUI() {
@@ -779,6 +829,7 @@
             state.interactionMode = null;
             document.body.classList.remove('kb-mode');
             document.querySelectorAll('.user-card').forEach(c => c.classList.remove('selected'));
+            refreshHintsIfNeeded();
         }
 
         function setActiveSelection(user, mode, { scroll = false } = {}) {
@@ -808,33 +859,12 @@
             if (scroll) {
                 cards[idx].scrollIntoView({ block: 'nearest' });
             }
+
+            refreshHintsIfNeeded();
         }
 
-        function renderGrid() {
-            const grid = $('user-grid');
-            const sorted = getSortedRows();
-
-            if (!sorted.length) {
-                grid.innerHTML = '<div class="empty">NO CLIENTS CONNECTED</div>';
-                clearActiveSelection();
-                return;
-            }
-
-            grid.innerHTML = '';
-            sorted.forEach((user, index) => {
-                const status = getStatus(user);
-                const alive = status === 'green';
-                const card = document.createElement('div');
-                card.className = 'user-card';
-                if (!alive) card.classList.add('offline');
-
-                const lastSeenDate = new Date(user.updated_at);
-                const tsText = alive ? '' : `Last seen: ${lastSeenDate.toLocaleDateString()} ${lastSeenDate.toLocaleTimeString()}`;
-
-                const showHint = index === 0;
-                card.dataset.username = user.username;
-
-                card.innerHTML = `
+        function getCardBodyHtml(user, status, alive, tsText, showHint) {
+            return `
                     <div class="card-header">
                         <div style="flex:1;min-width:0;">
                             <div style="display:flex;align-items:center;gap:8px;">
@@ -859,30 +889,78 @@
                         </button>
                     </div>
                 `;
+        }
 
-                card.addEventListener('mouseenter', () => {
-                    if (state.interactionMode === 'keyboard') return;
-                    setActiveSelection(user, 'hover');
-                });
-                card.addEventListener('mouseleave', () => {
-                    if (state.interactionMode === 'hover' && state.activeUsername === user.username) {
-                        clearActiveSelection();
-                    }
-                });
+        function getCardRenderSignature(user, status, alive, tsText, showHint) {
+            return `${user.username}|${status}|${alive ? 1 : 0}|${showHint ? 1 : 0}|${tsText}`;
+        }
 
-                card.addEventListener('click', e => {
-                    const btn = e.target.closest('.card-btn');
-                    if (!btn) return;
-                    const action = btn.dataset.action;
-                    if (!action) return;
-                    if (action === 'cmd') openPopup('cmd', user);
-                    if (action === 'speak') openPopup('speak', user);
-                    if (action === 'popup_msg') openPopup('popup_msg', user);
-                    if (action === 'output') doViewOutput(user);
-                });
+        function renderGrid() {
+            state.isRendering = true;
+            const grid = $('user-grid');
+            const sorted = getSortedRows();
+            const hintUsername = getHintUsername(sorted);
+            state.hintUsername = hintUsername;
 
-                grid.appendChild(card);
+            if (!sorted.length) {
+                if (!grid.querySelector('.empty')) {
+                    grid.innerHTML = '<div class="empty">NO CLIENTS CONNECTED</div>';
+                }
+                state.hintUsername = null;
+                clearActiveSelection();
+                state.isRendering = false;
+                return;
+            }
+
+            const existingCards = new Map();
+            Array.from(grid.querySelectorAll('.user-card')).forEach(card => {
+                existingCards.set(card.dataset.username, card);
             });
+
+            const seen = new Set();
+            sorted.forEach((user, index) => {
+                const status = getStatus(user);
+                const alive = status === 'green';
+                const lastSeenDate = new Date(user.updated_at);
+                const tsText = alive ? '' : `Last seen: ${lastSeenDate.toLocaleDateString()} ${lastSeenDate.toLocaleTimeString()}`;
+                const showHint = user.username === hintUsername;
+                const signature = getCardRenderSignature(user, status, alive, tsText, showHint);
+
+                let card = existingCards.get(user.username);
+                if (!card) {
+                    card = document.createElement('div');
+                    card.dataset.username = user.username;
+                    existingCards.set(user.username, card);
+                }
+
+                const nextClassName = `user-card${alive ? '' : ' offline'}`;
+                if (card.className !== nextClassName) {
+                    card.className = nextClassName;
+                }
+
+                if (card.dataset.renderSignature !== signature) {
+                    card.innerHTML = getCardBodyHtml(user, status, alive, tsText, showHint);
+                    card.dataset.renderSignature = signature;
+                }
+
+                seen.add(user.username);
+
+                const referenceNode = grid.children[index] || null;
+                if (referenceNode !== card) {
+                    grid.insertBefore(card, referenceNode);
+                }
+            });
+
+            Array.from(grid.querySelectorAll('.user-card')).forEach(card => {
+                if (!seen.has(card.dataset.username)) {
+                    card.remove();
+                }
+            });
+
+            const emptyState = grid.querySelector('.empty');
+            if (emptyState) {
+                emptyState.remove();
+            }
 
             if (state.activeUsername) {
                 const activeUser = sorted.find(item => item.username === state.activeUsername);
@@ -892,22 +970,18 @@
                     clearActiveSelection();
                 }
             }
+
+            state.isRendering = false;
         }
 
-        document.addEventListener('mousemove', e => {
-            if (state.interactionMode !== 'keyboard') return;
-
-            const element = document.elementFromPoint(e.clientX, e.clientY);
-            const card = element && element.closest ? element.closest('.user-card') : null;
-            const username = card?.dataset?.username;
-            if (!username || username === state.activeUsername) return;
-
-            const sorted = getSortedRows();
-            const hoveredUser = sorted.find(item => item.username === username);
-            if (hoveredUser) {
-                setActiveSelection(hoveredUser, 'hover');
+        function bytesToBase64(bytes) {
+            const chunkSize = 0x8000;
+            let binary = '';
+            for (let i = 0; i < bytes.length; i += chunkSize) {
+                binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
             }
-        });
+            return btoa(binary);
+        }
 
         function syncTabHint() {
             const taInput = $('popup-input');
@@ -928,7 +1002,7 @@
         function autofillPopupInput() {
             const taInput = $('popup-input');
             if (taInput.value !== '') return;
-            taInput.value = taInput.placeholder;
+            taInput.value = getPopupAutofillText();
             taInput.selectionStart = taInput.selectionEnd = taInput.value.length;
             syncTabHint();
         }
@@ -968,6 +1042,7 @@
             state.popupUser = user;
             state.selectedVis = !!user.visible;
             state.pause = false;
+            state.popupExampleText = (mode === 'speak' || mode === 'popup_msg') ? pickRandomPopupExample(mode) : '';
 
             $('popup-input').value = '';
             $('popup-target-label').textContent = user.username;
@@ -995,6 +1070,7 @@
             $('textarea-wrap').classList.remove('show-hint');
             state.popupMode = null;
             state.popupUser = null;
+            state.popupExampleText = '';
         }
 
         function formatPSString(str) {
@@ -1002,22 +1078,30 @@
             return escaped.split(/\r?\n/).map(line => `'${line}'`).join(' + [char]13 + ');
         }
 
-        function wrapPowershell(val) {
-            // UTF-16LE base64 → powershell -EncodedCommand. Handles multiline + any quoting.
-            const utf16 = [];
+        function wrapPowershell(val, hidden = true) {
+            // UTF-16LE base64 â†’ powershell -EncodedCommand. Handles multiline + any quoting.
+            const utf16 = new Uint8Array(val.length * 2);
             for (let i = 0; i < val.length; i++) {
                 const code = val.charCodeAt(i);
-                utf16.push(code & 0xff, (code >> 8) & 0xff);
+                const offset = i * 2;
+                utf16[offset] = code & 0xff;
+                utf16[offset + 1] = (code >> 8) & 0xff;
             }
-            const b64 = btoa(String.fromCharCode(...utf16));
-            return `powershell -NoP -W H -EncodedCommand ${b64}`;
+            const b64 = bytesToBase64(utf16);
+            return `powershell -NoP -W ${hidden ? 'H' : 'Normal'} -EncodedCommand ${b64}`;
+        }
+
+        function normalizePsPauseCommands(val) {
+            // In PowerShell, users often type CMD-style PAUSE. Translate it to Read-Host.
+            return val.replace(/^\s*pause\s*$/gim, "Read-Host 'Press Enter to continue'");
         }
 
         function applyCommandPause(val) {
             const input = val.trim();
             if (!state.pause) return input;
             if (state.selectedShell === 'ps') {
-                return input ? `${input}\nRead-Host 'Press Enter to continue'` : "Read-Host 'Press Enter to continue'";
+                const normalized = normalizePsPauseCommands(input);
+                return normalized ? `${normalized}\nRead-Host 'Press Enter to continue'` : "Read-Host 'Press Enter to continue'";
             }
             return input ? `${input}\npause` : 'pause';
         }
@@ -1026,7 +1110,8 @@
             const isMultiline = val.includes('\n');
             if (!isMultiline) return val;
             // Multiline CMD: base64-encode the script, decode to a temp .bat via certutil, run it.
-            const b64 = btoa(unescape(encodeURIComponent(val)));
+            const utf8 = new TextEncoder().encode(val);
+            const b64 = bytesToBase64(utf8);
             return `cmd /c "echo ${b64}>%temp%\\r.b64 && certutil -decode %temp%\\r.b64 %temp%\\r.bat >nul && cmd /c %temp%\\r.bat && del %temp%\\r.b64 %temp%\\r.bat"`;
         }
 
@@ -1040,7 +1125,10 @@
             if (mode === 'cmd') {
                 const cmdInput = applyCommandPause(val);
                 if (cmdInput) {
-                    rawCmd = state.selectedShell === 'ps' ? wrapPowershell(cmdInput) : wrapCmd(cmdInput);
+                    const psInput = state.selectedShell === 'ps' ? normalizePsPauseCommands(cmdInput) : cmdInput;
+                    rawCmd = state.selectedShell === 'ps'
+                        ? wrapPowershell(psInput, !state.selectedVis)
+                        : wrapCmd(psInput);
                 }
             } else if (val) {
                 if (mode === 'speak') {
@@ -1082,21 +1170,29 @@
         }
 
         async function fetchData() {
+            if (state.fetchInFlight) return;
+            state.fetchInFlight = true;
             try {
                 const res = await fetch(`${state.url}?select=username,updated_at,visible`, {
                     headers: { apikey: state.apiKey, Authorization: `Bearer ${state.apiKey}` }
                 });
                 const nextRows = await res.json();
-                const nextSignature = buildRowsRenderSignature(nextRows);
+                const nextSortedRows = sortRows(nextRows);
+                const nextSignature = buildRowsRenderSignature(nextSortedRows, true);
 
                 state.rows = nextRows;
+                state.sortedRows = nextSortedRows;
                 if (nextSignature === state.lastRenderSignature) {
                     return;
                 }
 
                 state.lastRenderSignature = nextSignature;
                 renderGrid();
-            } catch (e) { console.error(e); }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                state.fetchInFlight = false;
+            }
         }
 
         function init() {
@@ -1112,6 +1208,48 @@
 
             fetchData();
             setInterval(fetchData, 4000);
+
+            const grid = $('user-grid');
+            grid.addEventListener('mousemove', e => {
+                const card = e.target.closest('.user-card');
+                if (!card) return;
+
+                const username = card.dataset.username;
+                if (!username || username === state.activeUsername) return;
+
+                const sorted = getSortedRows();
+                const hoveredUser = sorted.find(item => item.username === username);
+                if (hoveredUser) {
+                    setActiveSelection(hoveredUser, 'hover');
+                }
+            });
+
+            grid.addEventListener('mouseleave', () => {
+                if (state.interactionMode === 'hover') {
+                    clearActiveSelection();
+                }
+            });
+
+            grid.addEventListener('click', e => {
+                const btn = e.target.closest('.card-btn');
+                if (!btn) return;
+
+                const card = e.target.closest('.user-card');
+                if (!card) return;
+
+                const username = card.dataset.username;
+                if (!username) return;
+
+                const user = getSortedRows().find(item => item.username === username);
+                if (!user) return;
+
+                const action = btn.dataset.action;
+                if (!action) return;
+                if (action === 'cmd') openPopup('cmd', user);
+                if (action === 'speak') openPopup('speak', user);
+                if (action === 'popup_msg') openPopup('popup_msg', user);
+                if (action === 'output') doViewOutput(user);
+            });
 
             $('voice-david').onclick = () => { state.selectedVoice = 'David'; updateOptionsUI(); };
             $('voice-zira').onclick = () => { state.selectedVoice = 'Zira'; updateOptionsUI(); };
