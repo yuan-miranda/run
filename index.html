@@ -622,6 +622,28 @@
             will-change: transform;
         }
 
+        .user-card.card-enter {
+            animation: card-enter 300ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        }
+
+        @keyframes card-enter {
+            from {
+                opacity: 0;
+                transform: translateY(8px) scale(0.985);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .user-card.card-enter {
+                animation: none;
+            }
+        }
+
         .user-card.offline {
             background: var(--bg-surface);
         }
@@ -1322,6 +1344,8 @@
                 existingCards.set(card.dataset.username, card);
             });
 
+            const animateWholeBatch = existingCards.size === 0;
+
             const seen = new Set();
             sorted.forEach((user, index) => {
                 const status = getStatus(user);
@@ -1332,6 +1356,7 @@
                 const signature = getCardRenderSignature(user, status, alive, tsText, showHint);
 
                 let card = existingCards.get(user.username);
+                const isNewCard = !card;
                 if (!card) {
                     card = document.createElement('div');
                     card.dataset.username = user.username;
@@ -1353,6 +1378,14 @@
                 const referenceNode = grid.children[index] || null;
                 if (referenceNode !== card) {
                     grid.insertBefore(card, referenceNode);
+                }
+
+                if (isNewCard || animateWholeBatch) {
+                    card.classList.remove('card-enter');
+                    card.style.animationDelay = `${Math.min(index, 8) * 35}ms`;
+                    // Force reflow so re-adding class restarts animation consistently.
+                    void card.offsetWidth;
+                    card.classList.add('card-enter');
                 }
             });
 
@@ -1621,7 +1654,6 @@
         function init() {
             applyTheme(state.themeSelection);
             setConnectionState(false);
-            renderGrid();
 
             const themeSelect = $('theme-select');
             if (themeSelect) {
@@ -1643,7 +1675,17 @@
             }
 
             if (state.url && state.apiKey) {
-                connectWithCredentials(state.url, state.apiKey, { notifyOnFail: false });
+                const grid = $('user-grid');
+                if (grid) {
+                    grid.innerHTML = '<div class="empty">Connecting...</div>';
+                }
+                connectWithCredentials(state.url, state.apiKey, { notifyOnFail: false }).then(isConnected => {
+                    if (!isConnected) {
+                        renderGrid();
+                    }
+                });
+            } else {
+                renderGrid();
             }
 
             setInterval(fetchData, 4000);
