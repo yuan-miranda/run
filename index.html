@@ -864,6 +864,7 @@
         }
 
         function getCardBodyHtml(user, status, alive, tsText, showHint) {
+            const showPrimaryHint = showHint && alive;
             return `
                     <div class="card-header">
                         <div style="flex:1;min-width:0;">
@@ -876,13 +877,13 @@
                     </div>
                     <div class="card-actions">
                         <button class="card-btn primary ${alive ? '' : 'disabled'}" data-action="cmd" ${alive ? '' : 'disabled aria-disabled="true"'}>
-                            CMD ${showHint ? '<span class="btn-hint">C</span>' : ''}
+                            CMD ${showPrimaryHint ? '<span class="btn-hint">C</span>' : ''}
                         </button>
                         <button class="card-btn ${alive ? '' : 'disabled'}" data-action="speak" ${alive ? '' : 'disabled aria-disabled="true"'}>
-                            SPK ${showHint ? '<span class="btn-hint">S</span>' : ''}
+                            SPK ${showPrimaryHint ? '<span class="btn-hint">S</span>' : ''}
                         </button>
                         <button class="card-btn ${alive ? '' : 'disabled'}" data-action="popup_msg" ${alive ? '' : 'disabled aria-disabled="true"'}>
-                            MSG ${showHint ? '<span class="btn-hint">A</span>' : ''}
+                            MSG ${showPrimaryHint ? '<span class="btn-hint">A</span>' : ''}
                         </button>
                         <button class="card-btn" data-action="output">
                             OUT ${showHint ? '<span class="btn-hint">V</span>' : ''}
