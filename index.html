@@ -435,7 +435,6 @@
             border-radius: 2px;
         }
 
-        /* ── Mobile styles ── */
         @media (max-width: 600px) {
             .panel {
                 padding: 0.75rem;
@@ -477,7 +476,6 @@
                 gap: 6px;
             }
 
-            /* 2x2 button grid */
             .card-actions {
                 grid-template-columns: repeat(2, 1fr);
                 gap: 4px;
@@ -488,12 +486,10 @@
                 font-size: 10px;
             }
 
-            /* Hide keyboard hints on mobile */
             .btn-hint {
                 display: none;
             }
 
-            /* Popup full-screen on mobile */
             .popup-overlay {
                 padding: 0;
                 align-items: flex-end;
@@ -525,7 +521,7 @@
             }
 
             .popup-input {
-                font-size: 16px; /* prevent iOS zoom */
+                font-size: 16px;
             }
 
             .opt-btn {
@@ -539,7 +535,6 @@
             }
         }
 
-        /* Slightly wider phones / small tablets */
         @media (min-width: 601px) and (max-width: 900px) {
             .grid {
                 grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -625,7 +620,6 @@
 
         document.addEventListener('contextmenu', e => e.preventDefault());
 
-        // Switch to keyboard mode on any arrow/nav key press; exit on mouse move
         document.addEventListener('keydown', e => {
             const navKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
             if (navKeys.includes(e.key)) {
@@ -894,7 +888,6 @@
                 const nextRows = await res.json();
                 const nextSignature = buildRowsRenderSignature(nextRows);
 
-                // Keep row data fresh for status math, but only re-render when UI state changes.
                 state.rows = nextRows;
                 if (nextSignature === state.lastRenderSignature) {
                     return;
@@ -938,7 +931,6 @@
                     return;
                 }
 
-                // Arrow key navigation
                 const arrowKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
                 if (arrowKeys.includes(e.key)) {
                     e.preventDefault();
