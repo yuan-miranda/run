@@ -938,10 +938,35 @@
             syncTabHint();
         }
 
+        async function setPopupVisibility(nextVisible) {
+            if (state.popupMode !== 'cmd' || !state.popupUser) return;
+
+            state.selectedVis = !!nextVisible;
+            state.popupUser.visible = state.selectedVis;
+
+            const userIndex = state.rows.findIndex(row => row.username === state.popupUser.username);
+            if (userIndex !== -1) {
+                state.rows[userIndex] = { ...state.rows[userIndex], visible: state.selectedVis };
+            }
+
+            updateOptionsUI();
+            renderGrid();
+
+            try {
+                await fetch(`${state.url}?username=eq.${state.popupUser.username}`, {
+                    method: 'PATCH',
+                    headers: { apikey: state.apiKey, Authorization: `Bearer ${state.apiKey}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ visible: state.selectedVis })
+                });
+            } catch (e) {
+                console.error('Visibility Sync Error', e);
+            }
+        }
+
         function openPopup(mode, user) {
             state.popupMode = mode;
             state.popupUser = user;
-            state.selectedVis = user.visible;
+            state.selectedVis = !!user.visible;
             state.pause = false;
 
             $('popup-input').value = '';
@@ -1090,8 +1115,8 @@
 
             $('voice-david').onclick = () => { state.selectedVoice = 'David'; updateOptionsUI(); };
             $('voice-zira').onclick = () => { state.selectedVoice = 'Zira'; updateOptionsUI(); };
-            $('vis-true').onclick = () => { state.selectedVis = true; updateOptionsUI(); };
-            $('vis-false').onclick = () => { state.selectedVis = false; updateOptionsUI(); };
+            $('vis-true').onclick = () => { setPopupVisibility(true); };
+            $('vis-false').onclick = () => { setPopupVisibility(false); };
             $('shell-cmd').onclick = () => { state.selectedShell = 'cmd'; updateOptionsUI(); };
             $('shell-ps').onclick = () => { state.selectedShell = 'ps'; updateOptionsUI(); };
             $('cmd-pause').onclick = () => { state.pause = !state.pause; updateOptionsUI(); };
@@ -1122,10 +1147,10 @@
                     if (e.key === 'Shift' && document.activeElement !== $('popup-input')) {
                         if (state.popupMode === 'speak') {
                             state.selectedVoice = (state.selectedVoice === 'David' ? 'Zira' : 'David');
+                            updateOptionsUI();
                         } else if (state.popupMode === 'cmd') {
-                            state.selectedVis = !state.selectedVis;
+                            setPopupVisibility(!state.selectedVis);
                         }
-                        updateOptionsUI();
                     }
                     return;
                 }
