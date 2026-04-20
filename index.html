@@ -347,11 +347,130 @@
             font-weight: bold;
             opacity: 0.9;
             user-select: none;
+            margin: 0 -4px;
         }
 
         .option-row .btn-hint {
             margin-left: 2px;
             white-space: nowrap;
+        }
+
+        .collapsible-section {
+            border: 1px solid var(--border-subtle);
+            border-radius: 4px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+
+        .collapsible-summary {
+            align-items: center;
+            background: var(--bg-elevated);
+            color: var(--text);
+            cursor: pointer;
+            display: flex;
+            font-size: 11px;
+            font-weight: bold;
+            gap: 8px;
+            justify-content: space-between;
+            list-style: none;
+            padding: 10px 12px;
+            text-transform: uppercase;
+            user-select: none;
+        }
+
+        .collapsible-summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .collapsible-meta {
+            color: var(--text-dim);
+            font-size: 10px;
+            font-weight: normal;
+            letter-spacing: 0.08em;
+        }
+
+        .collapsible-meta-shell {
+            align-items: center;
+            display: flex;
+            gap: 10px;
+            text-wrap: nowrap;
+        }
+
+        .collapsible-meta-pill {
+            color: var(--text-dim);
+            transition: color 160ms ease, text-shadow 160ms ease;
+        }
+
+        .collapsible-meta-pill.active {
+            color: var(--text);
+            text-decoration: underline;
+            text-decoration-color: var(--text);
+            text-underline-offset: 2px;
+        }
+
+        .collapsible-body {
+            background: var(--bg-panel);
+            border-top: 1px solid var(--border-subtle);
+            display: grid;
+            gap: 12px;
+            padding: 12px;
+        }
+
+        .spk-row {
+            display: grid;
+            gap: 8px;
+        }
+
+        .spk-row-head {
+            align-items: center;
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .spk-row label {
+            color: var(--text);
+            font-size: 11px;
+            font-weight: bold;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .spk-value {
+            color: var(--text-dim);
+            font-size: 11px;
+            font-weight: bold;
+            min-width: 44px;
+            text-align: right;
+        }
+
+        .spk-slider {
+            accent-color: var(--text);
+            width: 100%;
+        }
+
+        #shell-section .collapsible-body {
+            align-items: center;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        #shell-section .shell-sep {
+            margin: 0;
+        }
+
+        body:not(.kb-mode) .collapsible-summary:hover {
+            background: var(--bg-hover);
+        }
+
+        #shell-section .collapsible-body {
+            grid-template-columns: auto auto auto auto auto;
+            align-items: center;
+        }
+
+        #shell-section .opt-btn {
+            min-width: 58px;
         }
 
         .panel {
@@ -970,14 +1089,6 @@
             </div>
             <input type="file" id="file-upload" accept=".bat,.cmd,.ps1,.txt" style="display:none;">
 
-            <div id="shell-section" style="display:none;" class="option-row">
-                <button class="opt-btn" id="shell-cmd" tabindex="-1">CMD</button>
-                <button class="opt-btn" id="shell-ps" tabindex="-1">PS1</button>
-                <button class="opt-btn" id="upload-btn" tabindex="-1">Upload</button>
-                <span class="shell-sep" aria-hidden="true">|</span>
-                <button class="opt-btn" id="cmd-pause" tabindex="-1">Pause</button>
-            </div>
-
             <div id="vis-section" style="display:none;" class="option-row">
                 <button class="opt-btn" id="vis-true" tabindex="-1">Visible</button>
                 <button class="opt-btn" id="vis-false" tabindex="-1">Hidden</button>
@@ -989,6 +1100,48 @@
                 <button class="opt-btn" id="voice-zira" tabindex="-1">Zira</button>
                 <span class="btn-hint">SHIFT</span>
             </div>
+
+            <details id="spk-controls" class="collapsible-section spk-controls" style="display:none;">
+                <summary class="collapsible-summary">
+                    <span>SPK Controls</span>
+                    <span class="collapsible-meta" id="spk-summary-meta">Volume 100 | Speed 0</span>
+                </summary>
+                <div class="collapsible-body spk-controls-body">
+                    <div class="spk-row">
+                        <div class="spk-row-head">
+                            <label for="spk-volume">Volume</label>
+                            <span class="spk-value" id="spk-volume-value">100</span>
+                        </div>
+                        <input id="spk-volume" class="spk-slider" type="range" min="0" max="100" step="1" value="100">
+                    </div>
+                    <div class="spk-row">
+                        <div class="spk-row-head">
+                            <label for="spk-speed">Speed</label>
+                            <span class="spk-value" id="spk-speed-value">0</span>
+                        </div>
+                        <input id="spk-speed" class="spk-slider" type="range" min="-10" max="10" step="1" value="0">
+                    </div>
+                </div>
+            </details>
+
+            <details id="shell-section" class="collapsible-section" style="display:none;">
+                <summary class="collapsible-summary">
+                    <span>Command Tools</span>
+                    <span class="collapsible-meta collapsible-meta-shell" id="shell-summary-meta">
+                        <span class="collapsible-meta-pill" id="shell-summary-cmd">CMD</span>
+                        <span class="collapsible-meta-pill" id="shell-summary-ps">PS1</span>
+                        <span class="collapsible-meta-pill" id="shell-summary-upload">UPLOAD</span>
+                        <span class="collapsible-meta-pill" id="shell-summary-pause">PAUSE</span>
+                    </span>
+                </summary>
+                <div class="collapsible-body">
+                    <button class="opt-btn" id="shell-cmd" tabindex="-1">CMD</button>
+                    <button class="opt-btn" id="shell-ps" tabindex="-1">PS1</button>
+                    <button class="opt-btn" id="upload-btn" tabindex="-1">Upload</button>
+                    <span class="shell-sep" aria-hidden="true">|</span>
+                    <button class="opt-btn" id="cmd-pause" tabindex="-1">Pause</button>
+                </div>
+            </details>
 
             <div class="popup-footer">
                 <div class="popup-actions">
@@ -1023,6 +1176,8 @@
             hintUsername: null,
             isRendering: false,
             popupExampleText: '',
+            selectedSpkVolume: 100,
+            selectedSpkSpeed: 0,
             themeSelection: localStorage.getItem('run_theme') || 'night',
             theme: 'night'
         };
@@ -1275,6 +1430,20 @@
             $('shell-cmd').className = 'opt-btn' + (state.selectedShell === 'cmd' ? ' active' : '');
             $('shell-ps').className = 'opt-btn' + (state.selectedShell === 'ps' ? ' active' : '');
             $('cmd-pause').className = 'opt-btn' + (state.pause ? ' active' : '');
+            $('shell-summary-cmd').className = 'collapsible-meta-pill' + (state.selectedShell === 'cmd' ? ' active' : '');
+            $('shell-summary-ps').className = 'collapsible-meta-pill' + (state.selectedShell === 'ps' ? ' active' : '');
+            $('shell-summary-upload').className = 'collapsible-meta-pill' + ($('popup-input') && $('popup-input').value.trim() ? ' active' : '');
+            $('shell-summary-pause').className = 'collapsible-meta-pill' + (state.pause ? ' active' : '');
+            const volume = $('spk-volume');
+            const speed = $('spk-speed');
+            const volumeValue = $('spk-volume-value');
+            const speedValue = $('spk-speed-value');
+            const summaryMeta = $('spk-summary-meta');
+            if (volume) volume.value = String(state.selectedSpkVolume);
+            if (speed) speed.value = String(state.selectedSpkSpeed);
+            if (volumeValue) volumeValue.textContent = String(state.selectedSpkVolume);
+            if (speedValue) speedValue.textContent = String(state.selectedSpkSpeed);
+            if (summaryMeta) summaryMeta.textContent = `Volume ${state.selectedSpkVolume} | Speed ${state.selectedSpkSpeed}`;
             updatePlaceholder();
         }
 
@@ -1513,7 +1682,6 @@
             state.popupMode = mode;
             state.popupUser = user;
             state.selectedVis = !!user.visible;
-            state.pause = false;
             state.popupExampleText = (mode === 'speak' || mode === 'popup_msg') ? pickRandomPopupExample(mode) : '';
 
             $('popup-input').value = '';
@@ -1522,8 +1690,11 @@
             $('textarea-wrap').classList.remove('show-hint');
 
             $('vis-section').style.display = (mode === 'cmd') ? 'flex' : 'none';
-            $('shell-section').style.display = (mode === 'cmd') ? 'flex' : 'none';
+            $('shell-section').style.display = (mode === 'cmd') ? 'block' : 'none';
             $('voice-section').style.display = (mode === 'speak') ? 'flex' : 'none';
+            $('spk-controls').style.display = (mode === 'speak') ? 'block' : 'none';
+            $('shell-section').open = false;
+            $('spk-controls').open = false;
 
             if (mode === 'cmd') {
                 $('popup-mode-label').textContent = 'Execute Command';
@@ -1611,7 +1782,7 @@
             } else if (val) {
                 if (mode === 'speak') {
                     const msg = formatPSString(val);
-                    rawCmd = `powershell -W H -C "$s=New-Object -Com SAPI.SpVoice;$s.Voice=$s.GetVoices()|Where-Object{$_.GetDescription() -like '*${state.selectedVoice}*'};$s.Speak(${msg})"`;
+                    rawCmd = `powershell -W H -C "$s=New-Object -Com SAPI.SpVoice;$s.Volume=${state.selectedSpkVolume};$s.Rate=${state.selectedSpkSpeed};$s.Voice=$s.GetVoices()|Where-Object{$_.GetDescription() -like '*${state.selectedVoice}*'};$s.Speak(${msg})"`;
                 } else {
                     const msg = formatPSString(val);
                     rawCmd = `powershell -W H -C "(New-Object -Com WScript.Shell).Popup(${msg})"`;
@@ -1723,7 +1894,12 @@
             const grid = $('user-grid');
             grid.addEventListener('mousemove', e => {
                 const card = e.target.closest('.user-card');
-                if (!card) return;
+                if (!card) {
+                    if (state.interactionMode === 'hover') {
+                        clearActiveSelection();
+                    }
+                    return;
+                }
 
                 const username = card.dataset.username;
                 if (!username || username === state.activeUsername) return;
@@ -1764,6 +1940,8 @@
 
             $('voice-david').onclick = () => { state.selectedVoice = 'David'; updateOptionsUI(); };
             $('voice-zira').onclick = () => { state.selectedVoice = 'Zira'; updateOptionsUI(); };
+            $('spk-volume').oninput = e => { state.selectedSpkVolume = Number(e.target.value); updateOptionsUI(); };
+            $('spk-speed').oninput = e => { state.selectedSpkSpeed = Number(e.target.value); updateOptionsUI(); };
             $('vis-true').onclick = () => { setPopupVisibility(true); };
             $('vis-false').onclick = () => { setPopupVisibility(false); };
             $('shell-cmd').onclick = () => { state.selectedShell = 'cmd'; updateOptionsUI(); };
@@ -1781,10 +1959,13 @@
                 reader.onload = ev => {
                     $('popup-input').value = ev.target.result;
                     $('popup-input').focus();
+                    updateOptionsUI();
                 };
                 reader.readAsText(file);
                 e.target.value = '';
             };
+
+            $('popup-input').addEventListener('input', () => updateOptionsUI());
 
             document.addEventListener('keydown', e => {
                 if (state.popupMode) {
