@@ -335,6 +335,14 @@
             margin-bottom: 15px;
         }
 
+        .shell-sep {
+            color: var(--text-dim);
+            font-size: 12px;
+            font-weight: bold;
+            opacity: 0.9;
+            user-select: none;
+        }
+
         .option-row .btn-hint {
             margin-left: 2px;
             white-space: nowrap;
@@ -781,6 +789,13 @@
                 padding: 12px 8px;
             }
 
+            #shell-section .opt-btn {
+                min-width: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
             .panel {
                 padding: 0.75rem;
             }
@@ -943,9 +958,10 @@
 
             <div id="shell-section" style="display:none;" class="option-row">
                 <button class="opt-btn" id="shell-cmd" tabindex="-1">CMD</button>
-                <button class="opt-btn" id="shell-ps" tabindex="-1">PS</button>
+                <button class="opt-btn" id="shell-ps" tabindex="-1">PS1</button>
+                <button class="opt-btn" id="upload-btn" tabindex="-1">Upload</button>
+                <span class="shell-sep" aria-hidden="true">|</span>
                 <button class="opt-btn" id="cmd-pause" tabindex="-1">Pause</button>
-                <button class="opt-btn" id="upload-btn" tabindex="-1" style="margin-left:auto;">Upload</button>
             </div>
 
             <div id="vis-section" style="display:none;" class="option-row">
