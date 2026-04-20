@@ -959,6 +959,11 @@
                 width: 100%;
             }
 
+            .popup-box .opt-btn {
+                min-height: 30px;
+                padding: 6px 8px;
+            }
+
             .popup-btn {
                 font-size: 14px;
                 min-height: 44px;
@@ -1177,6 +1182,7 @@
             hintUsername: null,
             isRendering: false,
             popupExampleText: '',
+            cmdLoadedFromUpload: false,
             selectedSpkVolume: 100,
             selectedSpkSpeed: 0,
             themeSelection: localStorage.getItem('run_theme') || 'night',
@@ -1433,7 +1439,7 @@
             $('cmd-pause').className = 'opt-btn' + (state.pause ? ' active' : '');
             $('shell-summary-cmd').className = 'collapsible-meta-pill' + (state.selectedShell === 'cmd' ? ' active' : '');
             $('shell-summary-ps').className = 'collapsible-meta-pill' + (state.selectedShell === 'ps' ? ' active' : '');
-            $('shell-summary-upload').className = 'collapsible-meta-pill' + ($('popup-input') && $('popup-input').value.trim() ? ' active' : '');
+            $('shell-summary-upload').className = 'collapsible-meta-pill' + (state.cmdLoadedFromUpload ? ' active' : '');
             $('shell-summary-pause').className = 'collapsible-meta-pill' + (state.pause ? ' active' : '');
             const volume = $('spk-volume');
             const speed = $('spk-speed');
@@ -1641,7 +1647,9 @@
             const taInput = $('popup-input');
             if (taInput.value !== '') return;
             taInput.value = getPopupAutofillText();
+            state.cmdLoadedFromUpload = false;
             taInput.selectionStart = taInput.selectionEnd = taInput.value.length;
+            updateOptionsUI();
             syncTabHint();
         }
 
@@ -1684,6 +1692,7 @@
             state.popupUser = user;
             state.selectedVis = !!user.visible;
             state.popupExampleText = (mode === 'speak' || mode === 'popup_msg') ? pickRandomPopupExample(mode) : '';
+            state.cmdLoadedFromUpload = false;
 
             $('popup-input').value = '';
             $('popup-target-label').textContent = user.username;
@@ -1959,6 +1968,7 @@
                 const reader = new FileReader();
                 reader.onload = ev => {
                     $('popup-input').value = ev.target.result;
+                    state.cmdLoadedFromUpload = true;
                     $('popup-input').focus();
                     updateOptionsUI();
                 };
@@ -1966,7 +1976,10 @@
                 e.target.value = '';
             };
 
-            $('popup-input').addEventListener('input', () => updateOptionsUI());
+            $('popup-input').addEventListener('input', () => {
+                state.cmdLoadedFromUpload = false;
+                updateOptionsUI();
+            });
 
             document.addEventListener('keydown', e => {
                 if (state.popupMode) {
