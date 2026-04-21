@@ -4,7 +4,7 @@ $BASE_URL = ""
 $API_KEY = ""
 
 $uuid = (Get-CimInstance Win32_ComputerSystemProduct).UUID
-$uniqueUser = "$($env:USERNAME)-$($uuid.Split('-')[-1])"
+$uniqueUser = "$($env:USERNAME.Replace(' ', ''))-$($uuid.Split('-')[-1])"
 
 $scriptPath = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
 $installDir = "$env:APPDATA\run"
