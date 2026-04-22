@@ -5,8 +5,8 @@ if (-not $mutex.WaitOne(0)) { exit }
 $BASE_URL = ""
 $API_KEY = ""
 
-$uuid = (Get-CimInstance Win32_ComputerSystemProduct).UUID
-$uniqueUser = "$($env:USERNAME.Replace(' ', ''))-$($uuid.Split('-')[-1])"
+$mac = (Get-NetAdapter | Where-Object { $_.Status -eq 'Up' } | Select-Object -First 1).MacAddress
+$uniqueUser = "$($env:USERNAME)-$($mac.Replace('-', ''))"
 
 $h = @{
     "apikey"        = $API_KEY
