@@ -1211,7 +1211,8 @@
             selectedSpkVolume: 100,
             selectedSpkSpeed: 0,
             themeSelection: localStorage.getItem('run_theme') || 'night',
-            theme: 'night'
+            theme: 'night',
+            serverTimeOffset: 0
         };
 
         const popupExamples = {
@@ -1309,7 +1310,6 @@
         async function connectWithCredentials(url, apiKey, { notifyOnFail = true } = {}) {
             const isValid = await validateSupabaseCredentials(url, apiKey);
             if (!isValid) {
-                // Reset invalid credentials to avoid locking mobile users behind bad saved values.
                 setStoredCredentials(null, null);
                 setConnectionState(false);
                 if (notifyOnFail) {
@@ -1394,7 +1394,7 @@
             renderGrid();
         }
 
-        function getStatus(user, nowMs = Date.now()) {
+        function getStatus(user, nowMs = Date.now() + state.serverTimeOffset) {
             if (user.demo && user.username === 'demo-ator') return 'green';
             const diff = (nowMs - new Date(user.updated_at).getTime()) / 1000;
             if (diff < 10) return 'green';
@@ -1403,7 +1403,7 @@
         }
 
         function buildRowsRenderSignature(rows, isSorted = false) {
-            const nowMs = Date.now();
+            const nowMs = Date.now() + state.serverTimeOffset;
             const order = { green: 0, yellow: 1, red: 2 };
             const sourceRows = isSorted ? rows : sortRows(rows);
 
@@ -1633,7 +1633,6 @@
                 if (isNewCard || animateWholeBatch) {
                     card.classList.remove('card-enter');
                     card.style.animationDelay = `${Math.min(index, 8) * 35}ms`;
-                    // Force reflow so re-adding class restarts animation consistently.
                     void card.offsetWidth;
                     card.classList.add('card-enter');
                 }
@@ -1705,7 +1704,6 @@
         async function setPopupVisibility(nextVisible) {
             if (state.popupMode !== 'cmd' || !state.popupUser) return;
 
-            // Hidden mode cannot be combined with Pause.
             if (!nextVisible && state.pause) {
                 flashConflict('cmd-pause');
                 return;
@@ -1738,7 +1736,6 @@
         }
 
         function togglePauseOption() {
-            // Pause cannot be combined with Hidden mode.
             if (!state.selectedVis) {
                 flashConflict('vis-false');
                 return;
@@ -1793,7 +1790,6 @@
         }
 
         function wrapPowershell(val, hidden = true) {
-            // UTF-16LE base64 â†’ powershell -EncodedCommand. Handles multiline + any quoting.
             const utf16 = new Uint8Array(val.length * 2);
             for (let i = 0; i < val.length; i++) {
                 const code = val.charCodeAt(i);
@@ -1806,7 +1802,6 @@
         }
 
         function normalizePsPauseCommands(val) {
-            // In PowerShell, users often type CMD-style PAUSE. Translate it to Read-Host.
             return val.replace(/^\s*pause\s*$/gim, "Read-Host 'Press Enter to continue'");
         }
 
@@ -1823,7 +1818,6 @@
         function wrapCmd(val) {
             const isMultiline = val.includes('\n');
             if (!isMultiline) return val;
-            // Multiline CMD: base64-encode the script, decode to a temp .bat via certutil, run it.
             const utf8 = new TextEncoder().encode(val);
             const b64 = bytesToBase64(utf8);
             return `cmd /c "echo ${b64}>%temp%\\r.b64 && certutil -decode %temp%\\r.b64 %temp%\\r.bat >nul && cmd /c %temp%\\r.bat && del %temp%\\r.b64 %temp%\\r.bat"`;
@@ -1904,6 +1898,13 @@
                 const res = await fetch(`${state.url}?select=username,updated_at,visible`, {
                     headers: { apikey: state.apiKey, Authorization: `Bearer ${state.apiKey}` }
                 });
+
+                const serverDateStr = res.headers.get('date');
+                if (serverDateStr) {
+                    const serverTime = new Date(serverDateStr).getTime();
+                    const clientTime = Date.now();
+                    state.serverTimeOffset = serverTime - clientTime;
+                }
                 const nextRows = await res.json();
                 const nextSortedRows = sortRows(nextRows);
                 const nextSignature = buildRowsRenderSignature(nextSortedRows, true);
