@@ -1798,7 +1798,8 @@
                 utf16[offset + 1] = (code >> 8) & 0xff;
             }
             const b64 = bytesToBase64(utf16);
-            return `powershell -NoP -W ${hidden ? 'H' : 'Normal'} -EncodedCommand ${b64}`;
+            // return `powershell -NoP -W ${hidden ? 'H' : 'Normal'} -EncodedCommand ${b64}`;
+            return `powershell -NoP -EP Bypass -W ${hidden ? 'H' : 'Normal'} -EncodedCommand ${b64}`;
         }
 
         function normalizePsPauseCommands(val) {
