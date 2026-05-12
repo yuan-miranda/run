@@ -6,7 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>frames // run</title>
     <style>
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap');
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        ::selection { background: transparent; color: inherit; }
 
         :root {
             --bg: #f5f5f5;
@@ -35,7 +37,7 @@
         html[data-theme="polar"]    { --bg:#eef3f8; --surface:#fff; --border:#bcc9dc; --border-heavy:#9fb0cb; --text:#152033; --muted:#152033; --run-bg:#eef3f8; --run-panel:#fff; --run-surface:#f7faff; --run-surface-alt:#eef4fb; --run-elevated:#edf3fb; --run-elevated-strong:#e3ebf7; --run-hover:#dce7f5; --run-overlay:rgba(22,33,48,.35); --run-border-subtle:#bcc9dc; --run-border-strong:#9fb0cb; --run-border-quiet:#d3ddec; --run-border-hover:#6f86ab; --run-text:#152033; --run-text-inverse:#f4f8ff; --run-text-muted:#2d3d57; --run-text-soft:#4a5d7a; --run-text-dim:#617492; --run-text-offline:#7a8da9; --run-status-green:#152033; --run-status-yellow:#425f8e; --run-status-red:#7d90ab; --run-shadow-outline:0 0 0 1px rgba(128,150,182,.3); --run-shadow-lg:0 20px 50px rgba(34,52,78,.16); --run-shadow-glow:0 0 10px rgba(90,118,160,.45); --run-hint-bg:#d8e3f2; --run-hint-fg:#152033; }
 
         body {
-            font-family: 'Courier New', Courier, monospace;
+            font-family: 'Space Grotesk', sans-serif;
             background: var(--bg);
             color: var(--text);
             height: 100vh;
@@ -44,6 +46,7 @@
             flex-direction: column;
             user-select: none;
             -webkit-user-select: none;
+            -webkit-touch-callout: none;
             transition: background-color 0.24s ease, color 0.24s ease;
         }
 
@@ -122,7 +125,7 @@
             border-right: 1px solid var(--border); overflow: visible; z-index: 50;
         }
         .folder-btn {
-            font-family: 'Courier New', monospace; font-size: 13px;
+            font-family: 'Space Grotesk', sans-serif; font-size: 13px;
             background: none; border: none; color: var(--text);
             padding: 0 14px; cursor: pointer; letter-spacing: .05em;
             display: flex; align-items: center; border-radius: 0;
@@ -139,7 +142,7 @@
         }
         .dropdown-menu.open { display: block; }
         .dropdown-item {
-            font-family: 'Courier New', monospace; font-size: 13px;
+            font-family: 'Space Grotesk', sans-serif; font-size: 13px;
             padding: 8px 14px; cursor: pointer; letter-spacing: .04em;
             color: var(--text); border-bottom: 1px solid var(--border); display: block; white-space: nowrap;
         }
@@ -152,7 +155,7 @@
             border-left: 1px solid var(--border); overflow: visible; z-index: 40;
         }
         .file-btn {
-            font-family: 'Courier New', monospace; font-size: 13px;
+            font-family: 'Space Grotesk', sans-serif; font-size: 13px;
             background: none; border: none; color: var(--text);
             padding: 0 14px; cursor: pointer; letter-spacing: .05em;
             display: flex; align-items: center; border-radius: 0; white-space: nowrap;
@@ -165,7 +168,7 @@
         }
         .file-dropdown-menu.open { display: block; }
         .file-dropdown-item {
-            font-family: 'Courier New', monospace; font-size: 13px;
+            font-family: 'Space Grotesk', sans-serif; font-size: 13px;
             padding: 8px 14px; cursor: pointer; letter-spacing: .04em;
             color: var(--text); border-bottom: 1px solid var(--border); display: block; white-space: nowrap;
         }
@@ -221,7 +224,7 @@
             gap: 16px; min-height: 48px; flex-shrink: 0;
         }
         .btn {
-            font-family: 'Courier New', monospace; font-size: 13px;
+            font-family: 'Space Grotesk', sans-serif; font-size: 13px;
             background: none; border: 1px solid var(--border-heavy);
             color: var(--text); padding: 0 12px; cursor: pointer;
             letter-spacing: .05em; text-transform: uppercase; border-radius: 0;
@@ -261,7 +264,7 @@
         }
         .speed-label { font-size: 13px; color: var(--muted); letter-spacing: .04em; white-space: nowrap; }
         .speed-select {
-            font-family: 'Courier New', monospace; font-size: 13px;
+            font-family: 'Space Grotesk', sans-serif; font-size: 13px;
             background: none; border: none; color: var(--text);
             padding: 0 2px; cursor: pointer; border-radius: 0; letter-spacing: .04em;
             -webkit-appearance: none; appearance: none; height: 100%; width: 44px;
@@ -582,7 +585,7 @@
             flex-shrink: 0;
         }
         .sidebar-title {
-            font-family: 'Courier New', monospace; font-size: 13px;
+            font-family: 'Space Grotesk', sans-serif; font-size: 13px;
             font-weight: bold; letter-spacing: .1em; text-transform: uppercase;
             color: var(--text);
         }
@@ -596,14 +599,24 @@
             flex: 1; overflow-y: auto; padding: 16px;
             display: flex; flex-direction: column; gap: 8px;
         }
+        .sidebar-file-name {
+            color: var(--text);
+            font-size: 12px;
+            letter-spacing: .04em;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
         .sidebar-section-label {
-            font-family: 'Courier New', monospace; font-size: 10px;
+            font-family: 'Space Grotesk', sans-serif; font-size: 10px;
             letter-spacing: .12em; text-transform: uppercase;
             color: var(--text); opacity: .45; margin-top: 8px; margin-bottom: 2px;
         }
         .sidebar-section-label:first-child { margin-top: 0; }
         .sidebar-row-btn {
-            font-family: 'Courier New', monospace; font-size: 13px;
+            font-family: 'Space Grotesk', sans-serif; font-size: 13px;
             background: none; border: 1px solid var(--border-heavy);
             color: var(--text); padding: 9px 14px; cursor: pointer;
             letter-spacing: .05em; text-align: left; width: 100%;
@@ -612,7 +625,7 @@
         .sidebar-row-btn:hover { background: var(--border); }
         .sidebar-row-btn.connected { color: var(--run-status-yellow, #bdbdbd); }
         .sidebar-theme-btn {
-            font-family: 'Courier New', monospace; font-size: 13px;
+            font-family: 'Space Grotesk', sans-serif; font-size: 13px;
             background: none; border: 1px solid var(--border);
             color: var(--text); padding: 8px 14px; cursor: pointer;
             letter-spacing: .04em; text-align: left; width: 100%;
@@ -658,7 +671,6 @@
             .folder-btn {
                 font-size: 11px;
                 padding: 0 8px;
-                max-width: 110px;
                 overflow: hidden;
             }
             .folder-btn span {
@@ -666,7 +678,6 @@
                 text-overflow: ellipsis;
                 white-space: nowrap;
                 display: block;
-                max-width: 90px;
             }
 
             /* file btn: hide filename text on mobile, show icon-like minimal label */
@@ -680,7 +691,7 @@
             /* show a short "FILE" label instead */
             .file-btn::after {
                 content: 'FILE';
-                font-family: 'Courier New', monospace;
+                font-family: 'Space Grotesk', sans-serif;
                 font-size: 11px;
                 letter-spacing: .05em;
             }
@@ -917,6 +928,7 @@
             <!-- FRAMES section: download current frame -->
             <div class="sidebar-frames-section">
                 <div class="sidebar-section-label">image</div>
+                <div class="sidebar-file-name" id="sidebar-file-name">no file</div>
                 <button class="sidebar-row-btn" id="sidebar-download-btn">download frame</button>
             </div>
             <!-- RUN section: connect + theme -->
@@ -1176,6 +1188,8 @@
             img.style.display = 'block';
             els.counter.textContent = formatCounter(i + 1, state.total);
             els.fileName.textContent = state.imagesMeta[i] ? state.imagesMeta[i].name : '';
+            const sidebarFileName = document.getElementById('sidebar-file-name');
+            if (sidebarFileName) sidebarFileName.textContent = state.imagesMeta[i] ? state.imagesMeta[i].name : 'no file';
             els.slider.value = i;
             syncControlStates();
             if (state.currentFolder) {
@@ -1240,6 +1254,8 @@
             if (els.progressBar) els.progressBar.style.width = '0%';
             if (els.counter) els.counter.textContent = '— / —';
             if (els.fileName) els.fileName.textContent = '';
+            const sidebarFileName = document.getElementById('sidebar-file-name');
+            if (sidebarFileName) sidebarFileName.textContent = 'no file';
             if (els.dropdownMenu) els.dropdownMenu.innerHTML = '';
             if (els.folderName) els.folderName.textContent = clearToken ? 'token required' : 'loading...';
             if (els.statusmsg) {
