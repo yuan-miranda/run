@@ -31,17 +31,6 @@
             --muted: #111;
         }
 
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg: #0e0e0e;
-                --surface: #161616;
-                --border: #2a2a2a;
-                --border-heavy: #555;
-                --text: #f0f0f0;
-                --muted: #f0f0f0;
-            }
-        }
-
         html[data-theme="night"] {
             --bg: #0e0e0e;
             --surface: #161616;
@@ -313,67 +302,7 @@
             cursor: pointer;
             gap: 6px;
             white-space: nowrap;
-            position: relative;
-            perspective: 600px;
             transition: opacity .18s;
-        }
-
-        .brand-inner {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            transform-style: preserve-3d;
-            transition: transform 360ms cubic-bezier(.2, .8, .2, 1);
-            will-change: transform;
-        }
-
-        .brand-face {
-            backface-visibility: hidden;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .brand-face.back {
-            position: absolute;
-            left: 0;
-            top: 0;
-            transform: rotateX(180deg);
-        }
-
-        .brand.is-flipped .brand-inner {
-            transform: rotateX(180deg);
-        }
-
-        .brand::after {
-            content: '';
-            position: absolute;
-            inset: -4px;
-            border: 1px solid var(--border-heavy);
-            opacity: 0;
-            transform: scale(.92);
-            pointer-events: none;
-        }
-
-        .brand.is-aura::after {
-            animation: brand-aura 420ms ease-out;
-        }
-
-        @keyframes brand-aura {
-            0% {
-                opacity: 0;
-                transform: scale(.92);
-            }
-
-            35% {
-                opacity: .7;
-                transform: scale(1.02);
-            }
-
-            100% {
-                opacity: 0;
-                transform: scale(1.12);
-            }
         }
 
         .brand:hover {
@@ -536,19 +465,6 @@
         .file-dropdown-item.active {
             background: var(--text);
             color: var(--bg);
-        }
-
-        /* ── RUN header controls — legacy, now handled by left-side custom dropdowns ── */
-        .run-header-controls {
-            display: none !important;
-        }
-
-        .run-ctrl-btn {
-            display: none;
-        }
-
-        .run-theme-select {
-            display: none;
         }
 
         #view-frames {
@@ -1421,10 +1337,6 @@
             display: none;
         }
 
-        body.view-frames .run-header-controls {
-            display: none !important;
-        }
-
         body.view-frames .frames-header-right {
             display: flex !important;
         }
@@ -1456,10 +1368,6 @@
         body.view-run #view-run {
             display: block;
             height: auto;
-        }
-
-        body.view-run .run-header-controls {
-            display: flex !important;
         }
 
         body.view-run .frames-header-right {
@@ -1996,18 +1904,9 @@
     <header>
         <div class="header-left">
             <div class="brand" id="brandToggle" title="Click to switch mode">
-                <span class="brand-inner" aria-hidden="true">
-                    <span class="brand-face front">
-                        <span id="brandFrames">FRAMES</span>
-                        <span class="brand-sep">//</span>
-                        <span id="brandRun">RUN</span>
-                    </span>
-                    <span class="brand-face back">
-                        <span>RUN</span>
-                        <span class="brand-sep">//</span>
-                        <span>FRAMES</span>
-                    </span>
-                </span>
+                <span id="brandFrames">FRAMES</span>
+                <span class="brand-sep">//</span>
+                <span id="brandRun">RUN</span>
             </div>
             <!-- folder picker — only visible in frames mode -->
             <div class="folder-dropdown-wrap" id="folderWrap">
@@ -2206,10 +2105,8 @@
         </div>
     </div>
 
-    <script>
-        /* ══════════════════════════════════════════════
-           MODE SWITCHER
-        ══════════════════════════════════════════════ */
+    <!-- ══ Module: Mode Switcher ══ -->
+    <script id="mod-mode-switcher">
         (function () {
             const body = document.body;
             const brandToggle = document.getElementById('brandToggle');
@@ -2243,11 +2140,10 @@
             };
             window.__getCurrentMode = () => currentMode;
         })();
+    </script>
 
-
-        /* ══════════════════════════════════════════════
-           FRAMES APP
-        ══════════════════════════════════════════════ */
+    <!-- ══ Module: Frames App ══ -->
+    <script id="mod-frames-app">
         const FramesApp = (() => {
             const user = "yuan-miranda", repo = "frames";
             const githubTokenKey = 'github_token';
@@ -2761,11 +2657,10 @@
 
             return { init, loadFolder, state, setGithubToken, getGithubToken, initFoldersIfReady, onShow, resetFramesState };
         })();
+    </script>
 
-
-        /* ══════════════════════════════════════════════
-           RUN APP
-        ══════════════════════════════════════════════ */
+    <!-- ══ Module: Run App ══ -->
+    <script id="mod-run-app">
         const RunApp = (() => {
             const runState = {
                 rows: [], sortedRows: [],
