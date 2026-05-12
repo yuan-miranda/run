@@ -425,6 +425,10 @@
             background: var(--border);
         }
 
+        #fpsWrap .file-btn:hover {
+            background: none;
+        }
+
         .file-dropdown-menu {
             display: none;
             position: absolute;
@@ -440,6 +444,13 @@
 
         .file-dropdown-menu.open {
             display: block;
+        }
+
+        #fpsWrap .file-dropdown-menu {
+            top: auto;
+            bottom: calc(100% + 2px);
+            border-top: 1px solid var(--border-heavy);
+            border-bottom: none;
         }
 
         .file-dropdown-item {
@@ -670,8 +681,22 @@
             height: 32px;
             padding: 0 8px;
             position: relative;
-            overflow: hidden;
+            overflow: visible;
+            cursor: pointer;
             transition: background-color .24s, color .24s, border-color .24s, opacity .24s;
+        }
+
+        .speed-wrap:hover,
+        .speed-wrap:focus-within {
+            background: var(--text);
+            color: var(--bg);
+        }
+
+        .speed-wrap:hover .speed-label,
+        .speed-wrap:focus-within .speed-label,
+        .speed-wrap:hover .file-btn,
+        .speed-wrap:focus-within .file-btn {
+            color: var(--bg);
         }
 
         .speed-label {
@@ -702,7 +727,27 @@
             cursor: not-allowed;
         }
 
-        body.is-loading header,
+        .speed-wrap .file-btn {
+            height: 26px;
+            padding: 0 10px;
+        }
+
+        body.is-loading header .header-left > :not(.brand),
+        body.is-loading header .header-right {
+            pointer-events: none;
+            opacity: .4;
+        }
+
+        body.view-frames.frames-dim header .header-left > :not(.brand),
+        body.view-frames.frames-dim header .header-right {
+            opacity: .4;
+        }
+
+        body.view-frames.frames-menu-disabled #hamburgerBtn {
+            pointer-events: none;
+            opacity: .4;
+        }
+
         body.is-loading .controls-row {
             pointer-events: none;
             opacity: .4;
@@ -1748,6 +1793,7 @@
                 width: 36px;
             }
 
+
             .counter {
                 font-size: 11px;
                 min-width: 72px;
@@ -2006,15 +2052,18 @@
                 <input type="range" id="slider" min="0" max="0" value="0" step="1">
             </div>
             <button class="btn" id="nextBtn">next &gt;</button>
-            <div class="speed-wrap">
+            <div class="speed-wrap" id="fpsWrap">
                 <span class="speed-label">fps</span>
-                <select class="speed-select" id="fpsSelect">
-                    <option value="2">2</option>
-                    <option value="6">6</option>
-                    <option value="12" selected>12</option>
-                    <option value="24">24</option>
-                    <option value="30">30</option>
-                </select>
+                <button class="file-btn" id="fpsBtn" data-fps="12">
+                    <span id="fpsLabel">12</span>
+                </button>
+                <div class="file-dropdown-menu" id="fpsMenu">
+                    <div class="file-dropdown-item" data-fps="2">2</div>
+                    <div class="file-dropdown-item" data-fps="6">6</div>
+                    <div class="file-dropdown-item active" data-fps="12">12</div>
+                    <div class="file-dropdown-item" data-fps="24">24</div>
+                    <div class="file-dropdown-item" data-fps="30">30</div>
+                </div>
             </div>
             <button class="btn" id="playBtn">FF play</button>
             <div class="counter" id="counter">— / —</div>
@@ -2155,6 +2204,8 @@
                 playInterval: null, isPlaying: false,
                 currentFolder: null, autoRefresh: null,
                 loading: true, viewInitialized: false, restoreView: null,
+                error: null,
+                fps: 12,
                 lastActivityAt: Date.now()
             };
 
@@ -2195,10 +2246,14 @@
             function bindElements() {
                 ['frames-status-msg', 'mainImage', 'controlsRow', 'sliderWrap', 'slider', 'counter',
                     'fileName', 'progressWrap', 'progressBar', 'folderBtn', 'folderName', 'dropdownMenu',
-                    'playBtn', 'fpsSelect', 'fileBtn', 'fileDropdownMenu', 'downloadItem', 'prevBtn', 'nextBtn']
+                    'playBtn', 'fpsWrap', 'fpsBtn', 'fpsMenu', 'fpsLabel', 'fileBtn', 'fileDropdownMenu', 'downloadItem', 'prevBtn', 'nextBtn']
                     .forEach(k => els[k.replace(/-/g, '').replace('framesstatusmsg', 'statusmsg')] = $(k));
                 // fix status msg alias
                 els.statusmsg = $('frames-status-msg');
+                if (els.fpsBtn) {
+                    const v = parseInt(els.fpsBtn.dataset.fps || '12', 10);
+                    if (Number.isFinite(v)) state.fps = v;
+                }
             }
 
             function formatCounter(current, total) {
@@ -2208,11 +2263,15 @@
 
             function syncControlStates() {
                 const hasFrames = state.total > 0;
-                const enabled = !state.loading && hasFrames;
+                const isReady = !state.loading && hasFrames && !state.error;
+                const enabled = isReady;
+                document.body.classList.toggle('frames-dim', !isReady);
+                document.body.classList.toggle('frames-menu-disabled', !isReady);
+                window.__framesMenuDisabled = !isReady;
                 els.folderBtn.disabled = state.loading;
                 els.fileBtn.disabled = !enabled;
                 els.slider.disabled = !enabled;
-                els.fpsSelect.disabled = !enabled;
+                els.fpsBtn.disabled = !enabled;
                 els.playBtn.disabled = !enabled;
                 els.prevBtn.disabled = !enabled || state.idx <= 0;
                 els.nextBtn.disabled = !enabled || state.idx >= state.total - 1;
@@ -2271,7 +2330,7 @@
                 if (!state.total) return;
                 state.isPlaying = true; els.playBtn.textContent = 'FF stop'; els.playBtn.classList.add('active');
                 syncControlStates();
-                const ms = Math.round(1000 / (parseInt(els.fpsSelect.value) || 12));
+                const ms = Math.round(1000 / (state.fps || 12));
                 state.playInterval = setInterval(() => {
                     state.idx = (state.idx + 1) % state.total;
                     els.mainImage.src = state.urls[state.idx];
@@ -2295,6 +2354,7 @@
                 state.currentFolder = null;
                 state.urls = []; state.imagesMeta = []; state.total = 0; state.idx = 0;
                 state.viewInitialized = false; state.restoreView = null;
+                state.error = null;
                 if (!isInitialized) return;
                 if (els.mainImage) { els.mainImage.src = ''; els.mainImage.style.display = 'none'; }
                 if (els.controlsRow) els.controlsRow.style.display = 'none';
@@ -2316,8 +2376,10 @@
             function initFoldersIfReady() {
                 if (!isInitialized) return false;
                 if (!githubToken) {
+                    state.error = 'missing github token';
                     els.folderName.textContent = 'token required';
                     els.statusmsg.textContent = 'missing github token';
+                    syncControlStates();
                     return false;
                 }
                 initFolders();
@@ -2355,6 +2417,7 @@
 
             async function loadFolder(folder) {
                 stopPlay(); setLoading(true); syncControlStates();
+                state.error = null;
                 state.currentFolder = folder;
                 els.folderName.textContent = folder;
                 updateSidebarFolderActive(folder);
@@ -2378,7 +2441,12 @@
                         if (na !== null) return -1; if (nb !== null) return 1;
                         return a.name.localeCompare(b.name);
                     });
-                    if (!images.length) { els.statusmsg.textContent = 'no images found.'; els.progressWrap.style.display = 'none'; setLoading(false); return; }
+                    if (!images.length) {
+                        state.error = 'no images found';
+                        els.statusmsg.textContent = 'no images found.';
+                        els.progressWrap.style.display = 'none';
+                        setLoading(false); return;
+                    }
                     state.imagesMeta = images; state.total = images.length;
                     const base = 'https://raw.githack.com/' + user + '/' + repo + '/main/' + folder;
                     state.urls = images.map(img => base + '/' + encodeURIComponent(img.name) + (img.sha ? '?sha=' + img.sha : ''));
@@ -2392,6 +2460,7 @@
                     state.restoreView = saved.views ? saved.views[folder] : null;
                     showFrame(startIndex);
                 } catch (err) {
+                    state.error = err.message || 'unknown error';
                     els.statusmsg.textContent = 'error: ' + err.message;
                     els.progressWrap.style.display = 'none';
                 } finally {
@@ -2436,9 +2505,16 @@
                         || folders.find(f => f.name === 'carlo')
                         || folders[0];
                     if (def) loadFolder(def.name);
-                    else { els.folderName.textContent = 'no folders'; els.statusmsg.textContent = 'no folders found.'; }
+                    else {
+                        state.error = 'no folders found';
+                        els.folderName.textContent = 'no folders';
+                        els.statusmsg.textContent = 'no folders found.';
+                        syncControlStates();
+                    }
                 } catch (err) {
+                    state.error = err.message || 'unknown error';
                     els.folderName.textContent = 'error'; els.statusmsg.textContent = 'error: ' + err.message;
+                    syncControlStates();
                 }
             }
 
@@ -2461,7 +2537,35 @@
 
             function setupListeners() {
                 els.playBtn.addEventListener('click', () => state.isPlaying ? stopPlay() : startPlay());
-                els.fpsSelect.addEventListener('change', () => { if (state.isPlaying) { stopPlay(); startPlay(); } });
+                const toggleFpsMenu = () => {
+                    if (els.fpsBtn.disabled) return;
+                    els.fpsBtn.classList.toggle('open');
+                    els.fpsMenu.classList.toggle('open');
+                };
+                els.fpsBtn.addEventListener('click', e => {
+                    e.stopPropagation();
+                    toggleFpsMenu();
+                });
+                els.fpsWrap.addEventListener('click', e => {
+                    if (e.target.closest('#fpsMenu')) return;
+                    toggleFpsMenu();
+                });
+                Array.from(els.fpsMenu.querySelectorAll('.file-dropdown-item')).forEach(item => {
+                    item.addEventListener('click', e => {
+                        e.stopPropagation();
+                        const next = parseInt(item.dataset.fps, 10);
+                        if (!Number.isFinite(next)) return;
+                        state.fps = next;
+                        els.fpsLabel.textContent = String(next);
+                        els.fpsBtn.dataset.fps = String(next);
+                        els.fpsMenu.querySelectorAll('.file-dropdown-item').forEach(opt => {
+                            opt.classList.toggle('active', opt.dataset.fps === String(next));
+                        });
+                        els.fpsBtn.classList.remove('open');
+                        els.fpsMenu.classList.remove('open');
+                        if (state.isPlaying) { stopPlay(); startPlay(); }
+                    });
+                });
                 els.prevBtn.addEventListener('click', () => { stopPlay(); showFrame(state.idx - 1); });
                 els.nextBtn.addEventListener('click', () => { stopPlay(); showFrame(state.idx + 1); });
                 els.slider.addEventListener('mousedown', () => { if (state.isPlaying) stopPlay(); });
@@ -2504,6 +2608,7 @@
                 document.addEventListener('click', e => {
                     if (!document.getElementById('folderWrap').contains(e.target)) { els.folderBtn.classList.remove('open'); els.dropdownMenu.classList.remove('open'); }
                     if (!document.getElementById('fileWrap').contains(e.target)) { els.fileBtn.classList.remove('open'); els.fileDropdownMenu.classList.remove('open'); }
+                    if (!document.getElementById('fpsWrap')?.contains(e.target)) { els.fpsBtn.classList.remove('open'); els.fpsMenu.classList.remove('open'); }
                 });
                 setupPanZoom();
             }
@@ -2628,7 +2733,8 @@
 
             function setupActivityMonitor() {
                 const mark = () => { state.lastActivityAt = Date.now(); };
-                ['pointerdown', 'mousemove', 'keydown', 'wheel', 'touchstart'].forEach(evt => window.addEventListener(evt, mark, { passive: true }));
+                ['pointerdown', 'pointermove', 'mousemove', 'keydown', 'wheel', 'touchstart', 'touchmove', 'click', 'scroll']
+                    .forEach(evt => window.addEventListener(evt, mark, { passive: true }));
                 document.addEventListener('visibilitychange', () => { if (!document.hidden) mark(); });
             }
 
@@ -2778,37 +2884,22 @@
             }
 
             async function promptAndConnect() {
-                const url = prompt('Supabase URL:', runState.url || '');
-                if (!url) return;
-                const apiKey = prompt('API Key:', runState.apiKey || '');
-                if (!apiKey) return;
-                await connectWithCredentials(url.trim(), apiKey.trim(), { notifyOnFail: true });
+                const ok = promptAllCredentials();
+                if (!ok) return;
+                await connectWithCredentials(runState.url.trim(), runState.apiKey.trim(), { notifyOnFail: true });
             }
 
             function promptAllCredentials() {
-                let url = runState.url || '';
-                let apiKey = runState.apiKey || '';
-                let ghToken = FramesApp.getGithubToken() || '';
+                const urlInput = prompt('Supabase URL:', runState.url || '');
+                if (!urlInput) return false;
+                const apiInput = prompt('API Key:', runState.apiKey || '');
+                if (!apiInput) return false;
+                const ghInput = prompt('GitHub token (read-only):', FramesApp.getGithubToken() || '');
+                if (!ghInput) return false;
 
-                if (!url) {
-                    const input = prompt('Supabase URL:', '');
-                    if (!input) return false;
-                    url = input.trim();
-                }
-                if (!apiKey) {
-                    const input = prompt('API Key:', '');
-                    if (!input) return false;
-                    apiKey = input.trim();
-                }
-                if (!ghToken) {
-                    const input = prompt('GitHub token (read-only):', '');
-                    if (!input) return false;
-                    ghToken = input.trim();
-                }
-
-                runState.url = url;
-                runState.apiKey = apiKey;
-                FramesApp.setGithubToken(ghToken);
+                runState.url = urlInput.trim();
+                runState.apiKey = apiInput.trim();
+                FramesApp.setGithubToken(ghInput.trim());
                 return true;
             }
 
@@ -3244,7 +3335,12 @@
                 const sidebar = $('sidebar');
                 const overlay = $('sidebarOverlay');
                 const sidebarClose = $('sidebarClose');
-                function openSidebar() { sidebar.classList.add('open'); overlay.classList.add('open'); }
+                function openSidebar() {
+                    if (window.__getCurrentMode && window.__getCurrentMode() === 'frames') {
+                        if (window.__framesMenuDisabled) return;
+                    }
+                    sidebar.classList.add('open'); overlay.classList.add('open');
+                }
                 function closeSidebar() { sidebar.classList.remove('open'); overlay.classList.remove('open'); }
                 if (hamburger) hamburger.addEventListener('click', openSidebar);
                 if (overlay) overlay.addEventListener('click', closeSidebar);
