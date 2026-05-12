@@ -185,6 +185,7 @@
             border-bottom: 1px solid var(--border);
             display: flex; align-items: center; justify-content: center;
             position: relative; overflow: hidden; cursor: grab;
+            touch-action: none;
         }
         .image-area.dragging { cursor: grabbing; }
         .image-area img {
@@ -713,6 +714,10 @@
                 flex-wrap: wrap;
                 display: none; /* overridden by JS when frames load */
                 overflow: visible;
+                position: sticky;
+                bottom: 0;
+                background: var(--surface);
+                z-index: 20;
             }
 
             /* when JS sets it to flex, keep mobile layout */
@@ -1425,6 +1430,9 @@
         const view = { scale: 1, ox: 0, oy: 0 };
         let drag = { active: false, startX: 0, startY: 0, startOx: 0, startOy: 0 };
         let zoomHideTimer = null;
+        let touchMode = null;
+        let pinchStartDist = 0;
+        let pinchStartScale = 1;
 
         function applyTransform() {
             const img = els.mainImage;
@@ -1479,13 +1487,59 @@
                 drag = { active: true, startX: e.clientX, startY: e.clientY, startOx: view.ox, startOy: view.oy };
                 area.classList.add('dragging');
             });
+            area.addEventListener('touchstart', e => {
+                if (state.loading || !state.total) return;
+                if (e.touches.length === 1) {
+                    const t = e.touches[0];
+                    touchMode = 'pan';
+                    drag = { active: true, startX: t.clientX, startY: t.clientY, startOx: view.ox, startOy: view.oy };
+                    area.classList.add('dragging');
+                } else if (e.touches.length === 2) {
+                    touchMode = 'pinch';
+                    const [t1, t2] = e.touches;
+                    pinchStartDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+                    pinchStartScale = view.scale;
+                }
+                e.preventDefault();
+            }, { passive: false });
             window.addEventListener('mousemove', e => {
                 if (!drag.active) return;
                 view.ox = drag.startOx + (e.clientX - drag.startX);
                 view.oy = drag.startOy + (e.clientY - drag.startY);
                 clampPan(); applyTransform();
             });
+            window.addEventListener('touchmove', e => {
+                if (state.loading || !state.total) return;
+                if (touchMode === 'pan' && drag.active && e.touches.length === 1) {
+                    const t = e.touches[0];
+                    view.ox = drag.startOx + (t.clientX - drag.startX);
+                    view.oy = drag.startOy + (t.clientY - drag.startY);
+                    clampPan(); applyTransform();
+                    e.preventDefault();
+                } else if (touchMode === 'pinch' && e.touches.length === 2) {
+                    const [t1, t2] = e.touches;
+                    const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+                    const rect = area.getBoundingClientRect();
+                    const cx = (t1.clientX + t2.clientX) / 2 - rect.left;
+                    const cy = (t1.clientY + t2.clientY) / 2 - rect.top;
+                    const nextScale = Math.min(Math.max(pinchStartScale * (dist / (pinchStartDist || 1)), 0.1), 20);
+                    const ratio = nextScale / view.scale;
+                    view.ox = cx - ratio * (cx - view.ox);
+                    view.oy = cy - ratio * (cy - view.oy);
+                    view.scale = nextScale;
+                    pinchStartDist = dist;
+                    pinchStartScale = nextScale;
+                    clampPan(); applyTransform();
+                    e.preventDefault();
+                }
+            }, { passive: false });
             window.addEventListener('mouseup', () => { drag.active = false; area.classList.remove('dragging'); });
+            window.addEventListener('touchend', () => {
+                drag.active = false; touchMode = null; area.classList.remove('dragging');
+            });
+            window.addEventListener('touchcancel', () => {
+                drag.active = false; touchMode = null; area.classList.remove('dragging');
+            });
             area.addEventListener('dblclick', resetView);
             window.addEventListener('resize', () => { if (els.mainImage.style.display !== 'none') fitToArea(); });
         }
