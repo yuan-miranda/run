@@ -106,6 +106,7 @@
             --run-shadow-glow: 0 0 10px rgba(244, 247, 251, .95);
             --run-hint-bg: #2a313b;
             --run-hint-fg: #f4f7fb;
+            --run-offline-stripe: repeating-linear-gradient(135deg, rgba(244, 247, 251, .05) 0, rgba(244, 247, 251, .05) 5px, transparent 5px, transparent 14px);
         }
 
         html[data-theme="midnight"] {
@@ -141,6 +142,7 @@
             --run-shadow-glow: 0 0 10px rgba(246, 248, 255, .95);
             --run-hint-bg: #2b3550;
             --run-hint-fg: #f6f8ff;
+            --run-offline-stripe: repeating-linear-gradient(135deg, rgba(246, 248, 255, .05) 0, rgba(246, 248, 255, .05) 5px, transparent 5px, transparent 14px);
         }
 
         html[data-theme="forest"] {
@@ -176,6 +178,7 @@
             --run-shadow-glow: 0 0 10px rgba(242, 255, 246, .95);
             --run-hint-bg: #2a4a3b;
             --run-hint-fg: #f2fff6;
+            --run-offline-stripe: repeating-linear-gradient(135deg, rgba(242, 255, 246, .05) 0, rgba(242, 255, 246, .05) 5px, transparent 5px, transparent 14px);
         }
 
         html[data-theme="ember"] {
@@ -211,6 +214,7 @@
             --run-shadow-glow: 0 0 10px rgba(255, 246, 242, .95);
             --run-hint-bg: #623a2d;
             --run-hint-fg: #fff6f2;
+            --run-offline-stripe: repeating-linear-gradient(135deg, rgba(255, 246, 242, .05) 0, rgba(255, 246, 242, .05) 5px, transparent 5px, transparent 14px);
         }
 
         html[data-theme="polar"] {
@@ -246,6 +250,7 @@
             --run-shadow-glow: 0 0 10px rgba(90, 118, 160, .45);
             --run-hint-bg: #d8e3f2;
             --run-hint-fg: #152033;
+            --run-offline-stripe: repeating-linear-gradient(135deg, rgba(21, 32, 51, .08) 0, rgba(21, 32, 51, .08) 5px, transparent 5px, transparent 14px);
         }
 
         body {
@@ -1031,10 +1036,15 @@
         .empty {
             font-size: 13px;
             color: var(--run-text-dim, var(--muted));
-            letter-spacing: .08em;
+            letter-spacing: .05em;
             text-transform: uppercase;
-            padding: 40px 0;
+            padding: 40px 20px;
+            text-align: center;
             grid-column: 1 / -1;
+            min-height: 40vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         /* ── Popup overlay (run) ── */
@@ -2395,6 +2405,32 @@
                 if (!res.ok) throw new Error('error ' + res.status);
                 return (await res.json()).tree || [];
             }
+
+            async function downloadCurrentFrame() {
+                const url = state.urls[state.idx];
+                if (!url) return;
+                const name = state.imagesMeta[state.idx] ? state.imagesMeta[state.idx].name : 'frame.png';
+                try {
+                    const res = await fetch(url, { mode: 'cors' });
+                    if (!res.ok) throw new Error('download failed');
+                    const blob = await res.blob();
+                    const blobUrl = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = blobUrl;
+                    a.download = name;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(blobUrl);
+                } catch {
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = name;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                }
+            }
             function preloadImages(urls) {
                 return new Promise(resolve => {
                     let loaded = 0, failed = 0;
@@ -2597,12 +2633,8 @@
                 });
                 els.folderBtn.addEventListener('click', () => { els.folderBtn.classList.toggle('open'); els.dropdownMenu.classList.toggle('open'); });
                 els.fileBtn.addEventListener('click', () => { els.fileBtn.classList.toggle('open'); els.fileDropdownMenu.classList.toggle('open'); });
-                els.downloadItem.addEventListener('click', () => {
-                    if (!state.urls[state.idx]) return;
-                    const a = document.createElement('a');
-                    a.href = state.urls[state.idx];
-                    a.download = state.imagesMeta[state.idx] ? state.imagesMeta[state.idx].name : 'frame.png';
-                    a.target = '_blank'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                els.downloadItem.addEventListener('click', async () => {
+                    await downloadCurrentFrame();
                     els.fileBtn.classList.remove('open'); els.fileDropdownMenu.classList.remove('open');
                 });
                 document.addEventListener('click', e => {
@@ -2761,7 +2793,7 @@
                 });
             }
 
-            return { init, loadFolder, state, setGithubToken, getGithubToken, initFoldersIfReady, onShow, resetFramesState };
+            return { init, loadFolder, state, setGithubToken, getGithubToken, initFoldersIfReady, onShow, resetFramesState, downloadCurrentFrame };
         })();
     </script>
 
@@ -3319,13 +3351,8 @@
                 // sidebar download button (frames mode)
                 const sidebarDownload = $('sidebar-download-btn');
                 if (sidebarDownload) {
-                    sidebarDownload.addEventListener('click', () => {
-                        const framesState = FramesApp.state;
-                        if (!framesState || !framesState.urls || !framesState.urls[framesState.idx]) return;
-                        const a = document.createElement('a');
-                        a.href = framesState.urls[framesState.idx];
-                        a.download = (framesState.imagesMeta[framesState.idx] ? framesState.imagesMeta[framesState.idx].name : 'frame.png');
-                        a.target = '_blank'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                    sidebarDownload.addEventListener('click', async () => {
+                        if (FramesApp.downloadCurrentFrame) await FramesApp.downloadCurrentFrame();
                         closeSidebar();
                     });
                 }
