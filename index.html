@@ -737,13 +737,13 @@
             padding: 0 10px;
         }
 
-        body.is-loading header .header-left > :not(.brand),
+        body.is-loading header .header-left> :not(.brand),
         body.is-loading header .header-right {
             pointer-events: none;
             opacity: .4;
         }
 
-        body.view-frames.frames-dim header .header-left > :not(.brand),
+        body.view-frames.frames-dim header .header-left> :not(.brand),
         body.view-frames.frames-dim header .header-right {
             opacity: .4;
         }
@@ -1634,15 +1634,34 @@
             transition: background-color .18s;
         }
 
-        .sidebar-theme-btn:last-child {
+        .sidebar-fps-btn {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 13px;
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 14px;
+            cursor: pointer;
+            letter-spacing: .04em;
+            text-align: left;
+            width: 100%;
+            display: block;
+            border-bottom: none;
+            transition: background-color .18s;
+        }
+
+        .sidebar-theme-btn:last-child,
+        .sidebar-fps-btn:last-child {
             border-bottom: 1px solid var(--border);
         }
 
-        .sidebar-theme-btn:hover {
+        .sidebar-theme-btn:hover,
+        .sidebar-fps-btn:hover {
             background: var(--border);
         }
 
-        .sidebar-theme-btn.active {
+        .sidebar-theme-btn.active,
+        .sidebar-fps-btn.active {
             background: var(--text);
             color: var(--bg);
         }
@@ -2023,6 +2042,14 @@
                 <div class="sidebar-section-label">image</div>
                 <div class="sidebar-file-name" id="sidebar-file-name">no file</div>
                 <button class="sidebar-row-btn" id="sidebar-download-btn">download frame</button>
+                <div class="sidebar-section-label">fps</div>
+                <div class="sidebar-fps-list" id="sidebar-fps-list">
+                    <button class="sidebar-fps-btn" data-fps="2">2</button>
+                    <button class="sidebar-fps-btn" data-fps="6">6</button>
+                    <button class="sidebar-fps-btn" data-fps="12">12</button>
+                    <button class="sidebar-fps-btn" data-fps="24">24</button>
+                    <button class="sidebar-fps-btn" data-fps="30">30</button>
+                </div>
             </div>
             <!-- RUN section: connect + theme -->
             <div class="sidebar-run-section">
@@ -2264,6 +2291,27 @@
                     const v = parseInt(els.fpsBtn.dataset.fps || '12', 10);
                     if (Number.isFinite(v)) state.fps = v;
                 }
+                updateSidebarFpsActive(state.fps);
+            }
+
+            function updateSidebarFpsActive(next) {
+                document.querySelectorAll('.sidebar-fps-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.fps === String(next));
+                });
+            }
+
+            function setFps(next) {
+                if (!Number.isFinite(next)) return;
+                state.fps = next;
+                if (els.fpsLabel) els.fpsLabel.textContent = String(next);
+                if (els.fpsBtn) els.fpsBtn.dataset.fps = String(next);
+                if (els.fpsMenu) {
+                    els.fpsMenu.querySelectorAll('.file-dropdown-item').forEach(opt => {
+                        opt.classList.toggle('active', opt.dataset.fps === String(next));
+                    });
+                }
+                updateSidebarFpsActive(next);
+                if (state.isPlaying) { stopPlay(); startPlay(); }
             }
 
             function formatCounter(current, total) {
@@ -2591,15 +2639,16 @@
                         e.stopPropagation();
                         const next = parseInt(item.dataset.fps, 10);
                         if (!Number.isFinite(next)) return;
-                        state.fps = next;
-                        els.fpsLabel.textContent = String(next);
-                        els.fpsBtn.dataset.fps = String(next);
-                        els.fpsMenu.querySelectorAll('.file-dropdown-item').forEach(opt => {
-                            opt.classList.toggle('active', opt.dataset.fps === String(next));
-                        });
+                        setFps(next);
                         els.fpsBtn.classList.remove('open');
                         els.fpsMenu.classList.remove('open');
-                        if (state.isPlaying) { stopPlay(); startPlay(); }
+                    });
+                });
+                document.querySelectorAll('.sidebar-fps-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const next = parseInt(btn.dataset.fps, 10);
+                        if (!Number.isFinite(next)) return;
+                        setFps(next);
                     });
                 });
                 els.prevBtn.addEventListener('click', () => { stopPlay(); showFrame(state.idx - 1); });
