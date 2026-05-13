@@ -328,9 +328,16 @@
             opacity: .65;
         }
 
-        .brand-sep {
-            opacity: .35;
-            font-weight: normal;
+        /* Smooth label animation for mode switch */
+        #brandMode {
+            display: inline-block;
+            transition: transform .22s ease, opacity .18s ease;
+            will-change: transform, opacity;
+        }
+
+        .brand-mode-fade {
+            opacity: 0;
+            transform: translateY(-6px);
         }
 
         /* ── Shared dropdown wrapper ── */
@@ -1833,9 +1840,7 @@
     <header>
         <div class="header-left">
             <div class="brand" id="brandToggle" title="Click to switch mode">
-                <span id="brandFrames">FRAMES</span>
-                <span class="brand-sep">//</span>
-                <span id="brandRun">RUN</span>
+                <span id="brandMode">RUN</span>
             </div>
             <div class="folder-dropdown-wrap" id="folderWrap">
                 <button class="folder-btn" id="folderBtn"><span id="folderName">loading...</span></button>
@@ -2034,11 +2039,22 @@
         (function () {
             const body = document.body;
             const brandToggle = document.getElementById('brandToggle');
+            const brandMode = document.getElementById('brandMode');
             let currentMode = 'run';
             let framesBooted = false;
 
+            if (brandMode) brandMode.textContent = 'RUN';
+
             brandToggle.addEventListener('click', () => {
                 currentMode = currentMode === 'frames' ? 'run' : 'frames';
+                // animate label: fade up, swap text, fade back
+                if (brandMode) {
+                    brandMode.classList.add('brand-mode-fade');
+                    setTimeout(() => {
+                        brandMode.textContent = currentMode === 'frames' ? 'FRAMES' : 'RUN';
+                        brandMode.classList.remove('brand-mode-fade');
+                    }, 140);
+                }
                 body.classList.remove('view-frames', 'view-run');
                 body.classList.add('view-' + currentMode);
 
