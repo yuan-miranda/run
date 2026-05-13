@@ -22,6 +22,7 @@
             color: inherit;
         }
 
+        /* ── Base (light fallback) ── */
         :root {
             --bg: #f5f5f5;
             --surface: #ffffff;
@@ -31,13 +32,14 @@
             --muted: #111;
         }
 
+        /* ── Themes ── */
         html[data-theme="night"] {
-            --bg: #0e0e0e;
-            --surface: #161616;
-            --border: #2a2a2a;
+            --bg: #000;
+            --surface: #0a0a0a;
+            --border: #333;
             --border-heavy: #555;
-            --text: #f0f0f0;
-            --muted: #f0f0f0;
+            --text: #fff;
+            --muted: #fff;
             --run-bg: #000;
             --run-panel: #0a0a0a;
             --run-surface: #080808;
@@ -45,7 +47,7 @@
             --run-elevated: #111;
             --run-elevated-strong: #1a1a1a;
             --run-hover: #222;
-            --run-overlay: rgba(0, 0, 0, 0.9);
+            --run-overlay: rgba(0, 0, 0, .9);
             --run-border-subtle: #333;
             --run-border-strong: #444;
             --run-border-quiet: #2a2a2a;
@@ -137,6 +139,9 @@
             --run-status-green: #f6f8ff;
             --run-status-yellow: #c6d0e8;
             --run-status-red: #4e5d7f;
+            --run-conflict-fill: rgba(156, 94, 94, .24);
+            --run-conflict-border: #b97a7a;
+            --run-conflict-inset: rgba(185, 122, 122, .85);
             --run-shadow-outline: 0 0 0 1px #000;
             --run-shadow-lg: 0 20px 50px rgba(0, 0, 0, .78);
             --run-shadow-glow: 0 0 10px rgba(246, 248, 255, .95);
@@ -173,6 +178,9 @@
             --run-status-green: #f2fff6;
             --run-status-yellow: #d2e7d9;
             --run-status-red: #4f6a5a;
+            --run-conflict-fill: rgba(156, 94, 94, .24);
+            --run-conflict-border: #b97a7a;
+            --run-conflict-inset: rgba(185, 122, 122, .85);
             --run-shadow-outline: 0 0 0 1px #000;
             --run-shadow-lg: 0 20px 50px rgba(0, 0, 0, .78);
             --run-shadow-glow: 0 0 10px rgba(242, 255, 246, .95);
@@ -209,6 +217,9 @@
             --run-status-green: #fff6f2;
             --run-status-yellow: #f0c9b9;
             --run-status-red: #765045;
+            --run-conflict-fill: rgba(156, 94, 94, .24);
+            --run-conflict-border: #b97a7a;
+            --run-conflict-inset: rgba(185, 122, 122, .85);
             --run-shadow-outline: 0 0 0 1px #000;
             --run-shadow-lg: 0 20px 50px rgba(0, 0, 0, .78);
             --run-shadow-glow: 0 0 10px rgba(255, 246, 242, .95);
@@ -245,6 +256,9 @@
             --run-status-green: #152033;
             --run-status-yellow: #425f8e;
             --run-status-red: #7d90ab;
+            --run-conflict-fill: rgba(156, 94, 94, .24);
+            --run-conflict-border: #b97a7a;
+            --run-conflict-inset: rgba(185, 122, 122, .85);
             --run-shadow-outline: 0 0 0 1px rgba(128, 150, 182, .3);
             --run-shadow-lg: 0 20px 50px rgba(34, 52, 78, .16);
             --run-shadow-glow: 0 0 10px rgba(90, 118, 160, .45);
@@ -253,11 +267,11 @@
             --run-offline-stripe: repeating-linear-gradient(135deg, rgba(21, 32, 51, .08) 0, rgba(21, 32, 51, .08) 5px, transparent 5px, transparent 14px);
         }
 
+        /* ── Layout ── */
         body {
             font-family: 'Space Grotesk', sans-serif;
             background: var(--bg);
             color: var(--text);
-            height: 100vh;
             height: 100dvh;
             min-height: 100dvh;
             overflow: hidden;
@@ -266,7 +280,7 @@
             user-select: none;
             -webkit-user-select: none;
             -webkit-touch-callout: none;
-            transition: background-color 0.24s ease, color 0.24s ease;
+            transition: background-color .24s ease, color .24s ease;
         }
 
         header {
@@ -291,14 +305,14 @@
         .header-right {
             display: flex;
             align-items: stretch;
-            gap: 0;
             flex-shrink: 0;
         }
 
+        /* ── Brand ── */
         .brand {
             font-size: 13px;
             font-weight: bold;
-            letter-spacing: 0.1em;
+            letter-spacing: .1em;
             text-transform: uppercase;
             padding: 0 16px 0 0;
             display: inline-flex;
@@ -319,105 +333,40 @@
             font-weight: normal;
         }
 
-        .folder-dropdown-wrap {
+        /* ── Shared dropdown wrapper ── */
+        .folder-dropdown-wrap,
+        .file-dropdown-wrap,
+        .run-connect-wrap {
             position: relative;
             display: flex;
             align-items: stretch;
-            border-right: 1px solid var(--border);
             overflow: visible;
+        }
+
+        .folder-dropdown-wrap {
+            border-right: 1px solid var(--border);
             z-index: 50;
         }
 
-        .folder-btn {
-            font-family: 'Space Grotesk', sans-serif;
-            font-size: 13px;
-            background: none;
-            border: none;
-            color: var(--text);
-            padding: 0 14px;
-            cursor: pointer;
-            letter-spacing: .05em;
-            display: flex;
-            align-items: center;
-            border-radius: 0;
-            width: auto;
-            height: auto;
-            white-space: nowrap;
-        }
-
-        .folder-measure {
-            position: absolute;
-            left: -9999px;
-            top: -9999px;
-            visibility: hidden;
-            pointer-events: none;
-            white-space: nowrap;
-        }
-
-        .folder-btn:hover {
-            background: var(--border);
-        }
-
-        .dropdown-menu {
-            display: none;
-            position: absolute;
-            top: 100%;
-            left: -1px;
-            right: -1px;
-            background: var(--surface);
-            border: 1px solid var(--border-heavy);
-            border-top: none;
-            z-index: 1000;
-            max-height: 280px;
-            overflow-y: auto;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, .1);
-        }
-
-        .dropdown-menu.open {
-            display: block;
-        }
-
-        .dropdown-item {
-            font-family: 'Space Grotesk', sans-serif;
-            font-size: 13px;
-            padding: 8px 14px;
-            cursor: pointer;
-            letter-spacing: .04em;
-            color: var(--text);
-            border-bottom: 1px solid var(--border);
-            display: block;
-            white-space: nowrap;
-        }
-
-        .dropdown-item:last-child {
-            border-bottom: none;
-        }
-
-        .dropdown-item:hover {
-            background: var(--border);
-        }
-
-        .dropdown-item.active {
-            background: var(--text);
-            color: var(--bg);
-        }
-
         .file-dropdown-wrap {
-            position: relative;
-            display: flex;
-            align-items: stretch;
             border-left: 1px solid var(--border);
-            overflow: visible;
             z-index: 40;
         }
 
+        .run-connect-wrap {
+            border-right: 1px solid var(--border);
+            z-index: 50;
+            display: none;
+        }
+
+        /* ── Shared button base for header ── */
+        .folder-btn,
         .file-btn {
-            font-family: 'Space Grotesk', sans-serif;
+            font-family: inherit;
             font-size: 13px;
             background: none;
             border: none;
             color: var(--text);
-            padding: 0 14px;
             cursor: pointer;
             letter-spacing: .05em;
             display: flex;
@@ -426,14 +375,36 @@
             white-space: nowrap;
         }
 
+        .folder-btn {
+            padding: 0 14px;
+        }
+
+        .file-btn {
+            padding: 0 14px;
+        }
+
+        .folder-btn:hover,
         .file-btn:hover {
             background: var(--border);
+        }
+
+        .folder-btn:disabled,
+        .file-btn:disabled {
+            opacity: .45;
+            cursor: not-allowed;
+        }
+
+        .folder-btn:disabled:hover,
+        .file-btn:disabled:hover {
+            background: none;
         }
 
         #fpsWrap .file-btn:hover {
             background: none;
         }
 
+        /* ── Dropdown menus ── */
+        .dropdown-menu,
         .file-dropdown-menu {
             display: none;
             position: absolute;
@@ -447,6 +418,12 @@
             box-shadow: 0 2px 8px rgba(0, 0, 0, .1);
         }
 
+        .dropdown-menu {
+            max-height: 280px;
+            overflow-y: auto;
+        }
+
+        .dropdown-menu.open,
         .file-dropdown-menu.open {
             display: block;
         }
@@ -458,8 +435,9 @@
             border-bottom: none;
         }
 
+        .dropdown-item,
         .file-dropdown-item {
-            font-family: 'Space Grotesk', sans-serif;
+            font-family: inherit;
             font-size: 13px;
             padding: 8px 14px;
             cursor: pointer;
@@ -470,19 +448,33 @@
             white-space: nowrap;
         }
 
+        .dropdown-item:last-child,
         .file-dropdown-item:last-child {
             border-bottom: none;
         }
 
+        .dropdown-item:hover,
         .file-dropdown-item:hover {
             background: var(--border);
         }
 
+        .dropdown-item.active,
         .file-dropdown-item.active {
             background: var(--text);
             color: var(--bg);
         }
 
+        /* ── Folder measure (invisible sizing helper) ── */
+        .folder-measure {
+            position: absolute;
+            left: -9999px;
+            top: -9999px;
+            visibility: hidden;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        /* ── Frames view ── */
         #view-frames {
             display: flex;
             flex-direction: column;
@@ -575,6 +567,7 @@
             transition: width .1s linear;
         }
 
+        /* ── Controls row (frames) ── */
         .controls-row {
             border-bottom: 1px solid var(--border);
             padding: 0 24px;
@@ -586,7 +579,7 @@
         }
 
         .btn {
-            font-family: 'Space Grotesk', sans-serif;
+            font-family: inherit;
             font-size: 13px;
             background: none;
             border: 1px solid var(--border-heavy);
@@ -712,7 +705,7 @@
         }
 
         .speed-select {
-            font-family: 'Space Grotesk', sans-serif;
+            font-family: inherit;
             font-size: 13px;
             background: none;
             border: none;
@@ -737,10 +730,16 @@
             padding: 0 10px;
         }
 
+        /* ── Loading/dim states ── */
         body.is-loading header .header-left> :not(.brand),
-        body.is-loading header .header-right {
+        body.is-loading header .header-right,
+        body.is-loading .controls-row {
             pointer-events: none;
             opacity: .4;
+        }
+
+        body.is-loading .speed-wrap {
+            opacity: .45;
         }
 
         body.view-frames.frames-dim header .header-left> :not(.brand),
@@ -753,26 +752,7 @@
             opacity: .4;
         }
 
-        body.is-loading .controls-row {
-            pointer-events: none;
-            opacity: .4;
-        }
-
-        body.is-loading .speed-wrap {
-            opacity: .45;
-        }
-
-        .folder-btn:disabled,
-        .file-btn:disabled {
-            opacity: .45;
-            cursor: not-allowed;
-        }
-
-        .folder-btn:disabled:hover,
-        .file-btn:disabled:hover {
-            background: none;
-        }
-
+        /* ── Run view ── */
         #view-run {
             display: none;
             flex: 1;
@@ -809,6 +789,7 @@
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
         }
 
+        /* ── User cards ── */
         .user-card {
             background: var(--run-panel, var(--surface));
             border: 1px solid var(--run-border-subtle, var(--border));
@@ -851,13 +832,13 @@
             background: var(--run-surface, var(--surface));
         }
 
-        .user-card.offline .card-header,
-        .user-card.offline .card-actions {
+        .user-card.offline .card-header {
             position: relative;
             z-index: 1;
         }
 
         .user-card.offline .card-actions {
+            position: relative;
             z-index: 2;
         }
 
@@ -897,12 +878,7 @@
             position: absolute;
         }
 
-        .user-card.selected {
-            background: var(--run-elevated, var(--surface));
-            border-color: var(--run-border-hover, var(--border-heavy));
-            transform: translateY(-2px);
-        }
-
+        .user-card.selected,
         body:not(.kb-mode) .user-card:hover {
             background: var(--run-elevated, var(--surface));
             border-color: var(--run-border-hover, var(--border-heavy));
@@ -970,12 +946,7 @@
             color: var(--run-text, var(--text)) !important;
         }
 
-        body:not(.kb-mode) .card-btn:hover {
-            background: var(--run-hover, var(--border));
-            border-color: var(--run-text, var(--text));
-            color: var(--run-text, var(--text));
-        }
-
+        body:not(.kb-mode) .card-btn:hover,
         body:not(.kb-mode) .card-btn.primary:hover {
             background: var(--run-hover, var(--border)) !important;
             border-color: var(--run-text, var(--text)) !important;
@@ -988,6 +959,7 @@
             color: var(--run-text, var(--text));
         }
 
+        /* ── Hint badges ── */
         .btn-hint {
             background: var(--run-hint-bg, #333);
             border-radius: 2px;
@@ -1006,6 +978,7 @@
             top: 3px;
         }
 
+        /* ── Status rings ── */
         .status-ring {
             border-radius: 50%;
             flex-shrink: 0;
@@ -1026,6 +999,7 @@
             background: var(--run-status-red, var(--border-heavy));
         }
 
+        /* ── Empty state ── */
         .empty {
             font-size: 13px;
             color: var(--run-text-dim, var(--muted));
@@ -1040,6 +1014,7 @@
             justify-content: center;
         }
 
+        /* ── Popup ── */
         .popup-overlay {
             backdrop-filter: blur(8px);
             background: var(--run-overlay, rgba(0, 0, 0, .9));
@@ -1063,74 +1038,59 @@
         .popup-box {
             background: var(--run-panel, var(--surface));
             border: 1px solid var(--run-border-strong, var(--border-heavy));
-            border-radius: 4px;
-            box-shadow: var(--run-shadow-outline, none), var(--run-shadow-lg, none);
-            flex-shrink: 0;
-            margin: auto;
-            max-width: 550px;
-            min-width: 300px;
-            opacity: 0;
+            margin-top: 60px;
+            max-width: 520px;
+            min-width: 320px;
             padding: 1.5rem;
-            position: relative;
-            transform: translateY(10px) scale(.985);
-            transition: transform 220ms cubic-bezier(.2, .8, .2, 1), opacity 220ms ease;
             width: 100%;
-        }
-
-        .popup-overlay.open .popup-box {
-            opacity: 1;
-            transform: translateY(0) scale(1);
+            box-shadow: var(--run-shadow-lg);
         }
 
         .popup-header {
-            align-items: center;
-            border-bottom: 1px solid var(--run-border-subtle, var(--border));
             display: flex;
-            justify-content: space-between;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
+            align-items: baseline;
+            gap: 12px;
+            margin-bottom: 16px;
         }
 
         .popup-title {
-            color: var(--run-text-soft, var(--muted));
             font-size: 11px;
-            letter-spacing: .15em;
+            font-weight: bold;
+            letter-spacing: .1em;
             text-transform: uppercase;
+            color: var(--run-text-dim, var(--muted));
         }
 
         .popup-target {
-            color: var(--run-text, var(--text));
-            font-size: 16px;
+            font-size: 15px;
             font-weight: bold;
+            color: var(--run-text, var(--text));
         }
 
         .popup-footer {
-            align-items: center;
-            border-top: 1px solid var(--run-border-subtle, var(--border));
-            display: flex;
-            justify-content: flex-end;
-            padding-top: 20px;
+            padding-top: 12px;
         }
 
         .popup-actions {
             display: flex;
-            gap: 10px;
+            gap: 8px;
         }
 
         .popup-btn {
-            align-items: center;
-            background: var(--run-elevated, var(--surface));
-            border: 1px solid var(--run-border-strong, var(--border-heavy));
-            border-radius: 2px;
-            color: var(--run-text, var(--text));
-            cursor: pointer;
-            display: flex;
             font-family: inherit;
-            font-size: 12px;
-            font-weight: bold;
-            gap: 8px;
+            font-size: 13px;
+            background: none;
+            border: 1px solid var(--run-border-strong, var(--border-heavy));
+            color: var(--run-text, var(--text));
             padding: 8px 16px;
-            transition: background-color 160ms, border-color 160ms, color 160ms, transform 160ms cubic-bezier(.2, .8, .2, 1);
+            cursor: pointer;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+            border-radius: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: background-color 160ms, border-color 160ms, color 160ms;
         }
 
         .popup-btn.confirm {
@@ -1170,6 +1130,7 @@
             border-color: var(--run-text-dim, var(--muted));
         }
 
+        /* ── Option buttons ── */
         .opt-btn {
             background: var(--run-elevated, var(--surface));
             border: 1px solid var(--run-border-subtle, var(--border));
@@ -1181,7 +1142,8 @@
             font-weight: bold;
             padding: 8px;
             text-transform: uppercase;
-            transition: background-color 260ms, border-color 260ms, color 260ms, box-shadow 260ms, transform 160ms cubic-bezier(.2, .8, .2, 1);
+            transition: background-color 260ms, border-color 260ms, color 260ms, box-shadow 260ms,
+                transform 160ms cubic-bezier(.2, .8, .2, 1);
         }
 
         .opt-btn.active {
@@ -1224,6 +1186,7 @@
             margin: 0 -4px;
         }
 
+        /* ── Collapsible sections ── */
         .collapsible-section {
             border: 1px solid var(--run-border-subtle, var(--border));
             margin-bottom: 15px;
@@ -1289,6 +1252,7 @@
             padding: 12px;
         }
 
+        /* ── SPK controls ── */
         .spk-row {
             display: grid;
             gap: 8px;
@@ -1337,6 +1301,7 @@
             margin: 0;
         }
 
+        /* ── Textarea + tab hints ── */
         .textarea-wrap {
             margin-bottom: 15px;
             position: relative;
@@ -1373,6 +1338,7 @@
             pointer-events: auto;
         }
 
+        /* ── View switching ── */
         body.view-frames #view-frames {
             display: flex;
         }
@@ -1389,10 +1355,7 @@
             display: flex;
         }
 
-        body.view-frames .run-connect-wrap {
-            display: none !important;
-        }
-
+        body.view-frames .run-connect-wrap,
         body.view-frames .run-theme-wrap {
             display: none !important;
         }
@@ -1422,10 +1385,7 @@
             display: none;
         }
 
-        body.view-run .run-connect-wrap {
-            display: flex !important;
-        }
-
+        body.view-run .run-connect-wrap,
         body.view-run .run-theme-wrap {
             display: flex !important;
         }
@@ -1438,19 +1398,11 @@
             display: none;
         }
 
-        .run-connect-wrap {
-            position: relative;
-            display: none;
-            align-items: stretch;
-            border-right: 1px solid var(--border);
-            overflow: visible;
-            z-index: 50;
-        }
-
         .run-connect-wrap .folder-btn.connected {
             color: var(--run-status-yellow, #bdbdbd);
         }
 
+        /* ── Hamburger / Sidebar ── */
         .hamburger-btn {
             display: none;
             font-size: 18px;
@@ -1512,7 +1464,7 @@
         }
 
         .sidebar-title {
-            font-family: 'Space Grotesk', sans-serif;
+            font-family: inherit;
             font-size: 13px;
             font-weight: bold;
             letter-spacing: .1em;
@@ -1568,7 +1520,7 @@
         }
 
         .sidebar-section-label {
-            font-family: 'Space Grotesk', sans-serif;
+            font-family: inherit;
             font-size: 10px;
             letter-spacing: .12em;
             text-transform: uppercase;
@@ -1582,58 +1534,33 @@
             margin-top: 0;
         }
 
-        .sidebar-row-btn {
-            font-family: 'Space Grotesk', sans-serif;
-            font-size: 13px;
-            background: none;
-            border: 1px solid var(--border-heavy);
-            color: var(--text);
-            padding: 9px 14px;
-            cursor: pointer;
-            letter-spacing: .05em;
-            text-align: left;
-            width: 100%;
-            transition: background-color .18s;
-        }
-
-        .sidebar-row-btn:hover {
-            background: var(--border);
-        }
-
-        .sidebar-row-btn.connected {
-            color: var(--run-status-yellow, #bdbdbd);
-        }
-
-        .sidebar-theme-btn {
-            font-family: 'Space Grotesk', sans-serif;
-            font-size: 13px;
-            background: none;
-            border: 1px solid var(--border);
-            color: var(--text);
-            padding: 8px 14px;
-            cursor: pointer;
-            letter-spacing: .04em;
-            text-align: left;
-            width: 100%;
-            display: block;
-            border-bottom: none;
-            transition: background-color .18s;
-        }
-
+        /* ── Shared sidebar button base ── */
+        .sidebar-row-btn,
+        .sidebar-theme-btn,
         .sidebar-fps-btn {
-            font-family: 'Space Grotesk', sans-serif;
+            font-family: inherit;
             font-size: 13px;
             background: none;
-            border: 1px solid var(--border);
             color: var(--text);
-            padding: 8px 14px;
             cursor: pointer;
             letter-spacing: .04em;
             text-align: left;
             width: 100%;
+            transition: background-color .18s;
+        }
+
+        .sidebar-row-btn {
+            border: 1px solid var(--border-heavy);
+            padding: 9px 14px;
+            letter-spacing: .05em;
+        }
+
+        .sidebar-theme-btn,
+        .sidebar-fps-btn {
+            border: 1px solid var(--border);
+            padding: 8px 14px;
             display: block;
             border-bottom: none;
-            transition: background-color .18s;
         }
 
         .sidebar-theme-btn:last-child,
@@ -1641,9 +1568,14 @@
             border-bottom: 1px solid var(--border);
         }
 
+        .sidebar-row-btn:hover,
         .sidebar-theme-btn:hover,
         .sidebar-fps-btn:hover {
             background: var(--border);
+        }
+
+        .sidebar-row-btn.connected {
+            color: var(--run-status-yellow, #bdbdbd);
         }
 
         .sidebar-theme-btn.active,
@@ -1652,35 +1584,10 @@
             color: var(--bg);
         }
 
+        /* ── Responsive ── */
         @media (max-width: 600px) {
-            .hamburger-btn {
-                display: flex;
-            }
-            body.view-run .run-connect-wrap {
-                display: none !important;
-            }
 
-            body.view-run .run-theme-wrap {
-                display: none !important;
-            }
-
-            body.view-frames .frames-header-right {
-                display: none !important;
-            }
-
-            body.view-run .frames-header-right {
-                display: none !important;
-            }
-
-            body.view-frames .folder-dropdown-wrap {
-                display: none !important;
-            }
-
-            #fpsWrap {
-                display: none;
-            }
-        }
-        @media (max-width: 600px) {
+            /* Header */
             header {
                 padding: 0 12px;
                 min-height: 40px;
@@ -1717,7 +1624,7 @@
 
             .file-btn::after {
                 content: 'FILE';
-                font-family: 'Space Grotesk', sans-serif;
+                font-family: inherit;
                 font-size: 11px;
                 letter-spacing: .05em;
             }
@@ -1734,13 +1641,24 @@
                 overflow: visible;
             }
 
-            #fileName {
-                flex: 0 1 100px !important;
-                min-width: 0;
+            /* Visibility toggles */
+            .hamburger-btn {
+                display: flex;
             }
-        }
 
-        @media (max-width: 600px) {
+            body.view-run .run-connect-wrap,
+            body.view-run .run-theme-wrap,
+            body.view-frames .frames-header-right,
+            body.view-run .frames-header-right,
+            body.view-frames .folder-dropdown-wrap {
+                display: none !important;
+            }
+
+            #fpsWrap {
+                display: none;
+            }
+
+            /* Controls row */
             .controls-row {
                 padding: 0 10px;
                 padding-bottom: max(8px, env(safe-area-inset-bottom));
@@ -1780,15 +1698,14 @@
                 flex-shrink: 0;
             }
 
-            .speed-label {
+            .speed-label,
+            .speed-select {
                 font-size: 11px;
             }
 
             .speed-select {
-                font-size: 11px;
                 width: 36px;
             }
-
 
             .counter {
                 font-size: 11px;
@@ -1798,8 +1715,8 @@
             .zoom-hint {
                 display: none;
             }
-        }
-        @media (max-width: 600px) {
+
+            /* Run grid / cards */
             .run-panel {
                 padding: 0.75rem;
             }
@@ -1848,6 +1765,8 @@
             .btn-hint {
                 display: none;
             }
+
+            /* Popup */
             .popup-overlay {
                 align-items: flex-end;
                 padding: 0;
@@ -1944,9 +1863,7 @@
                 <span id="brandRun">RUN</span>
             </div>
             <div class="folder-dropdown-wrap" id="folderWrap">
-                <button class="folder-btn" id="folderBtn">
-                    <span id="folderName">loading...</span>
-                </button>
+                <button class="folder-btn" id="folderBtn"><span id="folderName">loading...</span></button>
                 <div class="dropdown-menu" id="dropdownMenu"></div>
             </div>
             <div class="run-connect-wrap" id="runConnectWrap">
@@ -1965,9 +1882,7 @@
                 </div>
             </div>
             <div class="run-theme-wrap file-dropdown-wrap" id="runThemeWrap">
-                <button class="file-btn" id="run-theme-btn">
-                    <span id="run-theme-label">night</span>
-                </button>
+                <button class="file-btn" id="run-theme-btn"><span id="run-theme-label">night</span></button>
                 <div class="file-dropdown-menu" id="runThemeMenu">
                     <div class="file-dropdown-item" id="run-theme-random-option" data-theme-val="random">Random</div>
                     <div class="file-dropdown-item" data-theme-val="night">Night</div>
@@ -2040,9 +1955,7 @@
             <button class="btn" id="nextBtn">next &gt;</button>
             <div class="speed-wrap" id="fpsWrap">
                 <span class="speed-label">fps</span>
-                <button class="file-btn" id="fpsBtn" data-fps="12">
-                    <span id="fpsLabel">12</span>
-                </button>
+                <button class="file-btn" id="fpsBtn" data-fps="12"><span id="fpsLabel">12</span></button>
                 <div class="file-dropdown-menu" id="fpsMenu">
                     <div class="file-dropdown-item" data-fps="2">2</div>
                     <div class="file-dropdown-item" data-fps="6">6</div>
@@ -2073,10 +1986,12 @@
             <div class="textarea-wrap" id="textarea-wrap">
                 <textarea class="popup-input" id="popup-input" rows="6"></textarea>
                 <span class="tab-hint" id="tab-hint">
-                    <button type="button" class="tab-hint-row" id="tab-autofill-hint"><span class="btn-hint">TAB</span>
-                        autofill</button>
-                    <button type="button" class="tab-hint-row" id="tab-unfocus-hint"><span
-                            class="btn-hint">SHIFT+TAB</span> unfocus</button>
+                    <button type="button" class="tab-hint-row" id="tab-autofill-hint">
+                        <span class="btn-hint">TAB</span> autofill
+                    </button>
+                    <button type="button" class="tab-hint-row" id="tab-unfocus-hint">
+                        <span class="btn-hint">SHIFT+TAB</span> unfocus
+                    </button>
                 </span>
             </div>
             <input type="file" id="file-upload" accept=".bat,.cmd,.ps1,.txt" style="display:none;">
@@ -2097,13 +2012,17 @@
                 </summary>
                 <div class="collapsible-body spk-controls-body">
                     <div class="spk-row">
-                        <div class="spk-row-head"><label for="spk-volume">Volume</label><span class="spk-value"
-                                id="spk-volume-value">100</span></div>
+                        <div class="spk-row-head">
+                            <label for="spk-volume">Volume</label>
+                            <span class="spk-value" id="spk-volume-value">100</span>
+                        </div>
                         <input id="spk-volume" class="spk-slider" type="range" min="0" max="100" step="1" value="100">
                     </div>
                     <div class="spk-row">
-                        <div class="spk-row-head"><label for="spk-speed">Speed</label><span class="spk-value"
-                                id="spk-speed-value">0</span></div>
+                        <div class="spk-row-head">
+                            <label for="spk-speed">Speed</label>
+                            <span class="spk-value" id="spk-speed-value">0</span>
+                        </div>
                         <input id="spk-speed" class="spk-slider" type="range" min="-10" max="10" step="1" value="0">
                     </div>
                 </div>
@@ -2151,20 +2070,14 @@
                 if (currentMode === 'frames') {
                     if (!framesBooted) { FramesApp.init(); framesBooted = true; }
                     if (FramesApp.onShow) FramesApp.onShow();
-                    if (FramesApp.state && FramesApp.state.loading) {
-                        body.classList.add('is-loading');
-                    } else {
-                        body.classList.remove('is-loading');
-                    }
+                    body.classList.toggle('is-loading', !!(FramesApp.state && FramesApp.state.loading));
                 } else {
                     body.classList.remove('is-loading');
                 }
             });
 
-            window.__setFramesLoading = (on) => {
-                if (currentMode === 'frames') {
-                    body.classList.toggle('is-loading', on);
-                }
+            window.__setFramesLoading = on => {
+                if (currentMode === 'frames') body.classList.toggle('is-loading', on);
             };
             window.__getCurrentMode = () => currentMode;
         })();
@@ -2175,22 +2088,20 @@
             const user = "yuan-miranda", repo = "frames";
             const githubTokenKey = 'github_token';
             let githubToken = localStorage.getItem(githubTokenKey) || '';
-
             let isInitialized = false;
+
             const state = {
                 urls: [], imagesMeta: [], total: 0, idx: 0,
                 playInterval: null, isPlaying: false,
                 currentFolder: null, autoRefresh: null,
                 loading: true, viewInitialized: false, restoreView: null,
-                error: null,
-                fps: 12,
-                lastActivityAt: Date.now()
+                error: null, fps: 12, lastActivityAt: Date.now()
             };
-
             const els = {};
             const storageKey = 'framesViewerState';
             const $ = id => document.getElementById(id);
 
+            // ── Persistence ──
             function readSavedState() {
                 try { const r = localStorage.getItem(storageKey); return r ? JSON.parse(r) : { folder: null, frames: {}, views: {} }; }
                 catch { return { folder: null, frames: {}, views: {} }; }
@@ -2207,6 +2118,7 @@
                 writeSavedState(saved);
             }
 
+            // ── Loading state ──
             function setLoading(on) {
                 state.loading = !!on;
                 if (on) {
@@ -2221,72 +2133,73 @@
                 }
             }
 
+            // ── Element binding ──
             function bindElements() {
-                ['frames-status-msg', 'mainImage', 'controlsRow', 'sliderWrap', 'slider', 'counter',
-                    'fileName', 'progressWrap', 'progressBar', 'folderBtn', 'folderName', 'dropdownMenu',
-                    'playBtn', 'fpsWrap', 'fpsBtn', 'fpsMenu', 'fpsLabel', 'fileBtn', 'fileDropdownMenu', 'downloadItem', 'prevBtn', 'nextBtn']
-                    .forEach(k => els[k.replace(/-/g, '').replace('framesstatusmsg', 'statusmsg')] = $(k));
+                const ids = ['frames-status-msg', 'mainImage', 'controlsRow', 'sliderWrap', 'slider',
+                    'counter', 'fileName', 'progressWrap', 'progressBar', 'folderBtn', 'folderName',
+                    'dropdownMenu', 'playBtn', 'fpsWrap', 'fpsBtn', 'fpsMenu', 'fpsLabel',
+                    'fileBtn', 'fileDropdownMenu', 'downloadItem', 'prevBtn', 'nextBtn'];
+                ids.forEach(k => {
+                    const key = k.replace(/-/g, '');
+                    els[key] = $(k);
+                });
                 els.statusmsg = $('frames-status-msg');
-                if (els.fpsBtn) {
-                    const v = parseInt(els.fpsBtn.dataset.fps || '12', 10);
-                    if (Number.isFinite(v)) state.fps = v;
-                }
+                const fpsBtnFps = parseInt(els.fpsBtn?.dataset.fps || '12', 10);
+                if (Number.isFinite(fpsBtnFps)) state.fps = fpsBtnFps;
                 updateSidebarFpsActive(state.fps);
             }
 
+            // ── FPS ──
             function updateSidebarFpsActive(next) {
                 document.querySelectorAll('.sidebar-fps-btn').forEach(btn => {
                     btn.classList.toggle('active', btn.dataset.fps === String(next));
                 });
             }
-
             function setFps(next) {
                 if (!Number.isFinite(next)) return;
                 state.fps = next;
                 if (els.fpsLabel) els.fpsLabel.textContent = String(next);
                 if (els.fpsBtn) els.fpsBtn.dataset.fps = String(next);
-                if (els.fpsMenu) {
-                    els.fpsMenu.querySelectorAll('.file-dropdown-item').forEach(opt => {
-                        opt.classList.toggle('active', opt.dataset.fps === String(next));
-                    });
-                }
+                els.fpsMenu?.querySelectorAll('.file-dropdown-item').forEach(opt => {
+                    opt.classList.toggle('active', opt.dataset.fps === String(next));
+                });
                 updateSidebarFpsActive(next);
                 if (state.isPlaying) { stopPlay(); startPlay(); }
             }
 
+            // ── Control state sync ──
             function formatCounter(current, total) {
                 const d = Math.max(1, String(total).length);
                 return String(current).padStart(d, '0') + ' / ' + String(total).padStart(d, '0');
             }
-
             function syncControlStates() {
-                const hasFrames = state.total > 0;
-                const isReady = !state.loading && hasFrames && !state.error;
-                const enabled = isReady;
+                const isReady = !state.loading && state.total > 0 && !state.error;
                 document.body.classList.toggle('frames-dim', !isReady);
                 document.body.classList.toggle('frames-menu-disabled', !isReady);
                 window.__framesMenuDisabled = !isReady;
                 els.folderBtn.disabled = state.loading;
-                els.fileBtn.disabled = !enabled;
-                els.slider.disabled = !enabled;
-                els.fpsBtn.disabled = !enabled;
-                els.playBtn.disabled = !enabled;
-                els.prevBtn.disabled = !enabled || state.idx <= 0;
-                els.nextBtn.disabled = !enabled || state.idx >= state.total - 1;
+                els.fileBtn.disabled = !isReady;
+                els.slider.disabled = !isReady;
+                els.fpsBtn.disabled = !isReady;
+                els.playBtn.disabled = !isReady;
+                els.prevBtn.disabled = !isReady || state.idx <= 0;
+                els.nextBtn.disabled = !isReady || state.idx >= state.total - 1;
             }
 
+            // ── Frame display ──
             function extractNumber(name) { const m = name.match(/(\d+)/); return m ? parseInt(m[1]) : null; }
 
             function showFrame(i) {
                 i = Math.max(0, Math.min(state.total - 1, i));
                 state.idx = i;
-                const img = els.mainImage;
-                img.src = state.urls[i];
-                img.style.display = 'block';
+                els.mainImage.src = state.urls[i];
+                els.mainImage.style.display = 'block';
                 els.counter.textContent = formatCounter(i + 1, state.total);
-                els.fileName.textContent = state.imagesMeta[i] ? state.imagesMeta[i].name : '';
-                const sidebarFileName = document.getElementById('sidebar-file-name');
-                if (sidebarFileName) sidebarFileName.textContent = state.imagesMeta[i] ? state.imagesMeta[i].name : 'no file';
+                const meta = state.imagesMeta[i];
+                const name = meta ? meta.name : '';
+                els.fileName.textContent = name;
+                const sidebarFileName = $('sidebar-file-name');
+                if (sidebarFileName) sidebarFileName.textContent = name || 'no file';
                 els.slider.value = i;
                 syncControlStates();
                 if (state.currentFolder) {
@@ -2298,27 +2211,25 @@
                 }
                 if (!state.viewInitialized) {
                     const applyInitialView = () => {
-                        if (state.restoreView && Number.isFinite(state.restoreView.scale)) {
-                            view.scale = state.restoreView.scale;
-                            view.ox = state.restoreView.ox;
-                            view.oy = state.restoreView.oy;
+                        const rv = state.restoreView;
+                        if (rv && Number.isFinite(rv.scale)) {
+                            view.scale = rv.scale; view.ox = rv.ox; view.oy = rv.oy;
                             clampPan(); applyTransform();
                         } else { fitToArea(); }
                         state.restoreView = null; state.viewInitialized = true;
                     };
-                    if (img.complete && img.naturalWidth) applyInitialView();
-                    else img.onload = () => applyInitialView();
+                    if (els.mainImage.complete && els.mainImage.naturalWidth) applyInitialView();
+                    else els.mainImage.onload = applyInitialView;
                 }
             }
 
             function updateSidebarFolderActive(name) {
-                const list = document.getElementById('sidebar-folder-list');
-                if (!list) return;
-                Array.from(list.querySelectorAll('.sidebar-folder-btn')).forEach(btn => {
+                $('sidebar-folder-list')?.querySelectorAll('.sidebar-folder-btn').forEach(btn => {
                     btn.classList.toggle('active', btn.dataset.folderName === name);
                 });
             }
 
+            // ── Playback ──
             function stopPlay() {
                 clearInterval(state.playInterval); state.playInterval = null; state.isPlaying = false;
                 els.playBtn.textContent = 'FF play'; els.playBtn.classList.remove('active');
@@ -2328,31 +2239,31 @@
                 if (!state.total) return;
                 state.isPlaying = true; els.playBtn.textContent = 'FF stop'; els.playBtn.classList.add('active');
                 syncControlStates();
-                const ms = Math.round(1000 / (state.fps || 12));
                 state.playInterval = setInterval(() => {
                     state.idx = (state.idx + 1) % state.total;
                     els.mainImage.src = state.urls[state.idx];
                     els.counter.textContent = formatCounter(state.idx + 1, state.total);
-                    els.fileName.textContent = state.imagesMeta[state.idx] ? state.imagesMeta[state.idx].name : '';
+                    els.fileName.textContent = state.imagesMeta[state.idx]?.name || '';
                     els.slider.value = state.idx;
                     syncControlStates();
-                }, ms);
+                }, Math.round(1000 / (state.fps || 12)));
             }
 
+            // ── GitHub token ──
             function setGithubToken(token) {
                 githubToken = (token || '').trim();
                 if (githubToken) localStorage.setItem(githubTokenKey, githubToken);
                 else localStorage.removeItem(githubTokenKey);
             }
-
             function getGithubToken() { return githubToken; }
 
+            // ── Reset ──
             function resetFramesState({ clearToken = false } = {}) {
                 if (clearToken) setGithubToken('');
-                state.currentFolder = null;
-                state.urls = []; state.imagesMeta = []; state.total = 0; state.idx = 0;
-                state.viewInitialized = false; state.restoreView = null;
-                state.error = null;
+                Object.assign(state, {
+                    currentFolder: null, urls: [], imagesMeta: [], total: 0, idx: 0,
+                    viewInitialized: false, restoreView: null, error: null
+                });
                 if (!isInitialized) return;
                 if (els.mainImage) { els.mainImage.src = ''; els.mainImage.style.display = 'none'; }
                 if (els.controlsRow) els.controlsRow.style.display = 'none';
@@ -2360,8 +2271,8 @@
                 if (els.progressBar) els.progressBar.style.width = '0%';
                 if (els.counter) els.counter.textContent = '— / —';
                 if (els.fileName) els.fileName.textContent = '';
-                const sidebarFileName = document.getElementById('sidebar-file-name');
-                if (sidebarFileName) sidebarFileName.textContent = 'no file';
+                const sfn = $('sidebar-file-name');
+                if (sfn) sfn.textContent = 'no file';
                 if (els.dropdownMenu) els.dropdownMenu.innerHTML = '';
                 if (els.folderName) els.folderName.textContent = clearToken ? 'token required' : 'loading...';
                 if (els.statusmsg) {
@@ -2384,67 +2295,62 @@
                 return true;
             }
 
+            // ── GitHub API ──
             async function fetchWithAuth(url) {
-                // Requires a valid GitHub token; fail fast to avoid unauthenticated API calls.
                 if (!githubToken) throw new Error('missing github token');
                 return fetch(url, { headers: { Authorization: 'Bearer ' + githubToken } });
             }
             async function fetchGitTree() {
-                const res = await fetchWithAuth('https://api.github.com/repos/' + user + '/' + repo + '/git/trees/main?recursive=1');
+                const res = await fetchWithAuth(`https://api.github.com/repos/${user}/${repo}/git/trees/main?recursive=1`);
                 if (!res.ok) throw new Error('error ' + res.status);
                 return (await res.json()).tree || [];
             }
 
+            // ── Download ──
             async function downloadCurrentFrame() {
                 const url = state.urls[state.idx];
                 if (!url) return;
-                const name = state.imagesMeta[state.idx] ? state.imagesMeta[state.idx].name : 'frame.png';
+                const name = state.imagesMeta[state.idx]?.name || 'frame.png';
+                const a = document.createElement('a');
+                a.download = name;
                 try {
-                    // Fetch as blob to force a direct download instead of opening a new tab.
                     const res = await fetch(url, { mode: 'cors' });
                     if (!res.ok) throw new Error('download failed');
-                    const blob = await res.blob();
-                    const blobUrl = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
+                    const blobUrl = URL.createObjectURL(await res.blob());
                     a.href = blobUrl;
-                    a.download = name;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
                     URL.revokeObjectURL(blobUrl);
                 } catch {
-                    const a = document.createElement('a');
                     a.href = url;
-                    a.download = name;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
                 }
             }
+
+            // ── Preload ──
             function preloadImages(urls) {
                 return new Promise(resolve => {
-                    let loaded = 0, failed = 0;
+                    let done = 0;
                     const total = urls.length;
-                    function tick() {
-                        els.progressBar.style.width = Math.round(((loaded + failed) / total) * 100) + '%';
-                        els.statusmsg.textContent = 'loading ' + (loaded + failed) + ' / ' + total;
-                        if (loaded + failed < total) return;
-                        els.progressWrap.style.display = 'none'; els.statusmsg.style.display = 'none';
-                        resolve({ loaded, failed });
-                    }
+                    const tick = () => {
+                        els.progressBar.style.width = Math.round((done / total) * 100) + '%';
+                        els.statusmsg.textContent = `loading ${done} / ${total}`;
+                        if (done < total) return;
+                        els.progressWrap.style.display = 'none';
+                        els.statusmsg.style.display = 'none';
+                        resolve();
+                    };
                     urls.forEach(u => {
                         const img = new Image();
-                        img.onload = () => { loaded++; tick(); };
-                        img.onerror = () => { failed++; tick(); };
+                        img.onload = img.onerror = () => { done++; tick(); };
                         img.src = u;
                     });
                 });
             }
 
+            // ── Folder loading ──
             async function loadFolder(folder) {
                 stopPlay(); setLoading(true); syncControlStates();
-                state.error = null;
-                state.currentFolder = folder;
+                state.error = null; state.currentFolder = folder;
                 els.folderName.textContent = folder;
                 updateSidebarFolderActive(folder);
                 els.dropdownMenu.classList.remove('open'); els.folderBtn.classList.remove('open');
@@ -2453,8 +2359,7 @@
                 els.statusmsg.style.display = ''; els.statusmsg.textContent = 'loading...';
                 els.progressWrap.style.display = ''; els.progressBar.style.width = '0%';
                 els.fileName.textContent = ''; els.counter.textContent = '— / —';
-                state.urls = []; state.imagesMeta = []; state.total = 0; state.idx = 0;
-                state.viewInitialized = false; state.restoreView = null;
+                Object.assign(state, { urls: [], imagesMeta: [], total: 0, idx: 0, viewInitialized: false, restoreView: null });
                 syncControlStates();
                 try {
                     const tree = await fetchGitTree();
@@ -2474,58 +2379,52 @@
                         setLoading(false); return;
                     }
                     state.imagesMeta = images; state.total = images.length;
-                    const base = 'https://raw.githack.com/' + user + '/' + repo + '/main/' + folder;
-                    state.urls = images.map(img => base + '/' + encodeURIComponent(img.name) + (img.sha ? '?sha=' + img.sha : ''));
+                    const base = `https://raw.githack.com/${user}/${repo}/main/${folder}`;
+                    state.urls = images.map(img => `${base}/${encodeURIComponent(img.name)}${img.sha ? '?sha=' + img.sha : ''}`);
                     await preloadImages(state.urls);
                     els.slider.max = state.total - 1;
                     els.controlsRow.style.display = 'flex';
                     const saved = readSavedState();
-                    const savedIndex = saved.frames ? saved.frames[folder] : null;
-                    const startIndex = savedIndex !== null && savedIndex !== undefined
-                        ? Math.min(Math.max(savedIndex, 0), state.total - 1) : state.total - 1;
-                    state.restoreView = saved.views ? saved.views[folder] : null;
+                    const savedIdx = saved.frames?.[folder];
+                    const startIndex = savedIdx != null ? Math.min(Math.max(savedIdx, 0), state.total - 1) : state.total - 1;
+                    state.restoreView = saved.views?.[folder] || null;
                     showFrame(startIndex);
                 } catch (err) {
                     state.error = err.message || 'unknown error';
                     els.statusmsg.textContent = 'error: ' + err.message;
                     els.progressWrap.style.display = 'none';
-                } finally {
-                    setLoading(false); syncControlStates();
-                }
+                } finally { setLoading(false); syncControlStates(); }
             }
 
             async function initFolders() {
                 try {
-                    const res = await fetchWithAuth('https://api.github.com/repos/' + user + '/' + repo + '/contents/');
+                    const res = await fetchWithAuth(`https://api.github.com/repos/${user}/${repo}/contents/`);
                     if (!res.ok) throw new Error('error ' + res.status);
-                    const data = await res.json();
-                    const folders = data.filter(f => f.type === 'dir');
+                    const folders = (await res.json()).filter(f => f.type === 'dir');
                     els.dropdownMenu.innerHTML = '';
-                    const sidebarList = document.getElementById('sidebar-folder-list');
+                    const sidebarList = $('sidebar-folder-list');
                     if (sidebarList) sidebarList.innerHTML = '';
+
                     folders.forEach(f => {
                         const item = document.createElement('div');
-                        item.className = 'dropdown-item';
-                        item.textContent = f.name;
+                        item.className = 'dropdown-item'; item.textContent = f.name;
                         item.addEventListener('click', () => loadFolder(f.name));
                         els.dropdownMenu.appendChild(item);
 
                         if (sidebarList) {
                             const btn = document.createElement('button');
                             btn.className = 'sidebar-row-btn sidebar-folder-btn';
-                            btn.textContent = f.name;
-                            btn.dataset.folderName = f.name;
+                            btn.textContent = f.name; btn.dataset.folderName = f.name;
                             btn.addEventListener('click', () => {
                                 loadFolder(f.name);
-                                const sidebar = document.getElementById('sidebar');
-                                const overlay = document.getElementById('sidebarOverlay');
-                                if (sidebar) sidebar.classList.remove('open');
-                                if (overlay) overlay.classList.remove('open');
+                                $('sidebar')?.classList.remove('open');
+                                $('sidebarOverlay')?.classList.remove('open');
                             });
                             sidebarList.appendChild(btn);
                         }
                     });
-                    sizeFolderSelect(folders.map(f => f.name));
+
+                    sizeDropdownToContent(els.folderBtn, els.dropdownMenu, $('folderWrap'), folders.map(f => f.name), 'folder-btn');
                     const saved = readSavedState();
                     const def = folders.find(f => f.name === saved.folder)
                         || folders.find(f => f.name === 'carlo')
@@ -2539,116 +2438,107 @@
                     }
                 } catch (err) {
                     state.error = err.message || 'unknown error';
-                    els.folderName.textContent = 'error'; els.statusmsg.textContent = 'error: ' + err.message;
+                    els.folderName.textContent = 'error';
+                    els.statusmsg.textContent = 'error: ' + err.message;
                     syncControlStates();
                 }
             }
 
-            function sizeFolderSelect(names) {
-                if (!names || !names.length) return;
+            // ── Shared: measure text and size a dropdown ──
+            function sizeDropdownToContent(btn, menu, wrap, names, btnClass) {
+                if (!names?.length) return;
                 const meas = document.createElement('button');
-                meas.className = 'folder-btn folder-measure';
-                const nameSpan = document.createElement('span');
-                meas.append(nameSpan);
+                meas.className = `${btnClass} folder-measure`;
+                const span = document.createElement('span');
+                meas.append(span);
                 document.body.appendChild(meas);
                 let max = 0;
-                names.forEach(n => { nameSpan.textContent = n; max = Math.max(max, meas.getBoundingClientRect().width); });
+                names.forEach(n => { span.textContent = n; max = Math.max(max, meas.getBoundingClientRect().width); });
                 document.body.removeChild(meas);
-                const width = Math.ceil(max);
-                els.folderBtn.style.minWidth = width + 'px';
-                els.dropdownMenu.style.minWidth = width + 'px';
-                const wrap = document.getElementById('folderWrap');
-                if (wrap) wrap.style.minWidth = width + 'px';
+                const w = Math.ceil(max) + 'px';
+                if (btn) btn.style.minWidth = w;
+                if (menu) menu.style.minWidth = w;
+                if (wrap) wrap.style.minWidth = w;
             }
 
+            // ── Event listeners ──
             function setupListeners() {
                 els.playBtn.addEventListener('click', () => state.isPlaying ? stopPlay() : startPlay());
+
+                // FPS dropdown
                 const toggleFpsMenu = () => {
                     if (els.fpsBtn.disabled) return;
-                    els.fpsBtn.classList.toggle('open');
-                    els.fpsMenu.classList.toggle('open');
+                    els.fpsBtn.classList.toggle('open'); els.fpsMenu.classList.toggle('open');
                 };
-                els.fpsBtn.addEventListener('click', e => {
-                    e.stopPropagation();
-                    toggleFpsMenu();
-                });
-                els.fpsWrap.addEventListener('click', e => {
-                    if (e.target.closest('#fpsMenu')) return;
-                    toggleFpsMenu();
-                });
-                Array.from(els.fpsMenu.querySelectorAll('.file-dropdown-item')).forEach(item => {
+                els.fpsBtn.addEventListener('click', e => { e.stopPropagation(); toggleFpsMenu(); });
+                els.fpsWrap.addEventListener('click', e => { if (!e.target.closest('#fpsMenu')) toggleFpsMenu(); });
+                els.fpsMenu.querySelectorAll('.file-dropdown-item').forEach(item => {
                     item.addEventListener('click', e => {
                         e.stopPropagation();
                         const next = parseInt(item.dataset.fps, 10);
-                        if (!Number.isFinite(next)) return;
-                        setFps(next);
-                        els.fpsBtn.classList.remove('open');
-                        els.fpsMenu.classList.remove('open');
+                        if (Number.isFinite(next)) { setFps(next); els.fpsBtn.classList.remove('open'); els.fpsMenu.classList.remove('open'); }
                     });
                 });
                 document.querySelectorAll('.sidebar-fps-btn').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        const next = parseInt(btn.dataset.fps, 10);
-                        if (!Number.isFinite(next)) return;
-                        setFps(next);
-                    });
+                    btn.addEventListener('click', () => { const n = parseInt(btn.dataset.fps, 10); if (Number.isFinite(n)) setFps(n); });
                 });
+
                 els.prevBtn.addEventListener('click', () => { stopPlay(); showFrame(state.idx - 1); });
                 els.nextBtn.addEventListener('click', () => { stopPlay(); showFrame(state.idx + 1); });
                 els.slider.addEventListener('mousedown', () => { if (state.isPlaying) stopPlay(); });
                 els.slider.addEventListener('touchstart', () => { if (state.isPlaying) stopPlay(); });
                 els.slider.addEventListener('input', e => { state.idx = parseInt(e.target.value); showFrame(state.idx); });
+
                 els.sliderWrap.addEventListener('pointerdown', e => {
                     if (state.loading || !state.total || e.target === els.slider) return;
                     if (state.isPlaying) stopPlay();
-                    const setFromClientX = clientX => {
+                    const seek = clientX => {
                         const rect = els.sliderWrap.getBoundingClientRect();
                         const min = parseInt(els.slider.min || '0'), max = parseInt(els.slider.max || '0');
-                        const clamped = Math.min(Math.max(clientX - rect.left, 0), rect.width || 0);
-                        const ratio = rect.width ? clamped / rect.width : 0;
+                        const ratio = rect.width ? Math.min(Math.max(clientX - rect.left, 0), rect.width) / rect.width : 0;
                         showFrame(Math.round(min + ratio * (max - min)));
                     };
-                    setFromClientX(e.clientX);
-                    const onMove = ev => setFromClientX(ev.clientX);
+                    seek(e.clientX);
+                    const onMove = ev => seek(ev.clientX);
                     const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); };
                     window.addEventListener('pointermove', onMove);
                     window.addEventListener('pointerup', onUp);
                 });
+
                 window.addEventListener('keydown', ev => {
-                    if (window.__getCurrentMode() !== 'frames') return;
-                    if (state.loading || !state.total) return;
+                    if (window.__getCurrentMode() !== 'frames' || state.loading || !state.total) return;
                     if (ev.key === 'ArrowLeft') { stopPlay(); showFrame(state.idx - 1); ev.preventDefault(); }
                     else if (ev.key === 'ArrowRight') { stopPlay(); showFrame(state.idx + 1); ev.preventDefault(); }
                     else if (ev.key === ' ') { state.isPlaying ? stopPlay() : startPlay(); ev.preventDefault(); }
                     else if (ev.key === '0') { resetView(); }
                 });
+
                 els.folderBtn.addEventListener('click', () => { els.folderBtn.classList.toggle('open'); els.dropdownMenu.classList.toggle('open'); });
                 els.fileBtn.addEventListener('click', () => { els.fileBtn.classList.toggle('open'); els.fileDropdownMenu.classList.toggle('open'); });
                 els.downloadItem.addEventListener('click', async () => {
                     await downloadCurrentFrame();
                     els.fileBtn.classList.remove('open'); els.fileDropdownMenu.classList.remove('open');
                 });
+
+                // Close dropdowns on outside click
                 document.addEventListener('click', e => {
-                    if (!document.getElementById('folderWrap').contains(e.target)) { els.folderBtn.classList.remove('open'); els.dropdownMenu.classList.remove('open'); }
-                    if (!document.getElementById('fileWrap').contains(e.target)) { els.fileBtn.classList.remove('open'); els.fileDropdownMenu.classList.remove('open'); }
-                    if (!document.getElementById('fpsWrap')?.contains(e.target)) { els.fpsBtn.classList.remove('open'); els.fpsMenu.classList.remove('open'); }
+                    if (!$('folderWrap').contains(e.target)) { els.folderBtn.classList.remove('open'); els.dropdownMenu.classList.remove('open'); }
+                    if (!$('fileWrap').contains(e.target)) { els.fileBtn.classList.remove('open'); els.fileDropdownMenu.classList.remove('open'); }
+                    if (!$('fpsWrap')?.contains(e.target)) { els.fpsBtn.classList.remove('open'); els.fpsMenu.classList.remove('open'); }
                 });
+
                 setupPanZoom();
             }
 
+            // ── Pan / zoom ──
             const view = { scale: 1, ox: 0, oy: 0 };
             let drag = { active: false, startX: 0, startY: 0, startOx: 0, startOy: 0 };
-            let zoomHideTimer = null;
-            let touchMode = null;
-            let pinchStartDist = 0;
-            let pinchStartScale = 1;
+            let zoomHideTimer = null, touchMode = null, pinchStartDist = 0, pinchStartScale = 1;
 
             function applyTransform() {
-                const img = els.mainImage;
-                img.style.transform = `translate(${view.ox}px, ${view.oy}px) scale(${view.scale})`;
-                const pct = Math.round(view.scale * 100);
-                const zl = document.getElementById('zoomLevel');
-                zl.textContent = pct + '%'; zl.classList.add('visible');
+                els.mainImage.style.transform = `translate(${view.ox}px,${view.oy}px) scale(${view.scale})`;
+                const zl = $('zoomLevel');
+                zl.textContent = Math.round(view.scale * 100) + '%'; zl.classList.add('visible');
                 clearTimeout(zoomHideTimer);
                 zoomHideTimer = setTimeout(() => zl.classList.remove('visible'), 1200);
                 saveViewState();
@@ -2656,25 +2546,23 @@
             function fitToArea() {
                 const img = els.mainImage;
                 if (!img.naturalWidth) return;
-                const area = document.getElementById('imageArea');
-                const aw = area.clientWidth, ah = area.clientHeight;
-                const scale = Math.min(aw / img.naturalWidth, ah / img.naturalHeight, 1);
+                const area = $('imageArea');
+                const scale = Math.min(area.clientWidth / img.naturalWidth, area.clientHeight / img.naturalHeight, 1);
                 view.scale = scale;
-                view.ox = (aw - img.naturalWidth * scale) / 2;
-                view.oy = (ah - img.naturalHeight * scale) / 2;
+                view.ox = (area.clientWidth - img.naturalWidth * scale) / 2;
+                view.oy = (area.clientHeight - img.naturalHeight * scale) / 2;
                 applyTransform();
             }
             function resetView() { fitToArea(); }
             function clampPan() {
-                const img = els.mainImage;
-                const area = document.getElementById('imageArea');
+                const img = els.mainImage, area = $('imageArea');
                 const aw = area.clientWidth, ah = area.clientHeight;
                 const iw = img.naturalWidth * view.scale, ih = img.naturalHeight * view.scale;
-                if (iw <= aw) view.ox = (aw - iw) / 2; else view.ox = Math.min(0, Math.max(aw - iw, view.ox));
-                if (ih <= ah) view.oy = (ah - ih) / 2; else view.oy = Math.min(0, Math.max(ah - ih, view.oy));
+                view.ox = iw <= aw ? (aw - iw) / 2 : Math.min(0, Math.max(aw - iw, view.ox));
+                view.oy = ih <= ah ? (ah - ih) / 2 : Math.min(0, Math.max(ah - ih, view.oy));
             }
             function zoomAt(cx, cy, delta) {
-                const area = document.getElementById('imageArea');
+                const area = $('imageArea');
                 const rect = area.getBoundingClientRect();
                 const mx = cx - rect.left, my = cy - rect.top;
                 const factor = delta > 0 ? 1.12 : 1 / 1.12;
@@ -2686,7 +2574,7 @@
                 clampPan(); applyTransform();
             }
             function setupPanZoom() {
-                const area = document.getElementById('imageArea');
+                const area = $('imageArea');
                 area.addEventListener('wheel', e => {
                     if (state.loading || !state.total) return;
                     e.preventDefault(); zoomAt(e.clientX, e.clientY, -e.deltaY);
@@ -2705,8 +2593,7 @@
                         area.classList.add('dragging');
                     } else if (e.touches.length === 2) {
                         touchMode = 'pinch';
-                        const [t1, t2] = e.touches;
-                        pinchStartDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+                        pinchStartDist = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
                         pinchStartScale = view.scale;
                     }
                     e.preventDefault();
@@ -2723,8 +2610,7 @@
                         const t = e.touches[0];
                         view.ox = drag.startOx + (t.clientX - drag.startX);
                         view.oy = drag.startOy + (t.clientY - drag.startY);
-                        clampPan(); applyTransform();
-                        e.preventDefault();
+                        clampPan(); applyTransform(); e.preventDefault();
                     } else if (touchMode === 'pinch' && e.touches.length === 2) {
                         const [t1, t2] = e.touches;
                         const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
@@ -2736,19 +2622,15 @@
                         view.ox = cx - ratio * (cx - view.ox);
                         view.oy = cy - ratio * (cy - view.oy);
                         view.scale = nextScale;
-                        pinchStartDist = dist;
-                        pinchStartScale = nextScale;
-                        clampPan(); applyTransform();
-                        e.preventDefault();
+                        pinchStartDist = dist; pinchStartScale = nextScale;
+                        clampPan(); applyTransform(); e.preventDefault();
                     }
                 }, { passive: false });
+
+                const clearDrag = () => { drag.active = false; touchMode = null; area.classList.remove('dragging'); };
                 window.addEventListener('mouseup', () => { drag.active = false; area.classList.remove('dragging'); });
-                window.addEventListener('touchend', () => {
-                    drag.active = false; touchMode = null; area.classList.remove('dragging');
-                });
-                window.addEventListener('touchcancel', () => {
-                    drag.active = false; touchMode = null; area.classList.remove('dragging');
-                });
+                window.addEventListener('touchend', clearDrag);
+                window.addEventListener('touchcancel', clearDrag);
                 area.addEventListener('dblclick', resetView);
                 window.addEventListener('resize', () => { if (els.mainImage.style.display !== 'none') fitToArea(); });
             }
@@ -2762,13 +2644,11 @@
 
             function init() {
                 if (isInitialized) return;
-                bindElements();
-                setupListeners();
-                setupActivityMonitor();
-                syncControlStates();
+                bindElements(); setupListeners(); setupActivityMonitor(); syncControlStates();
                 isInitialized = true;
                 state.autoRefresh = setInterval(() => {
-                    if (state.currentFolder && Date.now() - state.lastActivityAt >= 10000) loadFolder(state.currentFolder);
+                    if (state.currentFolder && Date.now() - state.lastActivityAt >= 10000)
+                        loadFolder(state.currentFolder);
                 }, 60000);
             }
 
@@ -2783,7 +2663,7 @@
                 });
             }
 
-            return { init, loadFolder, state, setGithubToken, getGithubToken, initFoldersIfReady, onShow, resetFramesState, downloadCurrentFrame };
+            return { init, loadFolder, state, setGithubToken, getGithubToken, initFoldersIfReady, onShow, resetFramesState, downloadCurrentFrame, sizeDropdownToContent };
         })();
     </script>
 
@@ -2814,85 +2694,71 @@
             ];
             const $ = id => document.getElementById(id);
             const themeNames = ['night', 'graphite', 'midnight', 'forest', 'ember', 'polar'];
-            const randomThemeName = 'random';
             const conflictTimers = new Map();
 
-            function formatThemeLabel(n) { return n.charAt(0).toUpperCase() + n.slice(1); }
+            // ── Theme helpers ──
+            const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
             function pickRandomTheme() { return themeNames[Math.floor(Math.random() * themeNames.length)]; }
-            function updateRandomThemeOptionLabel(activeThemeName) {
-                const label = `Random (${formatThemeLabel(activeThemeName)})`;
-                const opt = $('run-theme-random-option');
-                if (opt) opt.textContent = label;
-                const sidebarOpt = $('sidebar-theme-random-option');
-                if (sidebarOpt) sidebarOpt.textContent = label;
-            }
-
-            function sizeRunThemeSelect() {
-                const wrap = document.getElementById('runThemeWrap');
-                const btn = document.getElementById('run-theme-btn');
-                const menu = document.getElementById('runThemeMenu');
-                if (!wrap || !btn || !menu) return;
-                const items = Array.from(menu.querySelectorAll('.file-dropdown-item'));
-                if (!items.length) return;
-                const meas = document.createElement('button');
-                meas.className = 'file-btn folder-measure';
-                const nameSpan = document.createElement('span');
-                meas.append(nameSpan);
-                document.body.appendChild(meas);
-                let max = 0;
-                items.forEach(item => {
-                    nameSpan.textContent = item.textContent.trim();
-                    max = Math.max(max, meas.getBoundingClientRect().width);
+            function updateRandomThemeOptionLabel(activeTheme) {
+                const label = `Random (${cap(activeTheme)})`;
+                ['run-theme-random-option', 'sidebar-theme-random-option'].forEach(id => {
+                    const el = $(id); if (el) el.textContent = label;
                 });
-                document.body.removeChild(meas);
-                const width = Math.ceil(max);
-                btn.style.minWidth = width + 'px';
-                menu.style.minWidth = width + 'px';
-                wrap.style.minWidth = width + 'px';
+            }
+            function applyTheme(themeName = 'night') {
+                const usingRandom = themeName === 'random';
+                const next = usingRandom ? pickRandomTheme() : (themeNames.includes(themeName) ? themeName : 'night');
+                runState.themeSelection = usingRandom ? 'random' : next;
+                runState.theme = next;
+                document.documentElement.dataset.theme = next;
+                localStorage.setItem('run_theme', runState.themeSelection);
+                updateRandomThemeOptionLabel(next);
+                const lbl = $('run-theme-label');
+                if (lbl) lbl.textContent = usingRandom ? `random (${next})` : next;
+                FramesApp.sizeDropdownToContent(
+                    $('run-theme-btn'), $('runThemeMenu'), $('runThemeWrap'),
+                    Array.from($('runThemeMenu').querySelectorAll('.file-dropdown-item')).map(i => i.textContent.trim()),
+                    'file-btn'
+                );
+                document.querySelectorAll('#runThemeMenu .file-dropdown-item, .sidebar-theme-btn').forEach(el => {
+                    el.classList.toggle('active', el.dataset.themeVal === runState.themeSelection);
+                });
             }
 
+            // ── Connection ──
             function setStoredCredentials(url, apiKey) {
                 runState.url = url; runState.apiKey = apiKey;
-                if (url && apiKey) { localStorage.setItem('supa_url', url); localStorage.setItem('supa_key', apiKey); return; }
-                localStorage.removeItem('supa_url'); localStorage.removeItem('supa_key');
+                if (url && apiKey) { localStorage.setItem('supa_url', url); localStorage.setItem('supa_key', apiKey); }
+                else { localStorage.removeItem('supa_url'); localStorage.removeItem('supa_key'); }
             }
-
             function setConnectionState(connected) {
                 runState.isConnected = !!connected;
-                const label = runState.isConnected ? 'disconnect' : 'connect';
-                const cls = runState.isConnected ? 'connected' : '';
+                const label = connected ? 'disconnect' : 'connect';
                 ['run-connect-btn', 'sidebar-connect-btn'].forEach(id => {
-                    const el = $(id);
-                    if (!el) return;
+                    const el = $(id); if (!el) return;
                     el.textContent = label;
-                    el.className = el.className.replace(/\bconnected\b/, '').trim();
-                    if (runState.isConnected) el.className += ' connected';
+                    el.classList.toggle('connected', !!connected);
                 });
             }
-
             function disconnectAndReset() {
                 setStoredCredentials(null, null); setConnectionState(false);
                 runState.rows = []; runState.sortedRows = []; runState.lastRenderSignature = null;
                 renderGrid();
-                if (typeof FramesApp?.resetFramesState === 'function') {
-                    FramesApp.resetFramesState({ clearToken: true });
-                } else {
-                    localStorage.removeItem('github_token');
-                }
+                if (typeof FramesApp?.resetFramesState === 'function') FramesApp.resetFramesState({ clearToken: true });
+                else localStorage.removeItem('github_token');
             }
-
             async function validateSupabaseCredentials(url, apiKey) {
                 if (!url || !apiKey) return false;
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 7000);
                 try {
                     const res = await fetch(`${url}?select=username&limit=1`, {
-                        headers: { apikey: apiKey, Authorization: `Bearer ${apiKey}` }, signal: controller.signal
+                        headers: { apikey: apiKey, Authorization: `Bearer ${apiKey}` },
+                        signal: controller.signal
                     });
                     return res.ok;
                 } catch { return false; } finally { clearTimeout(timeoutId); }
             }
-
             async function connectWithCredentials(url, apiKey, { notifyOnFail = true } = {}) {
                 const isValid = await validateSupabaseCredentials(url, apiKey);
                 if (!isValid) {
@@ -2903,13 +2769,11 @@
                 setStoredCredentials(url, apiKey); setConnectionState(true);
                 fetchData(); return true;
             }
-
             async function promptAndConnect() {
                 const ok = promptAllCredentials();
                 if (!ok) return;
                 await connectWithCredentials(runState.url.trim(), runState.apiKey.trim(), { notifyOnFail: true });
             }
-
             function promptAllCredentials() {
                 const urlInput = prompt('Supabase URL:', runState.url || '');
                 if (!urlInput) return false;
@@ -2917,143 +2781,54 @@
                 if (!apiInput) return false;
                 const ghInput = prompt('GitHub token (read-only):', FramesApp.getGithubToken() || '');
                 if (!ghInput) return false;
-
                 runState.url = urlInput.trim();
                 runState.apiKey = apiInput.trim();
                 FramesApp.setGithubToken(ghInput.trim());
                 return true;
             }
 
-            function applyTheme(themeName = 'night') {
-                const usingRandom = themeName === randomThemeName;
-                const nextTheme = usingRandom ? pickRandomTheme() : (themeNames.includes(themeName) ? themeName : 'night');
-                runState.themeSelection = usingRandom ? randomThemeName : nextTheme;
-                runState.theme = nextTheme;
-                document.documentElement.dataset.theme = nextTheme;
-                localStorage.setItem('run_theme', runState.themeSelection);
-                updateRandomThemeOptionLabel(nextTheme);
-                const lbl = document.getElementById('run-theme-label');
-                if (lbl) lbl.textContent = usingRandom ? `random (${formatThemeLabel(nextTheme)})` : nextTheme;
-                sizeRunThemeSelect();
-                document.querySelectorAll('#runThemeMenu .file-dropdown-item').forEach(item => {
-                    item.classList.toggle('active', item.dataset.themeVal === runState.themeSelection);
-                });
-                document.querySelectorAll('.sidebar-theme-btn').forEach(btn => {
-                    btn.classList.toggle('active', btn.dataset.themeVal === runState.themeSelection);
-                });
+            // ── Data helpers ──
+            function getStatus(user, nowMs = Date.now() + runState.serverTimeOffset) {
+                if (user.demo && user.username === 'demo-ator') return 'green';
+                const diff = (nowMs - new Date(user.updated_at).getTime()) / 1000;
+                return diff < 10 ? 'green' : diff < 30 ? 'yellow' : 'red';
             }
-
+            const STATUS_ORDER = { green: 0, yellow: 1, red: 2 };
             function sortRows(rows) {
-                return [...rows].sort((a, b) => {
-                    const order = { green: 0, yellow: 1, red: 2 };
-                    return order[getStatus(a)] - order[getStatus(b)] || a.username.localeCompare(b.username);
-                });
+                return [...rows].sort((a, b) =>
+                    STATUS_ORDER[getStatus(a)] - STATUS_ORDER[getStatus(b)] || a.username.localeCompare(b.username)
+                );
             }
-            function getSortedRows() { return runState.sortedRows; }
-            function getRenderableRows() { return runState.isConnected ? getSortedRows() : sortRows(demoUsers); }
+            function getRenderableRows() { return runState.isConnected ? runState.sortedRows : sortRows(demoUsers); }
             function getHintUsername(sorted = getRenderableRows()) {
                 if (!sorted.length) return null;
                 if (runState.activeUsername && sorted.some(u => u.username === runState.activeUsername)) return runState.activeUsername;
                 return sorted[0].username;
             }
+            function buildRowsRenderSignature(rows, isSorted = false) {
+                const nowMs = Date.now() + runState.serverTimeOffset;
+                const source = isSorted ? rows : sortRows(rows);
+                return source
+                    .map(u => {
+                        const st = getStatus(u, nowMs);
+                        return { username: u.username, status: st, visible: !!u.visible, updatedAt: st === 'green' ? '' : u.updated_at };
+                    })
+                    .sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.username.localeCompare(b.username))
+                    .map(u => `${u.username}|${u.status}|${u.visible ? 1 : 0}|${u.updatedAt}`)
+                    .join('||');
+            }
+
+            // ── Rendering ──
             function refreshHintsIfNeeded() {
                 if (runState.isRendering) return;
                 const next = getHintUsername();
-                if (next === runState.hintUsername) return;
-                runState.hintUsername = next;
-                renderGrid();
-            }
-            function getStatus(user, nowMs = Date.now() + runState.serverTimeOffset) {
-                if (user.demo && user.username === 'demo-ator') return 'green';
-                const diff = (nowMs - new Date(user.updated_at).getTime()) / 1000;
-                if (diff < 10) return 'green';
-                if (diff < 30) return 'yellow';
-                return 'red';
-            }
-            function buildRowsRenderSignature(rows, isSorted = false) {
-                const nowMs = Date.now() + runState.serverTimeOffset;
-                const order = { green: 0, yellow: 1, red: 2 };
-                const source = isSorted ? rows : sortRows(rows);
-                return source.map(u => {
-                    const status = getStatus(u, nowMs);
-                    return { username: u.username, status, visible: !!u.visible, updatedAt: status === 'green' ? '' : u.updated_at };
-                }).sort((a, b) => order[a.status] - order[b.status] || a.username.localeCompare(b.username))
-                    .map(u => `${u.username}|${u.status}|${u.visible ? 1 : 0}|${u.updatedAt}`).join('||');
-            }
-
-            function updatePlaceholder() {
-                const m = runState.popupMode, ta = $('popup-input');
-                if (m === 'cmd') ta.placeholder = runState.selectedShell === 'ps' ? "Get-Process | Where-Object { $_.CPU -gt 100 }" : 'echo hello\nping 127.0.0.1 -n 3';
-                else if (m === 'speak') ta.placeholder = `Type speech text i.e. "${runState.popupExampleText || 'Audio test, all systems ready.'}"`;
-                else if (m === 'popup_msg') ta.placeholder = `Type popup note i.e. "${runState.popupExampleText || 'Reminder: save your work now.'}"`;
-            }
-            function pickRandomPopupExample(mode) {
-                const list = popupExamples[mode];
-                return (list && list.length) ? list[Math.floor(Math.random() * list.length)] : '';
-            }
-            function getPopupAutofillText() {
-                if (runState.popupMode === 'cmd') return $('popup-input').placeholder;
-                if (runState.popupMode === 'speak') return runState.popupExampleText || pickRandomPopupExample('speak');
-                if (runState.popupMode === 'popup_msg') return runState.popupExampleText || pickRandomPopupExample('popup_msg');
-                return $('popup-input').placeholder;
-            }
-
-            function updateOptionsUI() {
-                $('voice-david').className = 'opt-btn' + (runState.selectedVoice === 'David' ? ' active' : '');
-                $('voice-zira').className = 'opt-btn' + (runState.selectedVoice === 'Zira' ? ' active' : '');
-                $('vis-true').className = 'opt-btn' + (runState.selectedVis ? ' active' : '');
-                $('vis-false').className = 'opt-btn' + (!runState.selectedVis ? ' active' : '');
-                $('shell-cmd').className = 'opt-btn' + (runState.selectedShell === 'cmd' ? ' active' : '');
-                $('shell-ps').className = 'opt-btn' + (runState.selectedShell === 'ps' ? ' active' : '');
-                $('cmd-pause').className = 'opt-btn' + (runState.pause ? ' active' : '');
-                $('shell-summary-cmd').className = 'collapsible-meta-pill' + (runState.selectedShell === 'cmd' ? ' active' : '');
-                $('shell-summary-ps').className = 'collapsible-meta-pill' + (runState.selectedShell === 'ps' ? ' active' : '');
-                $('shell-summary-upload').className = 'collapsible-meta-pill' + (runState.cmdLoadedFromUpload ? ' active' : '');
-                $('shell-summary-pause').className = 'collapsible-meta-pill' + (runState.pause ? ' active' : '');
-                const vol = $('spk-volume'), spd = $('spk-speed'), volV = $('spk-volume-value'), spdV = $('spk-speed-value'), meta = $('spk-summary-meta');
-                if (vol) vol.value = String(runState.selectedSpkVolume);
-                if (spd) spd.value = String(runState.selectedSpkSpeed);
-                if (volV) volV.textContent = String(runState.selectedSpkVolume);
-                if (spdV) spdV.textContent = String(runState.selectedSpkSpeed);
-                if (meta) meta.textContent = `Volume ${runState.selectedSpkVolume} | Speed ${runState.selectedSpkSpeed}`;
-                updatePlaceholder();
-            }
-
-            function flashConflict(buttonId) {
-                const button = $(buttonId); if (!button) return;
-                button.classList.add('conflict');
-                const existing = conflictTimers.get(buttonId);
-                if (existing) clearTimeout(existing);
-                const timerId = setTimeout(() => { button.classList.remove('conflict'); conflictTimers.delete(buttonId); }, 1500);
-                conflictTimers.set(buttonId, timerId);
-            }
-
-            function clearActiveSelection() {
-                runState.activeUsername = null; runState.interactionMode = null;
-                document.body.classList.remove('kb-mode');
-                document.querySelectorAll('.user-card').forEach(c => c.classList.remove('selected'));
-                refreshHintsIfNeeded();
-            }
-
-            function setActiveSelection(user, mode, { scroll = false } = {}) {
-                if (!user) { clearActiveSelection(); return; }
-                runState.activeUsername = user.username; runState.interactionMode = mode;
-                if (mode === 'keyboard') document.body.classList.add('kb-mode');
-                else document.body.classList.remove('kb-mode');
-                const cards = document.querySelectorAll('.user-card');
-                cards.forEach(c => c.classList.remove('selected'));
-                const sorted = getRenderableRows();
-                const idx = sorted.findIndex(item => item.username === user.username);
-                if (idx === -1 || idx >= cards.length) return;
-                cards[idx].classList.add('selected');
-                if (scroll) cards[idx].scrollIntoView({ block: 'nearest' });
-                refreshHintsIfNeeded();
+                if (next !== runState.hintUsername) { runState.hintUsername = next; renderGrid(); }
             }
 
             function getCardBodyHtml(user, status, alive, tsText, showHint) {
-                const isDemo = !!user.demo;
-                const canInteract = runState.isConnected || isDemo;
-                const showPrimaryHint = showHint && alive && canInteract;
+                const canInteract = runState.isConnected || !!user.demo;
+                const showPrimary = showHint && alive && canInteract;
+                const disabledAttrs = 'disabled aria-disabled="true"';
                 return `
                 <div class="card-header">
                     <div style="flex:1;min-width:0;">
@@ -3065,21 +2840,20 @@
                     </div>
                 </div>
                 <div class="card-actions">
-                    <button class="card-btn primary ${(alive && canInteract) ? '' : 'disabled'}" data-action="cmd" ${(alive && canInteract) ? '' : 'disabled aria-disabled="true"'}>
-                        CMD ${showPrimaryHint ? '<span class="btn-hint">C</span>' : ''}
+                    <button class="card-btn primary ${alive && canInteract ? '' : 'disabled'}" data-action="cmd" ${alive && canInteract ? '' : disabledAttrs}>
+                        CMD ${showPrimary ? '<span class="btn-hint">C</span>' : ''}
                     </button>
-                    <button class="card-btn ${(alive && canInteract) ? '' : 'disabled'}" data-action="speak" ${(alive && canInteract) ? '' : 'disabled aria-disabled="true"'}>
-                        SPK ${showPrimaryHint ? '<span class="btn-hint">S</span>' : ''}
+                    <button class="card-btn ${alive && canInteract ? '' : 'disabled'}" data-action="speak" ${alive && canInteract ? '' : disabledAttrs}>
+                        SPK ${showPrimary ? '<span class="btn-hint">S</span>' : ''}
                     </button>
-                    <button class="card-btn ${(alive && canInteract) ? '' : 'disabled'}" data-action="popup_msg" ${(alive && canInteract) ? '' : 'disabled aria-disabled="true"'}>
-                        MSG ${showPrimaryHint ? '<span class="btn-hint">A</span>' : ''}
+                    <button class="card-btn ${alive && canInteract ? '' : 'disabled'}" data-action="popup_msg" ${alive && canInteract ? '' : disabledAttrs}>
+                        MSG ${showPrimary ? '<span class="btn-hint">A</span>' : ''}
                     </button>
-                    <button class="card-btn ${canInteract ? '' : 'disabled'}" data-action="output" ${canInteract ? '' : 'disabled aria-disabled="true"'}>
+                    <button class="card-btn ${canInteract ? '' : 'disabled'}" data-action="output" ${canInteract ? '' : disabledAttrs}>
                         OUT ${showHint && canInteract ? '<span class="btn-hint">V</span>' : ''}
                     </button>
                 </div>`;
             }
-
             function getCardRenderSignature(user, status, alive, tsText, showHint) {
                 return `${user.username}|${status}|${alive ? 1 : 0}|${showHint ? 1 : 0}|${tsText}`;
             }
@@ -3088,8 +2862,7 @@
                 runState.isRendering = true;
                 const grid = $('user-grid');
                 const sorted = getRenderableRows();
-                const hintUsername = getHintUsername(sorted);
-                runState.hintUsername = hintUsername;
+                runState.hintUsername = getHintUsername(sorted);
 
                 if (!sorted.length) {
                     if (!grid.querySelector('.empty')) grid.innerHTML = '<div class="empty">NO CLIENTS CONNECTED</div>';
@@ -3097,31 +2870,31 @@
                 }
 
                 const existingCards = new Map();
-                Array.from(grid.querySelectorAll('.user-card')).forEach(card => existingCards.set(card.dataset.username, card));
-                const animateWholeBatch = existingCards.size === 0;
+                grid.querySelectorAll('.user-card').forEach(card => existingCards.set(card.dataset.username, card));
+                const animateAll = existingCards.size === 0;
                 const seen = new Set();
 
                 sorted.forEach((user, index) => {
                     const status = getStatus(user);
                     const alive = status === 'green';
-                    const lastSeenDate = new Date(user.updated_at);
-                    const tsText = alive ? '' : `Last seen: ${lastSeenDate.toLocaleDateString()} ${lastSeenDate.toLocaleTimeString()}`;
-                    const showHint = user.username === hintUsername;
-                    const signature = getCardRenderSignature(user, status, alive, tsText, showHint);
+                    const lastSeen = new Date(user.updated_at);
+                    const tsText = alive ? '' : `Last seen: ${lastSeen.toLocaleDateString()} ${lastSeen.toLocaleTimeString()}`;
+                    const showHint = user.username === runState.hintUsername;
+                    const sig = getCardRenderSignature(user, status, alive, tsText, showHint);
 
                     let card = existingCards.get(user.username);
-                    const isNewCard = !card;
+                    const isNew = !card;
                     if (!card) { card = document.createElement('div'); card.dataset.username = user.username; existingCards.set(user.username, card); }
 
-                    const nextClassName = `user-card${alive ? '' : ' offline'}`;
-                    if (card.className !== nextClassName) card.className = nextClassName;
-                    if (card.dataset.renderSignature !== signature) { card.innerHTML = getCardBodyHtml(user, status, alive, tsText, showHint); card.dataset.renderSignature = signature; }
+                    const cn = `user-card${alive ? '' : ' offline'}`;
+                    if (card.className !== cn) card.className = cn;
+                    if (card.dataset.renderSignature !== sig) { card.innerHTML = getCardBodyHtml(user, status, alive, tsText, showHint); card.dataset.renderSignature = sig; }
                     seen.add(user.username);
 
-                    const referenceNode = grid.children[index] || null;
-                    if (referenceNode !== card) grid.insertBefore(card, referenceNode);
+                    const ref = grid.children[index] || null;
+                    if (ref !== card) grid.insertBefore(card, ref);
 
-                    if (isNewCard || animateWholeBatch) {
+                    if (isNew || animateAll) {
                         card.classList.remove('card-enter');
                         card.style.animationDelay = `${Math.min(index, 8) * 35}ms`;
                         void card.offsetWidth;
@@ -3129,39 +2902,220 @@
                     }
                 });
 
-                Array.from(grid.querySelectorAll('.user-card')).forEach(card => { if (!seen.has(card.dataset.username)) card.remove(); });
-                const emptyState = grid.querySelector('.empty');
-                if (emptyState) emptyState.remove();
+                grid.querySelectorAll('.user-card').forEach(c => { if (!seen.has(c.dataset.username)) c.remove(); });
+                grid.querySelector('.empty')?.remove();
 
                 if (runState.activeUsername) {
-                    const activeUser = sorted.find(item => item.username === runState.activeUsername);
-                    if (activeUser) setActiveSelection(activeUser, runState.interactionMode || 'hover');
+                    const active = sorted.find(u => u.username === runState.activeUsername);
+                    if (active) setActiveSelection(active, runState.interactionMode || 'hover');
                     else clearActiveSelection();
                 }
                 runState.isRendering = false;
             }
 
+            // ── Selection ──
+            function clearActiveSelection() {
+                runState.activeUsername = null; runState.interactionMode = null;
+                document.body.classList.remove('kb-mode');
+                document.querySelectorAll('.user-card').forEach(c => c.classList.remove('selected'));
+                refreshHintsIfNeeded();
+            }
+            function setActiveSelection(user, mode, { scroll = false } = {}) {
+                if (!user) { clearActiveSelection(); return; }
+                runState.activeUsername = user.username; runState.interactionMode = mode;
+                document.body.classList.toggle('kb-mode', mode === 'keyboard');
+                const sorted = getRenderableRows();
+                const idx = sorted.findIndex(u => u.username === user.username);
+                const cards = document.querySelectorAll('.user-card');
+                cards.forEach(c => c.classList.remove('selected'));
+                if (idx !== -1 && idx < cards.length) {
+                    cards[idx].classList.add('selected');
+                    if (scroll) cards[idx].scrollIntoView({ block: 'nearest' });
+                }
+                refreshHintsIfNeeded();
+            }
+
+            // ── Popup helpers ──
+            function pickRandomPopupExample(mode) {
+                const list = popupExamples[mode];
+                return list?.length ? list[Math.floor(Math.random() * list.length)] : '';
+            }
+            function updatePlaceholder() {
+                const ta = $('popup-input'), m = runState.popupMode;
+                if (m === 'cmd') ta.placeholder = runState.selectedShell === 'ps'
+                    ? "Get-Process | Where-Object { $_.CPU -gt 100 }"
+                    : 'echo hello\nping 127.0.0.1 -n 3';
+                else if (m === 'speak') ta.placeholder = `Type speech text i.e. "${runState.popupExampleText || 'Audio test, all systems ready.'}"`;
+                else if (m === 'popup_msg') ta.placeholder = `Type popup note i.e. "${runState.popupExampleText || 'Reminder: save your work now.'}"`;
+            }
+            function getPopupAutofillText() {
+                const m = runState.popupMode;
+                if (m === 'cmd') return $('popup-input').placeholder;
+                return runState.popupExampleText || pickRandomPopupExample(m) || $('popup-input').placeholder;
+            }
+            function updateOptionsUI() {
+                // Toggle active class on option buttons
+                const setActive = (id, cond) => $(id).className = 'opt-btn' + (cond ? ' active' : '');
+                setActive('voice-david', runState.selectedVoice === 'David');
+                setActive('voice-zira', runState.selectedVoice === 'Zira');
+                setActive('vis-true', runState.selectedVis);
+                setActive('vis-false', !runState.selectedVis);
+                setActive('shell-cmd', runState.selectedShell === 'cmd');
+                setActive('shell-ps', runState.selectedShell === 'ps');
+                setActive('cmd-pause', runState.pause);
+
+                const setPill = (id, cond) => $(id).className = 'collapsible-meta-pill' + (cond ? ' active' : '');
+                setPill('shell-summary-cmd', runState.selectedShell === 'cmd');
+                setPill('shell-summary-ps', runState.selectedShell === 'ps');
+                setPill('shell-summary-upload', runState.cmdLoadedFromUpload);
+                setPill('shell-summary-pause', runState.pause);
+
+                const vol = $('spk-volume'), spd = $('spk-speed');
+                if (vol) vol.value = String(runState.selectedSpkVolume);
+                if (spd) spd.value = String(runState.selectedSpkSpeed);
+                const volV = $('spk-volume-value'), spdV = $('spk-speed-value'), meta = $('spk-summary-meta');
+                if (volV) volV.textContent = String(runState.selectedSpkVolume);
+                if (spdV) spdV.textContent = String(runState.selectedSpkSpeed);
+                if (meta) meta.textContent = `Volume ${runState.selectedSpkVolume} | Speed ${runState.selectedSpkSpeed}`;
+                updatePlaceholder();
+            }
+
+            function flashConflict(buttonId) {
+                const button = $(buttonId); if (!button) return;
+                button.classList.add('conflict');
+                const existing = conflictTimers.get(buttonId);
+                if (existing) clearTimeout(existing);
+                conflictTimers.set(buttonId, setTimeout(() => { button.classList.remove('conflict'); conflictTimers.delete(buttonId); }, 1500));
+            }
+
+            // ── Popup open/close ──
+            function openPopup(mode, user) {
+                runState.popupMode = mode; runState.popupUser = user; runState.selectedVis = !!user.visible;
+                runState.popupExampleText = (mode === 'speak' || mode === 'popup_msg') ? pickRandomPopupExample(mode) : '';
+                runState.cmdLoadedFromUpload = false;
+                $('popup-input').value = '';
+                $('popup-target-label').textContent = user.username;
+                $('popup-overlay').classList.add('open');
+                $('textarea-wrap').classList.remove('show-hint');
+                const isCmd = mode === 'cmd', isSpk = mode === 'speak';
+                $('vis-section').style.display = isCmd ? 'flex' : 'none';
+                $('shell-section').style.display = isCmd ? 'block' : 'none';
+                $('voice-section').style.display = isSpk ? 'flex' : 'none';
+                $('spk-controls').style.display = isSpk ? 'block' : 'none';
+                $('shell-section').open = false; $('spk-controls').open = false;
+                $('popup-mode-label').textContent = isCmd ? 'Execute Command' : isSpk ? 'Voice Message' : 'Message Box';
+                updateOptionsUI();
+                setTimeout(() => { $('popup-input').focus(); syncTabHint(); }, 50);
+            }
+            function closePopup() {
+                $('popup-overlay').classList.remove('open');
+                $('textarea-wrap').classList.remove('show-hint');
+                runState.popupMode = null; runState.popupUser = null; runState.popupExampleText = '';
+            }
+
+            // ── Command building ──
             function bytesToBase64(bytes) {
                 const chunkSize = 0x8000; let binary = '';
-                for (let i = 0; i < bytes.length; i += chunkSize) binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+                for (let i = 0; i < bytes.length; i += chunkSize)
+                    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
                 return btoa(binary);
             }
-            function syncTabHint() {
-                const taInput = $('popup-input'), taWrap = $('textarea-wrap');
-                const tabA = $('tab-autofill-hint'), tabU = $('tab-unfocus-hint');
-                const focused = document.activeElement === taInput, empty = taInput.value === '';
-                if (focused) taWrap.classList.add('show-hint'); else taWrap.classList.remove('show-hint');
-                tabA.style.display = (focused && empty) ? 'flex' : 'none';
-                tabU.style.display = focused ? 'flex' : 'none';
+            function formatPSString(str) {
+                return str.replace(/'/g, "''").split(/\r?\n/).map(line => `'${line}'`).join(' + [char]13 + ');
             }
-            function autofillPopupInput() {
-                const ta = $('popup-input'); if (ta.value !== '') return;
-                ta.value = getPopupAutofillText(); runState.cmdLoadedFromUpload = false;
-                ta.selectionStart = ta.selectionEnd = ta.value.length;
-                updateOptionsUI(); syncTabHint();
+            function wrapPowershell(val, hidden = true) {
+                const utf16 = new Uint8Array(val.length * 2);
+                for (let i = 0; i < val.length; i++) {
+                    const c = val.charCodeAt(i);
+                    utf16[i * 2] = c & 0xff; utf16[i * 2 + 1] = (c >> 8) & 0xff;
+                }
+                // PowerShell expects UTF-16LE encoded payloads for -EncodedCommand.
+                return `powershell -NoP -EP Bypass -W ${hidden ? 'H' : 'Normal'} -EncodedCommand ${bytesToBase64(utf16)}`;
             }
-            function unfocusPopupInput() { $('popup-input').blur(); syncTabHint(); }
+            function normalizePsPause(val) { return val.replace(/^\s*pause\s*$/gim, "Read-Host 'Press Enter to continue'"); }
+            function applyCommandPause(val) {
+                const input = val.trim(); if (!runState.pause) return input;
+                if (runState.selectedShell === 'ps') {
+                    const norm = normalizePsPause(input);
+                    return norm ? `${norm}\nRead-Host 'Press Enter to continue'` : "Read-Host 'Press Enter to continue'";
+                }
+                return input ? `${input}\npause` : 'pause';
+            }
+            function wrapCmd(val) {
+                if (!val.includes('\n')) return val;
+                // Use a temp .bat file to preserve multi-line CMD scripts.
+                const b64 = bytesToBase64(new TextEncoder().encode(val));
+                return `cmd /c "echo ${b64}>%temp%\\r.b64 && certutil -decode %temp%\\r.b64 %temp%\\r.bat >nul && cmd /c %temp%\\r.bat && del %temp%\\r.b64 %temp%\\r.bat"`;
+            }
 
+            // ── Send / fetch ──
+            async function doSendPopup() {
+                const user = runState.popupUser, mode = runState.popupMode;
+                const val = $('popup-input').value.trim();
+                if (!user) return;
+                if (!runState.isConnected || user.demo) { closePopup(); alert('Demo mode: action preview only. Connect to send real commands.'); return; }
+
+                let rawCmd = '';
+                if (mode === 'cmd') {
+                    const cmdInput = applyCommandPause(val);
+                    if (cmdInput) {
+                        const psInput = runState.selectedShell === 'ps' ? normalizePsPause(cmdInput) : cmdInput;
+                        rawCmd = runState.selectedShell === 'ps' ? wrapPowershell(psInput, !runState.selectedVis) : wrapCmd(psInput);
+                    }
+                } else if (val) {
+                    const msg = formatPSString(val);
+                    if (mode === 'speak') {
+                        rawCmd = `powershell -W H -C "$s=New-Object -Com SAPI.SpVoice;$s.Volume=${runState.selectedSpkVolume};$s.Rate=${runState.selectedSpkSpeed};$s.Voice=$s.GetVoices()|Where-Object{$_.GetDescription() -like '*${runState.selectedVoice}*'};$s.Speak(${msg})"`;
+                    } else {
+                        rawCmd = `powershell -W H -C "(New-Object -Com WScript.Shell).Popup(${msg})"`;
+                    }
+                }
+
+                const body = {};
+                // Encode the outbound command for transport/storage in Supabase.
+                if (rawCmd) { body.cmd = btoa(rawCmd); body.run = true; }
+                if (mode === 'cmd') body.visible = runState.selectedVis;
+
+                const headers = { apikey: runState.apiKey, Authorization: `Bearer ${runState.apiKey}`, 'Content-Type': 'application/json' };
+                try {
+                    await fetch(`${runState.url}?username=eq.${user.username}`, { method: 'PATCH', headers, body: JSON.stringify(body) });
+                    closePopup(); fetchData();
+                } catch (e) { console.error('Send error', e); }
+            }
+
+            async function doViewOutput(user) {
+                if (user?.demo || !runState.isConnected) {
+                    const out = `[demo] ${user.username}\nstatus: preview only\nlast action: none (connect to enable live output)`;
+                    navigator.clipboard.writeText(out).catch(() => { });
+                    alert(out); return;
+                }
+                try {
+                    const headers = { apikey: runState.apiKey, Authorization: `Bearer ${runState.apiKey}` };
+                    const res = await fetch(`${runState.url}?select=out&username=eq.${user.username}`, { headers });
+                    const data = await res.json();
+                    if (data[0]?.out) { const decoded = atob(data[0].out); navigator.clipboard.writeText(decoded).catch(() => { }); alert(decoded); }
+                } catch (e) { console.error(e); }
+            }
+
+            async function fetchData() {
+                if (!runState.url || !runState.apiKey || !runState.isConnected || runState.fetchInFlight) return;
+                runState.fetchInFlight = true;
+                try {
+                    const headers = { apikey: runState.apiKey, Authorization: `Bearer ${runState.apiKey}` };
+                    const res = await fetch(`${runState.url}?select=username,updated_at,visible`, { headers });
+                    const serverDate = res.headers.get('date');
+                    if (serverDate) runState.serverTimeOffset = new Date(serverDate).getTime() - Date.now();
+                    const nextRows = await res.json();
+                    const nextSorted = sortRows(nextRows);
+                    const sig = buildRowsRenderSignature(nextSorted, true);
+                    runState.rows = nextRows; runState.sortedRows = nextSorted;
+                    if (sig === runState.lastRenderSignature) return;
+                    runState.lastRenderSignature = sig;
+                    renderGrid();
+                } catch (e) { console.error(e); } finally { runState.fetchInFlight = false; }
+            }
+
+            // ── Visibility / pause ──
             async function setPopupVisibility(nextVisible) {
                 if (runState.popupMode !== 'cmd' || !runState.popupUser) return;
                 if (!nextVisible && runState.pause) { flashConflict('cmd-pause'); return; }
@@ -3172,200 +3126,89 @@
                 updateOptionsUI(); renderGrid();
                 if (!runState.isConnected || !runState.url || !runState.apiKey || runState.popupUser.demo) return;
                 try {
+                    const headers = { apikey: runState.apiKey, Authorization: `Bearer ${runState.apiKey}`, 'Content-Type': 'application/json' };
                     await fetch(`${runState.url}?username=eq.${runState.popupUser.username}`, {
-                        method: 'PATCH',
-                        headers: { apikey: runState.apiKey, Authorization: `Bearer ${runState.apiKey}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ visible: runState.selectedVis })
+                        method: 'PATCH', headers, body: JSON.stringify({ visible: runState.selectedVis })
                     });
-                } catch (e) { console.error('Visibility Sync Error', e); }
+                } catch (e) { console.error('Visibility sync error', e); }
             }
             function togglePauseOption() {
                 if (!runState.selectedVis) { flashConflict('vis-false'); return; }
                 runState.pause = !runState.pause; updateOptionsUI();
             }
 
-            function openPopup(mode, user) {
-                runState.popupMode = mode; runState.popupUser = user; runState.selectedVis = !!user.visible;
-                runState.popupExampleText = (mode === 'speak' || mode === 'popup_msg') ? pickRandomPopupExample(mode) : '';
-                runState.cmdLoadedFromUpload = false;
-                $('popup-input').value = ''; $('popup-target-label').textContent = user.username;
-                $('popup-overlay').classList.add('open');
-                $('textarea-wrap').classList.remove('show-hint');
-                $('vis-section').style.display = (mode === 'cmd') ? 'flex' : 'none';
-                $('shell-section').style.display = (mode === 'cmd') ? 'block' : 'none';
-                $('voice-section').style.display = (mode === 'speak') ? 'flex' : 'none';
-                $('spk-controls').style.display = (mode === 'speak') ? 'block' : 'none';
-                $('shell-section').open = false; $('spk-controls').open = false;
-                $('popup-mode-label').textContent = mode === 'cmd' ? 'Execute Command' : mode === 'speak' ? 'Voice Message' : 'Message Box';
-                updateOptionsUI();
-                setTimeout(() => { $('popup-input').focus(); syncTabHint(); }, 50);
+            // ── Tab / autofill ──
+            function syncTabHint() {
+                const ta = $('popup-input'), wrap = $('textarea-wrap');
+                const focused = document.activeElement === ta;
+                wrap.classList.toggle('show-hint', focused);
+                $('tab-autofill-hint').style.display = (focused && ta.value === '') ? 'flex' : 'none';
+                $('tab-unfocus-hint').style.display = focused ? 'flex' : 'none';
             }
-            function closePopup() {
-                $('popup-overlay').classList.remove('open');
-                $('textarea-wrap').classList.remove('show-hint');
-                runState.popupMode = null; runState.popupUser = null; runState.popupExampleText = '';
+            function autofillPopupInput() {
+                const ta = $('popup-input'); if (ta.value !== '') return;
+                ta.value = getPopupAutofillText(); runState.cmdLoadedFromUpload = false;
+                ta.selectionStart = ta.selectionEnd = ta.value.length;
+                updateOptionsUI(); syncTabHint();
             }
+            function unfocusPopupInput() { $('popup-input').blur(); syncTabHint(); }
 
-            function formatPSString(str) {
-                return str.replace(/'/g, "''").split(/\r?\n/).map(line => `'${line}'`).join(' + [char]13 + ');
-            }
-            function wrapPowershell(val, hidden = true) {
-                const utf16 = new Uint8Array(val.length * 2);
-                for (let i = 0; i < val.length; i++) { const c = val.charCodeAt(i); utf16[i * 2] = c & 0xff; utf16[i * 2 + 1] = (c >> 8) & 0xff; }
-                // PowerShell expects UTF-16LE encoded payloads for -EncodedCommand.
-                return `powershell -NoP -EP Bypass -W ${hidden ? 'H' : 'Normal'} -EncodedCommand ${bytesToBase64(utf16)}`;
-            }
-            function normalizePsPauseCommands(val) { return val.replace(/^\s*pause\s*$/gim, "Read-Host 'Press Enter to continue'"); }
-            function applyCommandPause(val) {
-                const input = val.trim(); if (!runState.pause) return input;
-                if (runState.selectedShell === 'ps') { const norm = normalizePsPauseCommands(input); return norm ? `${norm}\nRead-Host 'Press Enter to continue'` : "Read-Host 'Press Enter to continue'"; }
-                return input ? `${input}\npause` : 'pause';
-            }
-            function wrapCmd(val) {
-                if (!val.includes('\n')) return val;
-                const utf8 = new TextEncoder().encode(val);
-                const b64 = bytesToBase64(utf8);
-                // Use a temp .bat file to preserve multi-line CMD scripts.
-                return `cmd /c "echo ${b64}>%temp%\\r.b64 && certutil -decode %temp%\\r.b64 %temp%\\r.bat >nul && cmd /c %temp%\\r.bat && del %temp%\\r.b64 %temp%\\r.bat"`;
-            }
-
-            async function doSendPopup() {
-                const user = runState.popupUser, mode = runState.popupMode;
-                const val = $('popup-input').value.trim();
-                if (!user) return;
-                if (!runState.isConnected || user.demo) { closePopup(); alert('Demo mode: action preview only. Connect to send real commands.'); return; }
-                let rawCmd = '';
-                if (mode === 'cmd') {
-                    const cmdInput = applyCommandPause(val);
-                    if (cmdInput) {
-                        const psInput = runState.selectedShell === 'ps' ? normalizePsPauseCommands(cmdInput) : cmdInput;
-                        rawCmd = runState.selectedShell === 'ps' ? wrapPowershell(psInput, !runState.selectedVis) : wrapCmd(psInput);
-                    }
-                } else if (val) {
-                    if (mode === 'speak') {
-                        const msg = formatPSString(val);
-                        rawCmd = `powershell -W H -C "$s=New-Object -Com SAPI.SpVoice;$s.Volume=${runState.selectedSpkVolume};$s.Rate=${runState.selectedSpkSpeed};$s.Voice=$s.GetVoices()|Where-Object{$_.GetDescription() -like '*${runState.selectedVoice}*'};$s.Speak(${msg})"`;
-                    } else {
-                        rawCmd = `powershell -W H -C "(New-Object -Com WScript.Shell).Popup(${formatPSString(val)})"`;
-                    }
-                }
-                const body = {};
-                // Encode the outbound command for transport/storage in Supabase.
-                if (rawCmd) { body.cmd = btoa(rawCmd); body.run = true; }
-                if (mode === 'cmd') body.visible = runState.selectedVis;
-                try {
-                    await fetch(`${runState.url}?username=eq.${user.username}`, {
-                        method: 'PATCH',
-                        headers: { apikey: runState.apiKey, Authorization: `Bearer ${runState.apiKey}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify(body)
-                    });
-                    closePopup(); fetchData();
-                } catch (e) { console.error("Trans Error", e); }
-            }
-
-            async function doViewOutput(user) {
-                if (user?.demo || !runState.isConnected) {
-                    const out = `[demo] ${user.username}\nstatus: preview only\nlast action: none (connect to enable live output)`;
-                    navigator.clipboard.writeText(out).catch(() => { });
-                    alert(out); return;
-                }
-                try {
-                    const res = await fetch(`${runState.url}?select=out&username=eq.${user.username}`, { headers: { apikey: runState.apiKey, Authorization: `Bearer ${runState.apiKey}` } });
-                    const data = await res.json();
-                    if (data[0]?.out) { const decoded = atob(data[0].out); navigator.clipboard.writeText(decoded).catch(() => { }); alert(decoded); }
-                } catch (e) { console.error(e); }
-            }
-
-            async function fetchData() {
-                if (!runState.url || !runState.apiKey || !runState.isConnected) return;
-                if (runState.fetchInFlight) return;
-                runState.fetchInFlight = true;
-                try {
-                    const res = await fetch(`${runState.url}?select=username,updated_at,visible`, { headers: { apikey: runState.apiKey, Authorization: `Bearer ${runState.apiKey}` } });
-                    const serverDateStr = res.headers.get('date');
-                    if (serverDateStr) runState.serverTimeOffset = new Date(serverDateStr).getTime() - Date.now();
-                    const nextRows = await res.json();
-                    const nextSortedRows = sortRows(nextRows);
-                    const nextSignature = buildRowsRenderSignature(nextSortedRows, true);
-                    runState.rows = nextRows; runState.sortedRows = nextSortedRows;
-                    if (nextSignature === runState.lastRenderSignature) return;
-                    runState.lastRenderSignature = nextSignature;
-                    renderGrid();
-                } catch (e) { console.error(e); } finally { runState.fetchInFlight = false; }
-            }
-
+            // ── Init ──
             function init() {
                 applyTheme(runState.themeSelection);
                 setConnectionState(false);
 
-                const themeBtn = $('run-theme-btn');
-                const themeMenu = $('runThemeMenu');
+                // Theme dropdown
+                const themeBtn = $('run-theme-btn'), themeMenu = $('runThemeMenu');
                 if (themeBtn && themeMenu) {
-                    themeBtn.addEventListener('click', () => {
-                        themeBtn.classList.toggle('open');
-                        themeMenu.classList.toggle('open');
-                    });
+                    themeBtn.addEventListener('click', () => { themeBtn.classList.toggle('open'); themeMenu.classList.toggle('open'); });
                     themeMenu.querySelectorAll('.file-dropdown-item').forEach(item => {
                         item.addEventListener('click', () => {
                             applyTheme(item.dataset.themeVal);
-                            themeBtn.classList.remove('open');
-                            themeMenu.classList.remove('open');
+                            themeBtn.classList.remove('open'); themeMenu.classList.remove('open');
                         });
                     });
                     document.addEventListener('click', e => {
-                        const wrap = $('runThemeWrap');
-                        if (wrap && !wrap.contains(e.target)) {
-                            themeBtn.classList.remove('open');
-                            themeMenu.classList.remove('open');
+                        if (!$('runThemeWrap').contains(e.target)) {
+                            themeBtn.classList.remove('open'); themeMenu.classList.remove('open');
                         }
                     });
                 }
 
-                function handleConnect() {
-                    if (runState.isConnected) {
-                        if (!confirm('Disconnect now?')) return;
-                        disconnectAndReset();
-                        return;
-                    }
+                // Connect / disconnect
+                const handleConnect = () => {
+                    if (runState.isConnected) { if (!confirm('Disconnect now?')) return; disconnectAndReset(); return; }
                     promptAndConnect();
-                }
-                const connectBtn = $('run-connect-btn');
-                if (connectBtn) connectBtn.addEventListener('click', handleConnect);
-                const sidebarConnectBtn = $('sidebar-connect-btn');
-                if (sidebarConnectBtn) sidebarConnectBtn.addEventListener('click', handleConnect);
+                };
+                ['run-connect-btn', 'sidebar-connect-btn'].forEach(id => $(id)?.addEventListener('click', handleConnect));
 
+                // Sidebar theme buttons
                 document.querySelectorAll('.sidebar-theme-btn').forEach(btn => {
-                    btn.addEventListener('click', () => { applyTheme(btn.dataset.themeVal); });
+                    btn.addEventListener('click', () => applyTheme(btn.dataset.themeVal));
                 });
 
-                const sidebarDownload = $('sidebar-download-btn');
-                if (sidebarDownload) {
-                    sidebarDownload.addEventListener('click', async () => {
-                        if (FramesApp.downloadCurrentFrame) await FramesApp.downloadCurrentFrame();
-                        closeSidebar();
-                    });
-                }
+                // Sidebar download
+                $('sidebar-download-btn')?.addEventListener('click', async () => {
+                    if (FramesApp.downloadCurrentFrame) await FramesApp.downloadCurrentFrame();
+                    closeSidebar();
+                });
 
-                const hamburger = $('hamburgerBtn');
-                const sidebar = $('sidebar');
-                const overlay = $('sidebarOverlay');
-                const sidebarClose = $('sidebarClose');
+                // Sidebar open/close
+                const sidebar = $('sidebar'), overlay = $('sidebarOverlay');
                 function openSidebar() {
-                    if (window.__getCurrentMode && window.__getCurrentMode() === 'frames') {
-                        if (window.__framesMenuDisabled) return;
-                    }
+                    if (window.__getCurrentMode?.() === 'frames' && window.__framesMenuDisabled) return;
                     sidebar.classList.add('open'); overlay.classList.add('open');
                 }
                 function closeSidebar() { sidebar.classList.remove('open'); overlay.classList.remove('open'); }
-                if (hamburger) hamburger.addEventListener('click', openSidebar);
-                if (overlay) overlay.addEventListener('click', closeSidebar);
-                if (sidebarClose) sidebarClose.addEventListener('click', closeSidebar);
+                $('hamburgerBtn')?.addEventListener('click', openSidebar);
+                overlay?.addEventListener('click', closeSidebar);
+                $('sidebarClose')?.addEventListener('click', closeSidebar);
 
+                // Initial connection
                 if (!runState.url || !runState.apiKey || !FramesApp.getGithubToken()) {
                     const ok = promptAllCredentials();
                     if (!ok) { renderGrid(); return; }
                 }
-
                 if (runState.url && runState.apiKey) {
                     $('user-grid').innerHTML = '<div class="empty">Connecting...</div>';
                     connectWithCredentials(runState.url, runState.apiKey, { notifyOnFail: false }).then(ok => { if (!ok) renderGrid(); });
@@ -3373,12 +3216,14 @@
 
                 setInterval(fetchData, 4000);
 
+                // Grid interactions
                 const grid = $('user-grid');
                 grid.addEventListener('mousemove', e => {
-                    const card = e.target.closest('.user-card'); if (!card) { if (runState.interactionMode === 'hover') clearActiveSelection(); return; }
+                    const card = e.target.closest('.user-card');
+                    if (!card) { if (runState.interactionMode === 'hover') clearActiveSelection(); return; }
                     const username = card.dataset.username;
                     if (!username || username === runState.activeUsername) return;
-                    const user = getRenderableRows().find(item => item.username === username);
+                    const user = getRenderableRows().find(u => u.username === username);
                     if (user) setActiveSelection(user, 'hover');
                 });
                 grid.addEventListener('mouseleave', () => { if (runState.interactionMode === 'hover') clearActiveSelection(); });
@@ -3386,7 +3231,7 @@
                     const btn = e.target.closest('.card-btn'); if (!btn) return;
                     const card = e.target.closest('.user-card'); if (!card) return;
                     const username = card.dataset.username; if (!username) return;
-                    const user = getRenderableRows().find(item => item.username === username); if (!user) return;
+                    const user = getRenderableRows().find(u => u.username === username); if (!user) return;
                     const action = btn.dataset.action; if (!action) return;
                     if (action === 'cmd') openPopup('cmd', user);
                     if (action === 'speak') openPopup('speak', user);
@@ -3394,6 +3239,7 @@
                     if (action === 'output') doViewOutput(user);
                 });
 
+                // Option button listeners
                 $('voice-david').onclick = () => { runState.selectedVoice = 'David'; updateOptionsUI(); };
                 $('voice-zira').onclick = () => { runState.selectedVoice = 'Zira'; updateOptionsUI(); };
                 $('spk-volume').oninput = e => { runState.selectedSpkVolume = Number(e.target.value); updateOptionsUI(); };
@@ -3421,6 +3267,7 @@
 
                 $('popup-input').addEventListener('input', () => { runState.cmdLoadedFromUpload = false; updateOptionsUI(); });
 
+                // Keyboard shortcuts
                 document.addEventListener('keydown', e => {
                     if (window.__getCurrentMode() !== 'run') return;
                     if (runState.popupMode) {
@@ -3435,24 +3282,22 @@
                     const arrowKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
                     if (arrowKeys.includes(e.key)) {
                         e.preventDefault();
-                        const cards = document.querySelectorAll('.user-card'), total = cards.length; if (!total) return;
-                        const gridStyle = getComputedStyle(grid);
-                        const cols = gridStyle.gridTemplateColumns.split(' ').length;
-                        const sorted2 = getRenderableRows();
-                        const currentIndex = runState.activeUsername ? sorted2.findIndex(item => item.username === runState.activeUsername) : -1;
-                        let next = currentIndex < 0 ? 0 : currentIndex;
-                        if (currentIndex >= 0) {
-                            if (e.key === 'ArrowRight') next = Math.min(next + 1, total - 1);
+                        const cards = document.querySelectorAll('.user-card'); if (!cards.length) return;
+                        const cols = getComputedStyle(grid).gridTemplateColumns.split(' ').length;
+                        const sorted = getRenderableRows();
+                        const cur = runState.activeUsername ? sorted.findIndex(u => u.username === runState.activeUsername) : -1;
+                        let next = cur < 0 ? 0 : cur;
+                        if (cur >= 0) {
+                            if (e.key === 'ArrowRight') next = Math.min(next + 1, cards.length - 1);
                             if (e.key === 'ArrowLeft') next = Math.max(next - 1, 0);
-                            if (e.key === 'ArrowDown') next = Math.min(next + cols, total - 1);
+                            if (e.key === 'ArrowDown') next = Math.min(next + cols, cards.length - 1);
                             if (e.key === 'ArrowUp') next = Math.max(next - cols, 0);
                         }
-                        const nextUser = sorted2[next];
+                        const nextUser = sorted[next];
                         if (nextUser) setActiveSelection(nextUser, 'keyboard', { scroll: true });
                         return;
                     }
-                    const sorted3 = getRenderableRows();
-                    const u = runState.activeUsername ? sorted3.find(item => item.username === runState.activeUsername) : null;
+                    const u = runState.activeUsername ? getRenderableRows().find(u => u.username === runState.activeUsername) : null;
                     if (!u) return;
                     const alive = getStatus(u) === 'green';
                     const key = e.key.toLowerCase();
@@ -3465,10 +3310,9 @@
                 $('popup-cancel').onclick = closePopup;
                 $('popup-confirm').onclick = doSendPopup;
 
+                // Tab hint / autofill
                 const taInput = $('popup-input');
-                taInput.addEventListener('focus', syncTabHint);
-                taInput.addEventListener('blur', syncTabHint);
-                taInput.addEventListener('input', syncTabHint);
+                ['focus', 'blur', 'input'].forEach(evt => taInput.addEventListener(evt, syncTabHint));
                 $('tab-autofill-hint').addEventListener('mousedown', e => e.preventDefault());
                 $('tab-unfocus-hint').addEventListener('mousedown', e => e.preventDefault());
                 $('tab-autofill-hint').addEventListener('click', () => { taInput.focus(); autofillPopupInput(); });
@@ -3479,7 +3323,11 @@
                         e.preventDefault();
                         if (e.shiftKey) unfocusPopupInput();
                         else if (taInput.value === '') autofillPopupInput();
-                        else { const s = taInput.selectionStart, end = taInput.selectionEnd; taInput.value = taInput.value.slice(0, s) + '    ' + taInput.value.slice(end); taInput.selectionStart = taInput.selectionEnd = s + 4; }
+                        else {
+                            const s = taInput.selectionStart, end = taInput.selectionEnd;
+                            taInput.value = taInput.value.slice(0, s) + '    ' + taInput.value.slice(end);
+                            taInput.selectionStart = taInput.selectionEnd = s + 4;
+                        }
                     }
                 });
             }
@@ -3487,9 +3335,7 @@
             return { init };
         })();
 
-        document.addEventListener('DOMContentLoaded', () => {
-            RunApp.init();
-        });
+        document.addEventListener('DOMContentLoaded', () => { RunApp.init(); });
     </script>
 </body>
 
