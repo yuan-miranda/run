@@ -3322,7 +3322,11 @@
                 }
 
                 function handleConnect() {
-                    if (runState.isConnected) { disconnectAndReset(); return; }
+                    if (runState.isConnected) {
+                        if (!confirm('Disconnect now?')) return;
+                        disconnectAndReset();
+                        return;
+                    }
                     promptAndConnect();
                 }
                 const connectBtn = $('run-connect-btn');
