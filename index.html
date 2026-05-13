@@ -1029,7 +1029,7 @@
         }
 
         .popup-overlay.open {
-            align-items: flex-start;
+            align-items: center;
             display: flex;
             justify-content: center;
             opacity: 1;
@@ -1038,7 +1038,7 @@
         .popup-box {
             background: var(--run-panel, var(--surface));
             border: 1px solid var(--run-border-strong, var(--border-heavy));
-            margin-top: 60px;
+            margin-top: 0;
             max-width: 520px;
             min-width: 320px;
             padding: 1.5rem;
@@ -1074,6 +1074,7 @@
         .popup-actions {
             display: flex;
             gap: 8px;
+            justify-content: flex-end;
         }
 
         .popup-btn {
