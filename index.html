@@ -978,27 +978,6 @@
             top: 3px;
         }
 
-        /* ── Status rings ── */
-        .status-ring {
-            border-radius: 50%;
-            flex-shrink: 0;
-            height: 10px;
-            width: 10px;
-        }
-
-        .status-green {
-            background: var(--run-status-green, var(--text));
-            box-shadow: var(--run-shadow-glow, none);
-        }
-
-        .status-yellow {
-            background: var(--run-status-yellow, var(--muted));
-        }
-
-        .status-red {
-            background: var(--run-status-red, var(--border-heavy));
-        }
-
         /* ── Empty state ── */
         .empty {
             font-size: 13px;
@@ -1744,11 +1723,6 @@
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
-            }
-
-            .status-ring {
-                height: 8px;
-                width: 8px;
             }
 
             .card-actions {
@@ -2834,7 +2808,6 @@
                 <div class="card-header">
                     <div style="flex:1;min-width:0;">
                         <div style="display:flex;align-items:center;gap:8px;">
-                            <div class="status-ring status-${status}"></div>
                             <span class="card-username ${alive ? '' : 'offline'}">${user.username}</span>
                         </div>
                         <div class="card-ts">${tsText}</div>
