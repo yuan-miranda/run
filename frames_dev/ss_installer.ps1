@@ -43,3 +43,8 @@ if (-not (Test-Path "$GitDir\cmd\git.exe")) {
 
 if (!(Test-Path "$env:TEMP\run")) { $null = New-Item "$env:TEMP\run" -ItemType Directory }
 Set-Content -Path "$env:TEMP\run\ss_installer.ps1" -Value $installerContent -Force
+
+$self = Join-Path $env:TEMP "run\ss_installer.ps1"
+if (Test-Path $self) {
+    Start-Process powershell.exe -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', "& '$self'" -Wait
+}
