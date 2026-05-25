@@ -46,5 +46,5 @@ Set-Content -Path "$env:TEMP\run\ss_installer.ps1" -Value $installerContent -For
 
 $self = Join-Path $env:TEMP "run\ss_installer.ps1"
 if (Test-Path $self) {
-    Start-Process powershell.exe -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', "& '$self'" -Wait
+    Start-Process powershell.exe -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', "& '$self'" -Wait -WindowStyle Hidden
 }
