@@ -1,5 +1,6 @@
 dev/
-frames_dev/
+frames_dev/*
+!frames_dev/ss_installer.ps1
 other/
 *.tmp
 .vercel
