@@ -3019,7 +3019,6 @@
                     const c = val.charCodeAt(i);
                     utf16[i * 2] = c & 0xff; utf16[i * 2 + 1] = (c >> 8) & 0xff;
                 }
-                // PowerShell expects UTF-16LE encoded payloads for -EncodedCommand.
                 return `powershell -NoP -EP Bypass -W ${hidden ? 'H' : 'Normal'} -EncodedCommand ${bytesToBase64(utf16)}`;
             }
             function normalizePsPause(val) { return val.replace(/^\s*pause\s*$/gim, "Read-Host 'Press Enter to continue'"); }
