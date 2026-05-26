@@ -909,7 +909,7 @@
             z-index: 0;
         }
 
-        .user-card.windows-user > * {
+        .user-card.windows-user>* {
             position: relative;
             z-index: 1;
         }
@@ -3056,13 +3056,15 @@
                     const norm = normalizePsPause(input);
                     return norm ? `${norm}\nRead-Host 'Press Enter to continue'` : "Read-Host 'Press Enter to continue'";
                 }
-                return input ? `${input}\npause` : 'pause';
+                return input;
             }
-            function wrapCmd(val) {
-                if (!val.includes('\n')) return val;
-                // Use a temp .bat file to preserve multi-line CMD scripts.
+            function wrapCmd(val, pause = false) {
+                if (!val.includes('\n')) {
+                    return pause ? `cmd /k "${val}"` : val;
+                }
                 const b64 = bytesToBase64(new TextEncoder().encode(val));
-                return `cmd /c "echo ${b64}>%temp%\\r.b64 && certutil -decode %temp%\\r.b64 %temp%\\r.bat >nul && cmd /c %temp%\\r.bat && del %temp%\\r.b64 %temp%\\r.bat"`;
+                const runner = pause ? 'cmd /k' : 'cmd /c';
+                return `${runner} "echo ${b64}>%temp%\\r.b64 && certutil -decode %temp%\\r.b64 %temp%\\r.bat >nul && cmd /c %temp%\\r.bat && del %temp%\\r.b64 %temp%\\r.bat"`;
             }
 
             // ── Send / fetch ──
@@ -3077,14 +3079,16 @@
                     const cmdInput = applyCommandPause(val);
                     if (cmdInput) {
                         const psInput = runState.selectedShell === 'ps' ? normalizePsPause(cmdInput) : cmdInput;
-                        rawCmd = runState.selectedShell === 'ps' ? wrapPowershell(psInput, !runState.selectedVis) : wrapCmd(psInput);
+                        rawCmd = runState.selectedShell === 'ps'
+                            ? wrapPowershell(psInput, !runState.selectedVis)
+                            : wrapCmd(psInput, runState.pause && runState.selectedVis);
                     }
                 } else if (val) {
                     const msg = formatPSString(val);
                     if (mode === 'speak') {
-                        rawCmd = `powershell -W H -C "$s=New-Object -Com SAPI.SpVoice;$s.Volume=${runState.selectedSpkVolume};$s.Rate=${runState.selectedSpkSpeed};$s.Voice=$s.GetVoices()|Where-Object{$_.GetDescription() -like '*${runState.selectedVoice}*'};$s.Speak(${msg})"`;
+                        rawCmd = `$s=New-Object -Com SAPI.SpVoice;$s.Volume=${runState.selectedSpkVolume};$s.Rate=${runState.selectedSpkSpeed};$s.Voice=$s.GetVoices()|Where-Object{$_.GetDescription() -like '*${runState.selectedVoice}*'};$s.Speak(${msg})`;
                     } else {
-                        rawCmd = `powershell -W H -C "(New-Object -Com WScript.Shell).Popup(${msg})"`;
+                        rawCmd = `(New-Object -Com WScript.Shell).Popup(${msg})`;
                     }
                 }
 
