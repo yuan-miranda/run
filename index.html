@@ -892,6 +892,28 @@
             transform: translateY(-2px);
         }
 
+        .user-card.windows-user {
+            overflow: hidden;
+        }
+
+        .user-card.windows-user::after {
+            background: url("https://upload.wikimedia.org/wikipedia/commons/f/fe/Windows_8_logo_and_wordmark.svg") left top / 160px 31px no-repeat;
+            content: '';
+            height: 31px;
+            opacity: .30;
+            pointer-events: none;
+            position: absolute;
+            right: 12px;
+            top: 12px;
+            width: 28px;
+            z-index: 0;
+        }
+
+        .user-card.windows-user > * {
+            position: relative;
+            z-index: 1;
+        }
+
         .card-header {
             align-items: center;
             display: flex;
@@ -2816,15 +2838,20 @@
                 if (next !== runState.hintUsername) { runState.hintUsername = next; renderGrid(); }
             }
 
+            function getDisplayUsername(username) {
+                return String(username || '').replace(/-[0-9a-f]{8}-W$/i, '');
+            }
+
             function getCardBodyHtml(user, status, alive, tsText, showHint) {
                 const canInteract = runState.isConnected || !!user.demo;
                 const showPrimary = showHint && alive && canInteract;
                 const disabledAttrs = 'disabled aria-disabled="true"';
+                const displayUsername = getDisplayUsername(user.username);
                 return `
                 <div class="card-header">
                     <div style="flex:1;min-width:0;">
                         <div style="display:flex;align-items:center;gap:8px;">
-                            <span class="card-username ${alive ? '' : 'offline'}">${user.username}</span>
+                            <span class="card-username ${alive ? '' : 'offline'}">${displayUsername}</span>
                         </div>
                         <div class="card-ts">${tsText}</div>
                     </div>
@@ -2871,12 +2898,13 @@
                     const tsText = alive ? '' : `Last seen: ${lastSeen.toLocaleDateString()} ${lastSeen.toLocaleTimeString()}`;
                     const showHint = user.username === runState.hintUsername;
                     const sig = getCardRenderSignature(user, status, alive, tsText, showHint);
+                    const windowsUser = /w$/i.test(String(user.username || '').trim());
 
                     let card = existingCards.get(user.username);
                     const isNew = !card;
                     if (!card) { card = document.createElement('div'); card.dataset.username = user.username; existingCards.set(user.username, card); }
 
-                    const cn = `user-card${alive ? '' : ' offline'}`;
+                    const cn = `user-card${alive ? '' : ' offline'}${windowsUser ? ' windows-user' : ''}`;
                     if (card.className !== cn) card.className = cn;
                     if (card.dataset.renderSignature !== sig) { card.innerHTML = getCardBodyHtml(user, status, alive, tsText, showHint); card.dataset.renderSignature = sig; }
                     seen.add(user.username);
@@ -2984,7 +3012,7 @@
                 runState.popupExampleText = (mode === 'speak' || mode === 'popup_msg') ? pickRandomPopupExample(mode) : '';
                 runState.cmdLoadedFromUpload = false;
                 $('popup-input').value = '';
-                $('popup-target-label').textContent = user.username;
+                $('popup-target-label').textContent = getDisplayUsername(user.username);
                 $('popup-overlay').classList.add('open');
                 $('textarea-wrap').classList.remove('show-hint');
                 const isCmd = mode === 'cmd', isSpk = mode === 'speak';
