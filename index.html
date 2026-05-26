@@ -2836,6 +2836,23 @@
                 return diff < 10 ? 'green' : diff < 30 ? 'yellow' : 'red';
             }
             const STATUS_ORDER = { green: 0, yellow: 1, red: 2 };
+            function parseModernUsername(username) {
+                const match = String(username || '').trim().match(/^(.*)-([^-]+)-W$/i);
+                if (!match) return { baseName: String(username || '').trim(), id: '' };
+                return { baseName: match[1], id: match[2] };
+            }
+            function buildDisplayUsernameMap(rows) {
+                const counts = new Map();
+                rows.forEach(user => {
+                    const { baseName } = parseModernUsername(user.username);
+                    counts.set(baseName, (counts.get(baseName) || 0) + 1);
+                });
+                return new Map(rows.map(user => {
+                    const parsed = parseModernUsername(user.username);
+                    const needsId = parsed.id && (counts.get(parsed.baseName) || 0) > 1;
+                    return [user.username, needsId ? `${parsed.baseName} (${parsed.id})` : parsed.baseName];
+                }));
+            }
             function sortRows(rows) {
                 return [...rows].sort((a, b) =>
                     STATUS_ORDER[getStatus(a)] - STATUS_ORDER[getStatus(b)] || a.username.localeCompare(b.username)
@@ -2868,7 +2885,7 @@
             }
 
             function getDisplayUsername(username) {
-                return String(username || '').replace(/-[0-9a-f]{8}-W$/i, '');
+                return runState.displayNameMap?.get(username) || parseModernUsername(username).baseName;
             }
 
             function getCardBodyHtml(user, status, alive, tsText, showHint) {
@@ -2901,13 +2918,14 @@
                 </div>`;
             }
             function getCardRenderSignature(user, status, alive, tsText, showHint) {
-                return `${user.username}|${status}|${alive ? 1 : 0}|${showHint ? 1 : 0}|${tsText}`;
+                return `${user.username}|${getDisplayUsername(user.username)}|${status}|${alive ? 1 : 0}|${showHint ? 1 : 0}|${tsText}`;
             }
 
             function renderGrid() {
                 runState.isRendering = true;
                 const grid = $('user-grid');
                 const sorted = getRenderableRows();
+                runState.displayNameMap = buildDisplayUsernameMap(sorted);
                 runState.hintUsername = getHintUsername(sorted);
 
                 if (!sorted.length) {
