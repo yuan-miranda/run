@@ -1472,6 +1472,12 @@
             flex-shrink: 0;
         }
 
+        .sidebar-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
         .sidebar-title {
             font-family: inherit;
             font-size: 13px;
@@ -1494,6 +1500,29 @@
 
         .sidebar-close:hover {
             opacity: 1;
+        }
+
+        .sidebar-icon-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border: none;
+            color: var(--text);
+            opacity: .7;
+            transition: opacity .15s;
+            text-decoration: none;
+        }
+
+        .sidebar-icon-link:hover {
+            opacity: 1;
+        }
+
+        .sidebar-icon-link svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
         }
 
         .sidebar-body {
@@ -1903,7 +1932,14 @@
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <span class="sidebar-title">menu</span>
-            <button class="sidebar-close" id="sidebarClose">&#x2715;</button>
+            <div class="sidebar-header-actions">
+                <a class="sidebar-icon-link" href="https://github.com/yuan-miranda/run" target="_blank" rel="noreferrer noopener" aria-label="GitHub repository">
+                    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.58.82-2.13-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.64 7.64 0 0 1 2.01-.27c.68 0 1.36.09 2.01.27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.55.82 1.25.82 2.13 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
+                    </svg>
+                </a>
+                <button class="sidebar-close" id="sidebarClose">&#x2715;</button>
+            </div>
         </div>
         <div class="sidebar-body">
             <div class="sidebar-frames-section">
