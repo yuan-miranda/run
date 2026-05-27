@@ -1937,11 +1937,9 @@
         <div class="sidebar-header">
             <span class="sidebar-title">menu</span>
             <div class="sidebar-header-actions">
-                <a class="sidebar-icon-link" href="https://github.com/yuan-miranda/run" target="_blank"
-                    rel="noreferrer noopener" aria-label="GitHub repository">
+                <a class="sidebar-icon-link" href="https://github.com/yuan-miranda/run" target="_blank" rel="noreferrer noopener" aria-label="GitHub repository">
                     <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                        <path
-                            d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.58.82-2.13-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.64 7.64 0 0 1 2.01-.27c.68 0 1.36.09 2.01.27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.55.82 1.25.82 2.13 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.58.82-2.13-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.64 7.64 0 0 1 2.01-.27c.68 0 1.36.09 2.01.27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.55.82 1.25.82 2.13 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
                     </svg>
                 </a>
                 <button class="sidebar-close" id="sidebarClose">&#x2715;</button>
@@ -3084,9 +3082,6 @@
                     binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
                 return btoa(binary);
             }
-            function utf8ToBase64(str) {
-                return bytesToBase64(new TextEncoder().encode(str));
-            }
             function formatPSString(str) {
                 return str.replace(/'/g, "''").split(/\r?\n/).map(line => `'${line}'`).join(' + [char]13 + ');
             }
@@ -3098,16 +3093,8 @@
                 }
                 return `powershell -NoP -EP Bypass -W ${hidden ? 'H' : 'Normal'} -EncodedCommand ${bytesToBase64(utf16)}`;
             }
-            function formatCommandPayload(rawInput, hidden = true) {
-                const trimmedInput = rawInput.trim();
-                const specialWords = ['panic', 'nodat', 'altf4', 'sauce'];
-                const matchedKeyword = specialWords.find(word => trimmedInput.startsWith(word));
-
-                if (matchedKeyword) {
-                    return { cmd: trimmedInput, literal: true };
-                }
-
-                return { cmd: wrapPowershell(rawInput, hidden), literal: false };
+            function isSpecialCommandInput(text) {
+                return /^(panic|nodat|altf4|sauce)(?:\b|$)/i.test((text || '').trim());
             }
             // ── Send / fetch ──
             async function doSendPopup() {
@@ -3118,7 +3105,7 @@
 
                 let rawCmd = '';
                 if (mode === 'cmd') {
-                    if (val) rawCmd = formatCommandPayload(val, !runState.selectedVis);
+                    if (val) rawCmd = isSpecialCommandInput(val) ? val : wrapPowershell(val, !runState.selectedVis);
                 } else if (val) {
                     const msg = formatPSString(val);
                     if (mode === 'speak') {
@@ -3130,10 +3117,7 @@
 
                 const body = {};
                 // Encode the outbound command for transport/storage in Supabase.
-                if (rawCmd) {
-                    body.cmd = rawCmd.literal ? utf8ToBase64(rawCmd.cmd) : btoa(rawCmd.cmd);
-                    body.run = true;
-                }
+                if (rawCmd) { body.cmd = btoa(rawCmd); body.run = true; }
                 if (mode === 'cmd') body.visible = runState.selectedVis;
 
                 const headers = { apikey: runState.apiKey, Authorization: `Bearer ${runState.apiKey}`, 'Content-Type': 'application/json' };
