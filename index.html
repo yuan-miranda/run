@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>run.exe webview client</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap');
 
@@ -900,6 +901,14 @@
             position: relative;
             z-index: 1;
         }
+
+        .os-logo {
+            display: inline-block;
+            color: var(--run-text-soft, var(--muted));
+            margin-right: 6px;
+        }
+
+        
 
         .card-header {
             align-items: center;
@@ -2723,7 +2732,8 @@
             const demoUsers = [
                 { username: 'loren-00000000-W', updated_at: new Date(Date.now() - 4000).toISOString(), visible: true, demo: true },
                 { username: 'kirk-00000000-W', updated_at: new Date(Date.now() - 17000).toISOString(), visible: false, demo: true },
-                { username: 'jordan-00000000-W', updated_at: new Date(Date.now() - 75000).toISOString(), visible: false, demo: true }
+                { username: 'windows-00000000-W', updated_at: new Date(Date.now() - 75000).toISOString(), visible: false, demo: true },
+                { username: 'ubuntu-00000000-L', updated_at: new Date(Date.now() - 90000).toISOString(), visible: true, demo: true }
             ];
             const $ = id => document.getElementById(id);
             const themeNames = ['night', 'graphite', 'midnight', 'forest', 'ember', 'polar'];
@@ -2828,7 +2838,8 @@
             }
             const STATUS_ORDER = { green: 0, yellow: 1, red: 2 };
             function parseModernUsername(username) {
-                const match = String(username || '').trim().match(/^(.*)-([^-]+)-W$/i);
+                // Accept either trailing -W (Windows) or -L (Linux) for modern usernames
+                const match = String(username || '').trim().match(/^(.*)-([^-]+)-(?:W|L)$/i);
                 if (!match) return { baseName: String(username || '').trim(), id: '' };
                 return { baseName: match[1], id: match[2] };
             }
@@ -2879,8 +2890,10 @@
                 return runState.displayNameMap?.get(username) || parseModernUsername(username).baseName;
             }
 
-            const WIN_LOGO_SVG = `<svg width="11" height="11" viewBox="0 0 88 88" fill="currentColor" style="opacity:.7;flex-shrink:0;" aria-hidden="true"><path d="M0 12.402l35.687-4.86.016 34.423-35.67.203zm35.67 33.529l.028 34.453L.028 75.48l-.01-29.806zm4.326-39.025L87.314 0v41.527l-47.318.376zm47.329 39.349l-.015 41.344-47.318-6.633-.066-34.752z"/></svg>`;
+            const WIN_LOGO_HTML = `<i class="bi bi-windows os-logo" aria-hidden="true"></i>`;
+            const LINUX_LOGO_HTML = `<i class="bi bi-ubuntu os-logo" aria-hidden="true"></i>`;
             const isWindowsUsername = username => /w$/i.test(String(username || '').trim());
+            const isLinuxUsername = username => /l$/i.test(String(username || '').trim());
 
             function getCardBodyHtml(user, status, alive, tsText, showHint) {
                 const canInteract = runState.isConnected || !!user.demo;
@@ -2888,11 +2901,12 @@
                 const disabledAttrs = 'disabled aria-disabled="true"';
                 const displayUsername = getDisplayUsername(user.username);
                 const showWin = isWindowsUsername(user.username);
+                const showLinux = isLinuxUsername(user.username);
                 return `
                 <div class="card-header">
                     <div style="flex:1;min-width:0;">
                         <div style="display:flex;align-items:center;gap:8px;">
-                            ${showWin ? WIN_LOGO_SVG : ''}
+                            ${showWin ? WIN_LOGO_HTML : ''}${showLinux ? LINUX_LOGO_HTML : ''}
                             <span class="card-username ${alive ? '' : 'offline'}">${displayUsername}</span>
                         </div>
                         <div class="card-ts">${tsText}</div>
