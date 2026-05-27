@@ -2734,9 +2734,9 @@
                 popup_msg: ['Reminder: save your work now.', 'Notice: update available.', 'Quick check: please confirm.']
             };
             const demoUsers = [
-                { username: 'demo-ator', updated_at: new Date(Date.now() - 4000).toISOString(), visible: true, demo: true },
-                { username: 'demo-kirk', updated_at: new Date(Date.now() - 17000).toISOString(), visible: false, demo: true },
-                { username: 'demo-jordan', updated_at: new Date(Date.now() - 75000).toISOString(), visible: false, demo: true }
+                { username: 'loren-00000000-W', updated_at: new Date(Date.now() - 4000).toISOString(), visible: true, demo: true },
+                { username: 'kirk-00000000-W', updated_at: new Date(Date.now() - 17000).toISOString(), visible: false, demo: true },
+                { username: 'jordan-00000000-W', updated_at: new Date(Date.now() - 75000).toISOString(), visible: false, demo: true }
             ];
             const $ = id => document.getElementById(id);
             const themeNames = ['night', 'graphite', 'midnight', 'forest', 'ember', 'polar'];
@@ -2835,7 +2835,7 @@
 
             // ── Data helpers ──
             function getStatus(user, nowMs = Date.now() + runState.serverTimeOffset) {
-                if (user.demo && user.username === 'demo-ator') return 'green';
+                if (user.demo && user.username === 'loren-00000000-W') return 'green';
                 const diff = (nowMs - new Date(user.updated_at).getTime()) / 1000;
                 return diff < 10 ? 'green' : diff < 30 ? 'yellow' : 'red';
             }
@@ -2892,15 +2892,20 @@
                 return runState.displayNameMap?.get(username) || parseModernUsername(username).baseName;
             }
 
+            const WIN_LOGO_SVG = `<svg width="11" height="11" viewBox="0 0 88 88" fill="currentColor" style="opacity:.7;flex-shrink:0;" aria-hidden="true"><path d="M0 12.402l35.687-4.86.016 34.423-35.67.203zm35.67 33.529l.028 34.453L.028 75.48l-.01-29.806zm4.326-39.025L87.314 0v41.527l-47.318.376zm47.329 39.349l-.015 41.344-47.318-6.633-.066-34.752z"/></svg>`;
+            const isWindowsUsername = username => /w$/i.test(String(username || '').trim());
+
             function getCardBodyHtml(user, status, alive, tsText, showHint) {
                 const canInteract = runState.isConnected || !!user.demo;
                 const showPrimary = showHint && alive && canInteract;
                 const disabledAttrs = 'disabled aria-disabled="true"';
                 const displayUsername = getDisplayUsername(user.username);
+                const showWin = isWindowsUsername(user.username);
                 return `
                 <div class="card-header">
                     <div style="flex:1;min-width:0;">
                         <div style="display:flex;align-items:center;gap:8px;">
+                            ${showWin ? WIN_LOGO_SVG : ''}
                             <span class="card-username ${alive ? '' : 'offline'}">${displayUsername}</span>
                         </div>
                         <div class="card-ts">${tsText}</div>
@@ -2949,13 +2954,11 @@
                     const tsText = alive ? '' : `Last seen: ${lastSeen.toLocaleDateString()} ${lastSeen.toLocaleTimeString()}`;
                     const showHint = user.username === runState.hintUsername;
                     const sig = getCardRenderSignature(user, status, alive, tsText, showHint);
-                    const windowsUser = /w$/i.test(String(user.username || '').trim());
-
                     let card = existingCards.get(user.username);
                     const isNew = !card;
                     if (!card) { card = document.createElement('div'); card.dataset.username = user.username; existingCards.set(user.username, card); }
 
-                    const cn = `user-card${alive ? '' : ' offline'}${windowsUser ? ' windows-user' : ''}`;
+                    const cn = `user-card${alive ? '' : ' offline'}${isWindowsUsername(user.username) ? ' windows-user' : ''}`;
                     if (card.className !== cn) card.className = cn;
                     if (card.dataset.renderSignature !== sig) { card.innerHTML = getCardBodyHtml(user, status, alive, tsText, showHint); card.dataset.renderSignature = sig; }
                     seen.add(user.username);
@@ -3242,16 +3245,6 @@
                 overlay?.addEventListener('click', closeSidebar);
                 $('sidebarClose')?.addEventListener('click', closeSidebar);
 
-                // Initial connection
-                if (!runState.url || !runState.apiKey || !FramesApp.getGithubToken()) {
-                    const ok = promptAllCredentials();
-                    if (!ok) { renderGrid(); return; }
-                }
-                if (runState.url && runState.apiKey) {
-                    $('user-grid').innerHTML = '<div class="empty">Connecting...</div>';
-                    connectWithCredentials(runState.url, runState.apiKey, { notifyOnFail: false }).then(ok => { if (!ok) renderGrid(); });
-                } else { renderGrid(); }
-
                 setInterval(fetchData, 4000);
 
                 // Grid interactions
@@ -3338,6 +3331,19 @@
                     if (key === 'a' && alive) openPopup('popup_msg', u);
                     if (key === 'v') doViewOutput(u);
                 });
+
+                // Initial connection
+                if (!runState.url || !runState.apiKey || !FramesApp.getGithubToken()) {
+                    const ok = promptAllCredentials();
+                    if (!ok) { renderGrid(); }
+                    else if (runState.url && runState.apiKey) {
+                        $('user-grid').innerHTML = '<div class="empty">Connecting...</div>';
+                        connectWithCredentials(runState.url, runState.apiKey, { notifyOnFail: false }).then(ok => { if (!ok) renderGrid(); });
+                    } else { renderGrid(); }
+                } else if (runState.url && runState.apiKey) {
+                    $('user-grid').innerHTML = '<div class="empty">Connecting...</div>';
+                    connectWithCredentials(runState.url, runState.apiKey, { notifyOnFail: false }).then(ok => { if (!ok) renderGrid(); });
+                } else { renderGrid(); }
 
                 $('popup-cancel').onclick = closePopup;
                 $('popup-confirm').onclick = doSendPopup;
