@@ -193,9 +193,12 @@ try {
   Log "44 Registering client with VPS"
 
   $registerUrl = "$VPS_POLL_URL?username=$uniqueUser"
+
+  Log "45 Registration URL: $registerUrl"
+
   Invoke-RestMethod -Method Get -Uri $registerUrl | Out-Null
 
-  Log "45 Client registration request succeeded"
+  Log "46 Client registration request succeeded"
 }
 catch {
   Log "45 ERROR: Client registration request failed"
