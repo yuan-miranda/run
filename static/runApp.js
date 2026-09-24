@@ -9,7 +9,7 @@ const RunApp = (() => {
         hintUsername: null, isRendering: false, popupExampleText: '',
         cmdLoadedFromUpload: false, selectedSpkVolume: 100, selectedSpkSpeed: 0,
         themeSelection: localStorage.getItem('run_theme') || 'night',
-        theme: 'night', serverTimeOffset: 0
+        theme: 'night'
     };
 
     const popupExamples = {
@@ -117,11 +117,22 @@ const RunApp = (() => {
         runState.password = passwordInput;
         return true;
     }
+    function parseServerTime(value) {
+        if (!value) return NaN;
+
+        const text = String(value).trim();
+
+        if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(text)) {
+            return new Date(text.replace(' ', 'T') + 'Z');
+        }
+
+        return new Date(text);
+    }
 
     // ── Data helpers ──
-    function getStatus(user, nowMs = Date.now() + runState.serverTimeOffset) {
+    function getStatus(user, nowMs = Date.now()) {
         if (user.demo && user.username === 'loren-00000000-W') return 'green';
-        const diff = (nowMs - new Date(user.updated_at).getTime()) / 1000;
+        const diff = (nowMs - parseServerTime(user.updated_at).getTime()) / 1000;
         return diff < 10 ? 'green' : diff < 30 ? 'yellow' : 'red';
     }
     const STATUS_ORDER = { green: 0, yellow: 1, red: 2 };
@@ -239,7 +250,7 @@ const RunApp = (() => {
         sorted.forEach((user, index) => {
             const status = getStatus(user);
             const alive = status === 'green';
-            const lastSeen = new Date(user.updated_at);
+            const lastSeen = parseServerTime(user.updated_at);
             const tsText = alive ? '' : `Last seen: ${lastSeen.toLocaleDateString()} ${lastSeen.toLocaleTimeString()}`;
             const showHint = user.username === runState.hintUsername;
             const sig = getCardRenderSignature(user, status, alive, tsText, showHint);
@@ -442,8 +453,6 @@ const RunApp = (() => {
             const res = await fetch(`${runState.url}/api/clients`, {
                 headers: { 'x-password': runState.password }
             });
-            const serverDate = res.headers.get('date');
-            if (serverDate) runState.serverTimeOffset = new Date(serverDate).getTime() - Date.now();
             const nextRows = await res.json();
             const nextSorted = sortRows(nextRows);
             const sig = buildRowsRenderSignature(nextSorted, true);
