@@ -192,17 +192,25 @@ Log "43 Client username: $uniqueUser"
 try {
   Log "44 Registering client with VPS"
 
-  $registerUrl = "$VPS_POLL_URL?username=$uniqueUser"
+  Log "45 VPS URL: [$VPS_POLL_URL]"
+  Log "46 Username: [$uniqueUser]"
 
-  Log "45 Registration URL: $registerUrl"
+  $registerUrl = $VPS_POLL_URL + "?username=" + $uniqueUser
+
+  Log "47 Registration URL: [$registerUrl]"
+
+  $testUri = [System.Uri]$registerUrl
+
+  Log "48 URI Host: [$($testUri.Host)]"
+  Log "49 URI Path: [$($testUri.AbsolutePath)]"
 
   Invoke-RestMethod -Method Get -Uri $registerUrl | Out-Null
 
-  Log "46 Client registration request succeeded"
+  Log "50 Client registration request succeeded"
 }
 catch {
-  Log "45 ERROR: Client registration request failed"
-  Log "46 Error: $($_.Exception.Message)"
+  Log "51 ERROR: Client registration request failed"
+  Log "52 Error: $($_.Exception.Message)"
 }
 
 Log "47 Starting run.exe"
