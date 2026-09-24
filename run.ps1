@@ -35,7 +35,7 @@ try {
           exit
         }
         elseif ($c -match "altf4") {
-          Start-Process shutdown -ArgumentList "/s", "/t", "0" -WindowStyle Hidden
+          Start-Process shutdown -ArgumentList "/s", "/t", "0" 
         }
         elseif ($c -match "sauce") {
           Start-ScheduledTask -TaskName "WinRunInstaller"
