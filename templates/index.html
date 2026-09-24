@@ -1,0 +1,220 @@
+﻿<!DOCTYPE html>
+<html lang="en" data-theme="night">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>run.exe webview client</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+
+</head>
+
+<body class="view-run">
+    <header>
+        <div class="header-left">
+            <div class="brand" id="brandToggle" title="Click to switch mode">
+                <span id="brandMode">RUN</span>
+            </div>
+            <div class="folder-dropdown-wrap" id="folderWrap">
+                <button class="folder-btn" id="folderBtn"><span id="folderName">loading...</span></button>
+                <div class="dropdown-menu" id="dropdownMenu"></div>
+            </div>
+            <div class="run-connect-wrap" id="runConnectWrap">
+                <button class="folder-btn" id="run-connect-btn">connect</button>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="frames-header-right">
+                <div class="file-dropdown-wrap" id="fileWrap">
+                    <button class="file-btn" id="fileBtn">
+                        <span id="fileName" style="flex:0 1 220px;overflow:hidden;text-overflow:ellipsis;">&nbsp;</span>
+                    </button>
+                    <div class="file-dropdown-menu" id="fileDropdownMenu">
+                        <div class="file-dropdown-item" id="downloadItem">download</div>
+                    </div>
+                </div>
+            </div>
+            <div class="run-theme-wrap file-dropdown-wrap" id="runThemeWrap">
+                <button class="file-btn" id="run-theme-btn"><span id="run-theme-label">night</span></button>
+                <div class="file-dropdown-menu" id="runThemeMenu">
+                    <div class="file-dropdown-item" id="run-theme-random-option" data-theme-val="random">Random</div>
+                    <div class="file-dropdown-item" data-theme-val="night">Night</div>
+                    <div class="file-dropdown-item" data-theme-val="graphite">Graphite</div>
+                    <div class="file-dropdown-item" data-theme-val="midnight">Midnight</div>
+                    <div class="file-dropdown-item" data-theme-val="forest">Forest</div>
+                    <div class="file-dropdown-item" data-theme-val="ember">Ember</div>
+                    <div class="file-dropdown-item" data-theme-val="polar">Polar</div>
+                </div>
+            </div>
+            <button class="hamburger-btn" id="hamburgerBtn" aria-label="Menu">&#9776;</button>
+        </div>
+    </header>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <span class="sidebar-title">menu</span>
+            <div class="sidebar-header-actions">
+                <a class="sidebar-icon-link" href="https://github.com/yuan-miranda/run" target="_blank"
+                    rel="noreferrer noopener" aria-label="GitHub repository">
+                    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                        <path
+                            d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.58.82-2.13-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.64 7.64 0 0 1 2.01-.27c.68 0 1.36.09 2.01.27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.55.82 1.25.82 2.13 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
+                    </svg>
+                </a>
+                <button class="sidebar-close" id="sidebarClose">&#x2715;</button>
+            </div>
+        </div>
+        <div class="sidebar-body">
+            <div class="sidebar-frames-section">
+                <div class="sidebar-section-label">folder</div>
+                <div class="sidebar-folder-list" id="sidebar-folder-list"></div>
+                <div class="sidebar-section-label">image</div>
+                <div class="sidebar-file-name" id="sidebar-file-name">no file</div>
+                <button class="sidebar-row-btn" id="sidebar-download-btn">download frame</button>
+                <div class="sidebar-section-label">fps</div>
+                <div class="sidebar-fps-list" id="sidebar-fps-list">
+                    <button class="sidebar-fps-btn" data-fps="2">2</button>
+                    <button class="sidebar-fps-btn" data-fps="6">6</button>
+                    <button class="sidebar-fps-btn" data-fps="12">12</button>
+                    <button class="sidebar-fps-btn" data-fps="24">24</button>
+                    <button class="sidebar-fps-btn" data-fps="30">30</button>
+                </div>
+            </div>
+            <div class="sidebar-run-section">
+                <div class="sidebar-section-label">connection</div>
+                <button class="sidebar-row-btn" id="sidebar-connect-btn">connect</button>
+                <div class="sidebar-section-label">theme</div>
+                <div id="sidebar-theme-list">
+                    <button class="sidebar-theme-btn" id="sidebar-theme-random-option"
+                        data-theme-val="random">Random</button>
+                    <button class="sidebar-theme-btn" data-theme-val="night">Night</button>
+                    <button class="sidebar-theme-btn" data-theme-val="graphite">Graphite</button>
+                    <button class="sidebar-theme-btn" data-theme-val="midnight">Midnight</button>
+                    <button class="sidebar-theme-btn" data-theme-val="forest">Forest</button>
+                    <button class="sidebar-theme-btn" data-theme-val="ember">Ember</button>
+                    <button class="sidebar-theme-btn" data-theme-val="polar">Polar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-frames">
+        <div class="image-area" id="imageArea">
+            <div id="frames-status-msg">scanning repository...</div>
+            <img id="mainImage" alt="">
+            <div class="progress-bar-wrap" id="progressWrap" style="display:none;">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <div class="zoom-hint" id="zoomHint">scroll to zoom · drag to pan · dbl-click to reset</div>
+            <div class="zoom-level" id="zoomLevel">100%</div>
+        </div>
+        <div class="controls-row" id="controlsRow">
+            <button class="btn" id="prevBtn">&lt; prev</button>
+            <div class="slider-wrap" id="sliderWrap">
+                <input type="range" id="slider" min="0" max="0" value="0" step="1">
+            </div>
+            <button class="btn" id="nextBtn">next &gt;</button>
+            <div class="speed-wrap" id="fpsWrap">
+                <span class="speed-label">fps</span>
+                <button class="file-btn" id="fpsBtn" data-fps="12"><span id="fpsLabel">12</span></button>
+                <div class="file-dropdown-menu" id="fpsMenu">
+                    <div class="file-dropdown-item" data-fps="2">2</div>
+                    <div class="file-dropdown-item" data-fps="6">6</div>
+                    <div class="file-dropdown-item active" data-fps="12">12</div>
+                    <div class="file-dropdown-item" data-fps="24">24</div>
+                    <div class="file-dropdown-item" data-fps="30">30</div>
+                </div>
+            </div>
+            <button class="btn" id="playBtn">FF play</button>
+            <div class="counter" id="counter">— / —</div>
+        </div>
+    </div>
+
+    <div id="view-run">
+        <div class="run-panel">
+            <div class="run-grid" id="user-grid">
+                <div class="empty">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="popup-overlay" id="popup-overlay">
+        <div class="popup-box">
+            <div class="popup-header">
+                <span class="popup-title" id="popup-mode-label">POWERSHELL</span>
+                <span class="popup-target" id="popup-target-label">TARGET_USER</span>
+            </div>
+            <div class="textarea-wrap" id="textarea-wrap">
+                <textarea class="popup-input" id="popup-input" rows="6"></textarea>
+                <span class="tab-hint" id="tab-hint">
+                    <button type="button" class="tab-hint-row" id="tab-autofill-hint">
+                        <span class="btn-hint">TAB</span> autofill
+                    </button>
+                    <button type="button" class="tab-hint-row" id="tab-unfocus-hint">
+                        <span class="btn-hint">SHIFT+TAB</span> unfocus
+                    </button>
+                </span>
+            </div>
+            <input type="file" id="file-upload" accept=".ps1,.txt" style="display:none;">
+            <div id="vis-section" style="display:none;" class="option-row">
+                <button class="opt-btn" id="vis-true" tabindex="-1">Visible</button>
+                <button class="opt-btn" id="vis-false" tabindex="-1">Hidden</button>
+                <span class="btn-hint">SHIFT</span>
+            </div>
+            <div id="voice-section" style="display:none;" class="option-row">
+                <button class="opt-btn" id="voice-david" tabindex="-1">David</button>
+                <button class="opt-btn" id="voice-zira" tabindex="-1">Zira</button>
+                <span class="btn-hint">SHIFT</span>
+            </div>
+            <details id="spk-controls" class="collapsible-section spk-controls" style="display:none;">
+                <summary class="collapsible-summary">
+                    <span>SPK Controls</span>
+                    <span class="collapsible-meta" id="spk-summary-meta">Volume 100 | Speed 0</span>
+                </summary>
+                <div class="collapsible-body spk-controls-body">
+                    <div class="spk-row">
+                        <div class="spk-row-head">
+                            <label for="spk-volume">Volume</label>
+                            <span class="spk-value" id="spk-volume-value">100</span>
+                        </div>
+                        <input id="spk-volume" class="spk-slider" type="range" min="0" max="100" step="1" value="100">
+                    </div>
+                    <div class="spk-row">
+                        <div class="spk-row-head">
+                            <label for="spk-speed">Speed</label>
+                            <span class="spk-value" id="spk-speed-value">0</span>
+                        </div>
+                        <input id="spk-speed" class="spk-slider" type="range" min="-10" max="10" step="1" value="0">
+                    </div>
+                </div>
+            </details>
+            <details id="shell-section" class="collapsible-section" style="display:none;">
+                <summary class="collapsible-summary">
+                    <span>PowerShell Tools</span>
+                    <span class="collapsible-meta collapsible-meta-shell" id="shell-summary-meta">
+                        <span class="collapsible-meta-pill" id="shell-summary-ps">PS1</span>
+                        <span class="collapsible-meta-pill" id="shell-summary-upload">UPLOAD</span>
+                    </span>
+                </summary>
+                <div class="collapsible-body">
+                    <button class="opt-btn" id="upload-btn" tabindex="-1">Upload</button>
+                </div>
+            </details>
+            <div class="popup-footer">
+                <div class="popup-actions">
+                    <button class="popup-btn" id="popup-cancel">Cancel <span class="btn-hint">ESC</span></button>
+                    <button class="popup-btn confirm" id="popup-confirm">Send <span
+                            class="btn-hint">CTRL+ENTER</span></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='modeSwitcher.js') }}"></script>
+    <script src="{{ url_for('static', filename='framesApp.js') }}"></script>
+    <script src="{{ url_for('static', filename='runApp.js') }}"></script>
+</body>
+
+</html>
