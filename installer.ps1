@@ -1,4 +1,4 @@
-$ErrorActionPreference = "SilentlyContinue"
+$ErrorActionPreference = "Continue"
 
 function Log($text) {
   Write-Host $text
@@ -33,6 +33,7 @@ if (-not $isUpdate -and -not $isAdmin) {
   Log "09 Requesting UAC"
   Start-Process -FilePath $self -Verb RunAs
   Log "10 UAC process started"
+  Read-Host "Press Enter to close"
   exit
 }
 
@@ -217,3 +218,4 @@ if ($self) {
 }
 
 Log "51 Installation process finished"
+Read-Host "Press Enter to close"
