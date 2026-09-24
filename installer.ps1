@@ -206,6 +206,7 @@ Log "47 Starting run.exe"
 Start-Process $runExe
 
 Log "48 run.exe start command sent"
+Read-Host "Press Enter to close"
 
 if ($installer) {
   Log "49 Scheduling installer cleanup"
@@ -218,4 +219,3 @@ if ($self) {
 }
 
 Log "51 Installation process finished"
-Read-Host "Press Enter to close"
