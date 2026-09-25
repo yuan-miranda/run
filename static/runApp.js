@@ -406,7 +406,6 @@ const RunApp = (() => {
         if (!user) return;
         if (!runState.isConnected || user.demo) { closePopup(); alert('Demo mode: action preview only. Connect to send real commands.'); return; }
 
-        // Inside runApp.js -> doSendPopup()
         let rawCmd = '';
         if (mode === 'cmd') {
             if (val) rawCmd = isSpecialCommandInput(val) ? val : wrapPowershell(val, !runState.selectedVis);
