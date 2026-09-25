@@ -428,42 +428,24 @@ const RunApp = (() => {
         };
 
         try {
-            console.log('Sending command:', {
-                username: user.username,
-                mode,
-                rawCmd,
-                visible: mode === 'cmd'
-                    ? (runState.selectedVis ? 1 : 0)
-                    : 1
-            });
-
             const res = await fetch(`${runState.url}/api/command`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'x-password': runState.password
                 },
-                body: JSON.stringify({
-                    username: user.username,
-                    cmd: rawCmd ? btoa(rawCmd) : '',
-                    visible: mode === 'cmd'
-                        ? (runState.selectedVis ? 1 : 0)
-                        : 1
-                })
+                body: JSON.stringify(body)
             });
 
-            console.log('Command response:', res.status, await res.text());
-
             if (!res.ok) {
-                console.error('Command request failed');
+                console.error('Command request failed:', res.status, await res.text());
                 return;
             }
 
             closePopup();
             fetchData();
-
         } catch (e) {
-            console.error('Send error:', e);
+            console.error('Send error', e);
         }
     }
 
