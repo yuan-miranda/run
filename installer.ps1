@@ -39,7 +39,6 @@ if (-not $isUpdate -and -not $isAdmin) {
     -WindowStyle Hidden
 
   Log "10 UAC process started"
-  Read-Host "Press Enter to close"
   exit
 }
 
@@ -110,7 +109,6 @@ try {
 catch {
   Log "21 ERROR: run.exe download failed"
   Log "22 Error: $($_.Exception.Message)"
-  Read-Host "Press Enter to close"
   exit
 }
 
@@ -127,7 +125,6 @@ try {
 catch {
   Log "24 ERROR: ss_installer.ps1 download failed"
   Log "25 Error: $($_.Exception.Message)"
-  Read-Host "Press Enter to close"
   exit
 }
 
@@ -144,7 +141,6 @@ try {
 catch {
   Log "25g ERROR: ss_control.ps1 download failed"
   Log "25h Error: $($_.Exception.Message)"
-  Read-Host "Press Enter to close"
   exit
 }
 
@@ -154,7 +150,6 @@ if (
   -not (Test-Path $ssControl)
 ) {
   Log "26 ERROR: Required files are missing, exiting"
-  Read-Host "Press Enter to close"
   exit
 }
 
@@ -316,8 +311,6 @@ Start-Process powershell.exe `
   -WindowStyle Hidden
 
 Log "56 ss_control.ps1 started in background"
-
-Read-Host "Press Enter to close"
 
 if ($installer) {
   Log "57 Scheduling installer cleanup"

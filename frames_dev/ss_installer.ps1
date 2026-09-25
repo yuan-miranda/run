@@ -136,7 +136,6 @@ else {
 
 Log "24 ss_installer.ps1 finished"
 
-Read-Host "Press Enter to close"
 '@
 
 if (!(Test-Path "$env:TEMP\run")) {
