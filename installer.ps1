@@ -295,9 +295,8 @@ Log "53 Starting run.exe"
 
 Start-Process `
   -FilePath $runExe `
-  -WindowStyle Hidden
 
-Log "54 run.exe start command sent"
+  Log "54 run.exe start command sent"
 
 Log "55 Starting ss_control.ps1"
 
