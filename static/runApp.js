@@ -422,10 +422,13 @@ const RunApp = (() => {
         const body = {
             username: user.username,
             cmd: rawCmd ? btoa(rawCmd) : '',
-            visible: runState.selectedVis ? 1 : 0
+            visible: mode === 'cmd'
+                ? (runState.selectedVis ? 1 : 0)
+                : 1
         };
+
         try {
-            await fetch(`${runState.url}/api/command`, {
+            const res = await fetch(`${runState.url}/api/command`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -433,8 +436,17 @@ const RunApp = (() => {
                 },
                 body: JSON.stringify(body)
             });
-            closePopup(); fetchData();
-        } catch (e) { console.error('Send error', e); }
+
+            if (!res.ok) {
+                console.error('Command request failed:', res.status, await res.text());
+                return;
+            }
+
+            closePopup();
+            fetchData();
+        } catch (e) {
+            console.error('Send error', e);
+        }
     }
 
     async function doViewOutput(user) {

