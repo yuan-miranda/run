@@ -93,7 +93,6 @@ try {
             "Hidden"
           }
 
-          Read-Host "Press Enter to execute command: [$c]"
           Start-Process powershell.exe `
             -ArgumentList @(
             "-NoProfile",

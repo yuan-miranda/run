@@ -133,6 +133,7 @@ const FramesApp = (() => {
                     clampPan(); applyTransform();
                 } else { fitToArea(); }
                 state.restoreView = null; state.viewInitialized = true;
+                els.mainImage.onload = null;
             };
             if (els.mainImage.complete && els.mainImage.naturalWidth) applyInitialView();
             else els.mainImage.onload = applyInitialView;

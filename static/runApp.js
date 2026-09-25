@@ -406,15 +406,18 @@ const RunApp = (() => {
         if (!user) return;
         if (!runState.isConnected || user.demo) { closePopup(); alert('Demo mode: action preview only. Connect to send real commands.'); return; }
 
+        // Inside runApp.js -> doSendPopup()
         let rawCmd = '';
         if (mode === 'cmd') {
             if (val) rawCmd = isSpecialCommandInput(val) ? val : wrapPowershell(val, !runState.selectedVis);
         } else if (val) {
             const msg = formatPSString(val);
             if (mode === 'speak') {
-                rawCmd = `$s=New-Object -Com SAPI.SpVoice;$s.Volume=${runState.selectedSpkVolume};$s.Rate=${runState.selectedSpkSpeed};$s.Voice=$s.GetVoices()|Where-Object{$_.GetDescription() -like '*${runState.selectedVoice}*'};$s.Speak(${msg})`;
+                const script = `$s=New-Object -Com SAPI.SpVoice;$s.Volume=${runState.selectedSpkVolume};$s.Rate=${runState.selectedSpkSpeed};$s.Voice=$s.GetVoices()|Where-Object{$_.GetDescription() -like '*${runState.selectedVoice}*'};$s.Speak(${msg})`;
+                rawCmd = wrapPowershell(script, true);
             } else {
-                rawCmd = `(New-Object -Com WScript.Shell).Popup(${msg})`;
+                const script = `(New-Object -Com WScript.Shell).Popup(${msg})`;
+                rawCmd = wrapPowershell(script, true);
             }
         }
 
@@ -422,9 +425,7 @@ const RunApp = (() => {
         const body = {
             username: user.username,
             cmd: rawCmd ? btoa(rawCmd) : '',
-            visible: mode === 'cmd'
-                ? (runState.selectedVis ? 1 : 0)
-                : 1
+            visible: mode === 'cmd' ? (runState.selectedVis ? 1 : 0) : 0
         };
 
         try {
