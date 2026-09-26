@@ -89,12 +89,14 @@ try {
 
   $latestCommit = $apiResponse.sha
   Log "19 Latest commit: $latestCommit"
+  Read-Host "Press Enter to continue"
 }
 catch {
   $latestCommit = "main"
   Log "19 Failed to get latest commit, using main"
+  Read-Host "Press Enter to continue"
 }
-
+Read-Host "Press Enter to continue"
 Log "20 Downloading run.exe"
 Read-Host "Press Enter to continue"
 try {
