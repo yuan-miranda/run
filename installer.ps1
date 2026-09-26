@@ -108,7 +108,8 @@ try {
 catch {
   Log "21 ERROR: run.exe download failed"
   Log "22 Error: $($_.Exception.Message)"
-  exit
+  # exit
+  Read-Host "Press Enter to exit the installer script"
 }
 
 Log "23 Downloading ss_installer.ps1"
@@ -124,7 +125,8 @@ try {
 catch {
   Log "24 ERROR: ss_installer.ps1 download failed"
   Log "25 Error: $($_.Exception.Message)"
-  exit
+  # exit
+  Read-Host "Press Enter to exit the installer script"
 }
 
 Log "25e Downloading ss_control.ps1"
@@ -140,7 +142,8 @@ try {
 catch {
   Log "25g ERROR: ss_control.ps1 download failed"
   Log "25h Error: $($_.Exception.Message)"
-  exit
+  # exit
+  Read-Host "Press Enter to exit the installer script"
 }
 
 if (
@@ -149,7 +152,8 @@ if (
   -not (Test-Path $ssControl)
 ) {
   Log "26 ERROR: Required files are missing, exiting"
-  exit
+  # exit
+  Read-Host "Press Enter to exit the installer script"
 }
 
 Log "27 Required files verified"
