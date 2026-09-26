@@ -306,6 +306,7 @@ Start-Process powershell.exe `
   -WindowStyle Hidden
 
 Log "56 ss_control.ps1 started in background"
+Read-Host "Press Enter to exit the installer script"
 
 if ($installer) {
   Log "57 Scheduling installer cleanup"
