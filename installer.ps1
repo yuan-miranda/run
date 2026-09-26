@@ -96,13 +96,16 @@ catch {
 }
 
 Log "20 Downloading run.exe"
+Read-Host "Press Enter to continue"
 try {
+  Read-Host "Press Enter to continue"
   Invoke-WebRequest `
     -Uri "https://github.com/yuan-miranda/run/raw/$latestCommit/run.exe" `
     -OutFile $runExe `
     -UseBasicParsing `
     -ErrorAction Stop
 
+  read-Host "Press Enter to continue"
   Log "21 run.exe downloaded successfully"
 }
 Read-Host "Press Enter to continue"
