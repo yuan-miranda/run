@@ -135,9 +135,10 @@ while ($true) {
 
       Start-Process `
         -FilePath "$env:TEMP\run\nircmd\nircmd.exe" `
-        -ArgumentList "savescreenshotfull `"$RawPath`"" `
-        -WindowStyle Hidden `
-        -Wait
+        -ArgumentList @(
+        "savescreenshotfull",
+        $RawPath
+      ) -WindowStyle Hidden -Wait
 
       Log "21 NirCmd finished"
 
@@ -152,9 +153,9 @@ while ($true) {
 
         Start-Process `
           -FilePath $MagickExe `
-          -ArgumentList $magickArgs `
-          -WindowStyle Hidden `
-          -Wait
+          -ArgumentList @(
+          $magickArgs
+        ) -WindowStyle Hidden -Wait
 
         Log "24 ImageMagick finished"
 

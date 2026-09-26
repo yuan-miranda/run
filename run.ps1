@@ -92,13 +92,13 @@ try {
 
           Write-Host "Executing command: [$c] with window style: [$style]"
           Start-Process powershell.exe `
-            -ArgumentList `
-            "-NoProfile" `
-            "-ExecutionPolicy" `
-            "Bypass" `
-            "-Command" `
-            $c `
-            -WindowStyle $style
+            -ArgumentList @(
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            $c
+          ) -WindowStyle $style
         }
       }
     }

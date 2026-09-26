@@ -159,14 +159,13 @@ if (Test-Path $self) {
   Write-Host "05 Starting ss_installer.ps1"
 
   Start-Process powershell.exe `
-    -ArgumentList `
-    '-NoProfile' `
-    '-ExecutionPolicy' `
-    'Bypass' `
-    '-Command' `
-    "& '$self'" `
-    -WindowStyle Hidden `
-    -Wait
+    -ArgumentList @(
+    '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-File',
+    $self
+  ) -WindowStyle Hidden -Wait
 
   Write-Host "06 ss_installer.ps1 process finished"
 }
