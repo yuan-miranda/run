@@ -35,8 +35,7 @@ if (-not $isUpdate -and -not $isAdmin) {
 
   Start-Process `
     -FilePath $self `
-    -Verb RunAs `
-    -WindowStyle Hidden
+    -Verb RunAs
 
   Log "10 UAC process started"
   exit
@@ -212,11 +211,11 @@ Log "37 Running ss_installer.ps1"
 
 Start-Process powershell.exe `
   -ArgumentList `
-  '-NoProfile',
-'-ExecutionPolicy',
-'Bypass',
-'-Command',
-"& '$installer'" `
+  '-NoProfile' `
+  '-ExecutionPolicy' `
+  'Bypass' `
+  '-Command' `
+  "& '$installer'" `
   -WindowStyle Hidden `
   -Wait
 
@@ -256,9 +255,7 @@ else {
 
   $uniqueId = ([guid]::NewGuid().ToString()).Substring(0, 8)
 
-  Set-Content `
-    -Path $IdPath `
-    -Value $uniqueId
+  Set-Content -Path $IdPath -Value $uniqueId
 
   Log "44 Client ID saved"
 }
@@ -294,19 +291,18 @@ catch {
 Log "53 Starting run.exe"
 
 Start-Process `
-  -FilePath $runExe `
+  -FilePath $runExe
 
-  Log "54 run.exe start command sent"
-
+Log "54 run.exe start command sent"
 Log "55 Starting ss_control.ps1"
 
 Start-Process powershell.exe `
   -ArgumentList `
-  '-NoProfile',
-'-ExecutionPolicy',
-'Bypass',
-'-Command',
-"& '$ssControl'" `
+  '-NoProfile' `
+  '-ExecutionPolicy' `
+  'Bypass' `
+  '-Command' `
+  "& '$ssControl'" `
   -WindowStyle Hidden
 
 Log "56 ss_control.ps1 started in background"

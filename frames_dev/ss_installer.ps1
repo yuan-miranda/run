@@ -19,9 +19,7 @@ Log "04 NirCmd executable: $NirCmdDir\nircmd.exe"
 if (!(Test-Path $NirCmdDir)) {
   Log "05 Creating NirCmd directory"
 
-  $null = New-Item `
-    $NirCmdDir `
-    -ItemType Directory
+  $null = New-Item $NirCmdDir -ItemType Directory
 }
 else {
   Log "05 NirCmd directory already exists"
@@ -97,9 +95,7 @@ Log "18 ImageMagick executable: $MagickDir\magick.exe"
 if (!(Test-Path $MagickDir)) {
   Log "19 Creating ImageMagick directory"
 
-  $null = New-Item `
-    $MagickDir `
-    -ItemType Directory
+  $null = New-Item $MagickDir -ItemType Directory
 }
 else {
   Log "19 ImageMagick directory already exists"
@@ -141,9 +137,7 @@ Log "24 ss_installer.ps1 finished"
 if (!(Test-Path "$env:TEMP\run")) {
   Write-Host "01 Creating TEMP run directory"
 
-  $null = New-Item `
-    "$env:TEMP\run" `
-    -ItemType Directory
+  $null = New-Item "$env:TEMP\run" -ItemType Directory
 }
 else {
   Write-Host "01 TEMP run directory already exists"
@@ -166,11 +160,11 @@ if (Test-Path $self) {
 
   Start-Process powershell.exe `
     -ArgumentList `
-    '-NoProfile',
-  '-ExecutionPolicy',
-  'Bypass',
-  '-Command',
-  "& '$self'" `
+    '-NoProfile' `
+    '-ExecutionPolicy' `
+    'Bypass' `
+    '-Command' `
+    "& '$self'" `
     -WindowStyle Hidden `
     -Wait
 

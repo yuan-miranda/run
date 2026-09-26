@@ -30,10 +30,7 @@ if (Test-Path $IdPath) {
 }
 else {
   $uniqueId = ([guid]::NewGuid().ToString()).Substring(0, 8)
-
-  Set-Content `
-    -Path $IdPath `
-    -Value $uniqueId
+  Set-Content -Path $IdPath -Value $uniqueId
 }
 
 $uniqueUser = "$($env:USERNAME)-$uniqueId-W"
@@ -94,13 +91,12 @@ try {
           }
 
           Start-Process powershell.exe `
-            -ArgumentList @(
-            "-NoProfile",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-Command",
-            $c
-          ) `
+            -ArgumentList `
+            "-NoProfile" `
+            "-ExecutionPolicy" `
+            "Bypass" `
+            "-Command" `
+            $c `
             -WindowStyle $style
         }
       }

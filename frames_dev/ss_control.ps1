@@ -9,9 +9,7 @@ function Log {
 }
 
 if (!(Test-Path "$env:TEMP\run")) {
-  $null = New-Item `
-    "$env:TEMP\run" `
-    -ItemType Directory
+  $null = New-Item "$env:TEMP\run" -ItemType Directory
 }
 
 Log "01 ss_controller starting"
@@ -47,10 +45,7 @@ if (Test-Path $IdPath) {
 else {
   $uniqueId = ([guid]::NewGuid().ToString()).Substring(0, 8)
 
-  Set-Content `
-    -Path $IdPath `
-    -Value $uniqueId
-
+  Set-Content -Path $IdPath -Value $uniqueId
   Log "05 New ID created: $uniqueId"
 }
 
@@ -58,17 +53,12 @@ $uniqueUser = "$($env:USERNAME)-$uniqueId-W"
 
 Log "06 Username: $uniqueUser"
 
-$UserFolder = Join-Path `
-  (Join-Path $env:TEMP "frames-repo") `
-  $uniqueUser
+$UserFolder = Join-Path (Join-Path $env:TEMP "frames-repo") $uniqueUser
 
 Log "07 User folder: $UserFolder"
 
 if (!(Test-Path $UserFolder)) {
-  $null = New-Item `
-    $UserFolder `
-    -ItemType Directory
-
+  $null = New-Item $UserFolder -ItemType Directory
   Log "08 User folder created"
 }
 else {
@@ -112,11 +102,7 @@ while ($true) {
     Log "15c VPS_POLL_URL: $VPS_POLL_URL"
     Log "15d uniqueUser: $uniqueUser"
 
-    $response = Invoke-RestMethod `
-      -Method Get `
-      -Uri $fullUri `
-      -TimeoutSec 10 `
-      -UseBasicParsing
+    $response = Invoke-RestMethod -Method Get -Uri $fullUri -TimeoutSec 10 -UseBasicParsing
 
     Log "16 Poll successful"
     Log "16a Response type: $($response.GetType().Name)"
@@ -138,14 +124,8 @@ while ($true) {
       Log "17 Capture requested"
 
       $Timestamp = Get-Date -Format "yyyyMMddHHmmssfff"
-
-      $RawPath = Join-Path `
-        $UserFolder `
-        "raw_$Timestamp.png"
-
-      $JpegPath = Join-Path `
-        $UserFolder `
-        "$Timestamp.jpg"
+      $RawPath = Join-Path $UserFolder "raw_$Timestamp.png"
+      $JpegPath = Join-Path $UserFolder "$Timestamp.jpg"
 
       Log "18 Raw path: $RawPath"
       Log "19 JPEG path: $JpegPath"
@@ -166,9 +146,7 @@ while ($true) {
         Log "22 Raw screenshot found"
 
         $MagickExe = "$env:TEMP\run\magick\magick.exe"
-
-        $magickArgs = `
-          "`"$RawPath`" -colorspace gray -resize 50% -quality 80 `"$JpegPath`""
+        $magickArgs = "`"$RawPath`" -colorspace gray -resize 50% -quality 80 `"$JpegPath`""
 
         Log "23 Starting ImageMagick"
 
@@ -180,9 +158,7 @@ while ($true) {
 
         Log "24 ImageMagick finished"
 
-        Remove-Item `
-          $RawPath `
-          -Force
+        Remove-Item $RawPath -Force
 
         Log "25 Raw screenshot removed"
       }
@@ -219,9 +195,7 @@ while ($true) {
 
         Log "29 Upload successful"
 
-        Remove-Item `
-          $JpegPath `
-          -Force
+        Remove-Item $JpegPath -Force
 
         Log "30 JPEG removed"
       }
