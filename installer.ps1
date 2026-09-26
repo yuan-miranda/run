@@ -105,6 +105,7 @@ try {
 
   Log "21 run.exe downloaded successfully"
 }
+Read-Host "Press Enter to continue"
 catch {
   Log "21 ERROR: run.exe download failed"
   Log "22 Error: $($_.Exception.Message)"
