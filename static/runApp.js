@@ -163,7 +163,7 @@ const RunApp = (() => {
     function getHintUsername(sorted = getRenderableRows()) {
         if (!sorted.length) return null;
         if (runState.activeUsername && sorted.some(u => u.username === runState.activeUsername)) return runState.activeUsername;
-        return sorted[0].username;
+        return null;
     }
     function buildRowsRenderSignature(rows, isSorted = false) {
         const nowMs = Date.now() + runState.serverTimeOffset;
