@@ -33,4 +33,16 @@
         if (currentMode === 'frames') body.classList.toggle('is-loading', on);
     };
     window.__getCurrentMode = () => currentMode;
+
+    window.addEventListener('keydown', e => {
+        const tag = document.activeElement?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
+        if (document.getElementById('popup-overlay')?.classList.contains('open')) return;
+
+        if (e.key === 'r' || e.key === 'R') {
+            if (currentMode !== 'run') brandToggle.click();
+        } else if (e.key === 'f' || e.key === 'F') {
+            if (currentMode !== 'frames') brandToggle.click();
+        }
+    });
 })();

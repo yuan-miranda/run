@@ -1118,12 +1118,30 @@ body:not(.kb-mode) .popup-btn:hover {
     color: var(--run-text, var(--text));
     font-family: inherit;
     font-size: 14px;
+    height: 8.5rem;
     min-height: 8.5rem;
+    max-height: 8.5rem;
     outline: none;
     padding: 12px;
-    resize: vertical;
+    resize: none;
+    overflow-y: auto;
+    overflow-x: hidden;
     transition: border-color 160ms;
     width: 100%;
+    scrollbar-width: thin;
+    scrollbar-color: var(--run-border-strong, var(--border-heavy)) transparent;
+}
+
+.popup-input::-webkit-scrollbar {
+    width: 4px;
+}
+
+.popup-input::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.popup-input::-webkit-scrollbar-thumb {
+    background: var(--run-border-strong, var(--border-heavy));
 }
 
 .popup-input:focus {
