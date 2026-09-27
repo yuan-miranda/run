@@ -335,11 +335,12 @@ def upload_screenshot():
 
 
 @app.get("/frames/<username>/<filename>")
-@require_password
 def get_frame(username, filename):
     user_dir = os.path.join(SCREENSHOT_DIR, username)
 
-    return send_from_directory(user_dir, filename)
+    response = send_from_directory(user_dir, filename)
+    response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    return response
 
 
 if __name__ == "__main__":

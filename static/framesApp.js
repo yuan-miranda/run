@@ -221,43 +221,12 @@ const FramesApp = (() => {
         if (!url) return;
         const name = state.imagesMeta[state.idx]?.name || 'frame.png';
         const a = document.createElement('a');
+        a.href = url;
         a.download = name;
-        try {
-            const res = await fetch(url, {
-                mode: 'cors',
-                headers: authHeaders()
-            });
-            if (!res.ok) throw new Error('download failed');
-            const blobUrl = URL.createObjectURL(await res.blob());
-            a.href = blobUrl;
-            document.body.appendChild(a); a.click(); document.body.removeChild(a);
-            URL.revokeObjectURL(blobUrl);
-        } catch {
-            a.href = url;
-            document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        }
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
     }
 
     // ── Preload ──
-    async function loadAuthenticatedImages(urls) {
-        const loaded = [];
-        for (const url of urls) {
-            try {
-                const res = await fetch(url, {
-                    mode: 'cors',
-                    headers: authHeaders()
-                });
-                if (!res.ok) throw new Error('image error ' + res.status);
-                const blob = await res.blob();
-                loaded.push(URL.createObjectURL(blob));
-            } catch (e) {
-                console.error('Image load error', e);
-                loaded.push(url);
-            }
-        }
-        return loaded;
-    }
-
     function preloadImages(urls) {
         return new Promise(resolve => {
             let done = 0;
@@ -312,7 +281,7 @@ const FramesApp = (() => {
             state.imagesMeta = images; state.total = images.length;
             const base = `${getVpsUrl()}/frames/${encodeURIComponent(folder)}`;
             const imageUrls = images.map(img => `${base}/${encodeURIComponent(img.name)}`);
-            state.urls = await loadAuthenticatedImages(imageUrls);
+            state.urls = imageUrls;
             await preloadImages(state.urls);
             els.slider.max = state.total - 1;
             els.controlsRow.style.display = 'flex';
