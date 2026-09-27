@@ -621,6 +621,7 @@ const RunApp = (() => {
                 }
                 return;
             }
+            if (e.key === 'Escape') { clearActiveSelection(); return; }
             const arrowKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
             if (arrowKeys.includes(e.key)) {
                 e.preventDefault();
@@ -643,10 +644,16 @@ const RunApp = (() => {
             if (!u) return;
             const alive = getStatus(u) === 'green';
             const key = e.key.toLowerCase();
-            if (key === 'p' && alive) openPopup('cmd', u);
+            if (key === 'c' && alive) openPopup('cmd', u);
             if (key === 's' && alive) { runState.selectedVoice = e.shiftKey ? 'Zira' : 'David'; openPopup('speak', u); }
             if (key === 'a' && alive) openPopup('popup_msg', u);
             if (key === 'v') doViewOutput(u);
+        });
+
+        document.addEventListener('click', e => {
+            if (window.__getCurrentMode() !== 'run') return;
+            if (runState.popupMode) return;
+            if (!e.target.closest('.user-card')) clearActiveSelection();
         });
 
         // Initial connection
