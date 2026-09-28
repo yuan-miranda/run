@@ -17,7 +17,7 @@
                 brandMode.classList.remove('brand-mode-fade');
             }, 140);
         }
-        body.classList.remove('view-frames', 'view-run');
+        body.classList.remove('view-frames', 'view-run', 'view-action');
         body.classList.add('view-' + currentMode);
 
         if (currentMode === 'frames') {

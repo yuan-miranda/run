@@ -212,12 +212,6 @@ const RunApp = (() => {
                     <button class="card-btn primary ${alive && canInteract ? '' : 'disabled'}" data-action="ps" ${alive && canInteract ? '' : disabledAttrs}>
                         CMD ${showPrimary ? '<span class="btn-hint">C</span>' : ''}
                     </button>
-                    <button class="card-btn ${alive && canInteract ? '' : 'disabled'}" data-action="speak" ${alive && canInteract ? '' : disabledAttrs}>
-                        SPK ${showPrimary ? '<span class="btn-hint">S</span>' : ''}
-                    </button>
-                    <button class="card-btn ${alive && canInteract ? '' : 'disabled'}" data-action="popup_msg" ${alive && canInteract ? '' : disabledAttrs}>
-                        MSG ${showPrimary ? '<span class="btn-hint">A</span>' : ''}
-                    </button>
                     <button class="card-btn ${canInteract ? '' : 'disabled'}" data-action="output" ${canInteract ? '' : disabledAttrs}>
                         OUT ${showHint && canInteract ? '<span class="btn-hint">V</span>' : ''}
                     </button>
@@ -351,12 +345,11 @@ const RunApp = (() => {
     }
 
     // ── Popup open/close ──
-    function openPopup(mode, user) {
-        runState.popupMode = mode; runState.popupUser = user; runState.selectedVis = !!user.visible;
+    function applyActionMode(mode) {
+        runState.popupMode = mode;
         runState.popupExampleText = (mode === 'speak' || mode === 'popup_msg') ? pickRandomPopupExample(mode) : '';
         runState.cmdLoadedFromUpload = false;
         $('popup-input').value = '';
-        $('popup-target-label').textContent = getDisplayUsername(user.username);
         $('textarea-wrap').classList.remove('show-hint');
         const isCmd = mode === 'cmd', isSpk = mode === 'speak';
         $('vis-section').style.display = isCmd ? 'flex' : 'none';
@@ -364,11 +357,19 @@ const RunApp = (() => {
         $('voice-section').style.display = isSpk ? 'flex' : 'none';
         $('spk-controls').style.display = isSpk ? 'block' : 'none';
         $('shell-section').open = false; $('spk-controls').open = false;
-        $('popup-mode-label').textContent = isCmd ? 'Execute PowerShell' : isSpk ? 'Voice Message' : 'Message Box';
+        // Update mode selector active state
+        document.querySelectorAll('.action-mode-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.mode === mode);
+        });
         updateOptionsUI();
+        setTimeout(() => { $('popup-input').focus(); syncTabHint(); }, 50);
+    }
+    function openPopup(mode, user) {
+        runState.popupUser = user; runState.selectedVis = !!user.visible;
+        $('popup-target-label').textContent = getDisplayUsername(user.username);
         document.body.classList.remove('view-run', 'view-frames');
         document.body.classList.add('view-action');
-        setTimeout(() => { $('popup-input').focus(); syncTabHint(); }, 50);
+        applyActionMode(mode);
     }
     function closePopup() {
         $('textarea-wrap').classList.remove('show-hint');
@@ -581,9 +582,15 @@ const RunApp = (() => {
             const user = getRenderableRows().find(u => u.username === username); if (!user) return;
             const action = btn.dataset.action; if (!action) return;
             if (action === 'ps') openPopup('cmd', user);
-            if (action === 'speak') openPopup('speak', user);
-            if (action === 'popup_msg') openPopup('popup_msg', user);
             if (action === 'output') doViewOutput(user);
+        });
+
+        // Mode selector buttons inside the action page
+        document.querySelectorAll('.action-mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (!runState.popupUser) return;
+                applyActionMode(btn.dataset.mode);
+            });
         });
 
         // Option button listeners
@@ -615,8 +622,9 @@ const RunApp = (() => {
                 if (e.key === 'Escape') closePopup();
                 if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); doSendPopup(); }
                 if (e.key === 'Shift' && document.activeElement !== $('popup-input')) {
-                    if (runState.popupMode === 'speak') { runState.selectedVoice = runState.selectedVoice === 'David' ? 'Zira' : 'David'; updateOptionsUI(); }
-                    else if (runState.popupMode === 'cmd') setPopupVisibility(!runState.selectedVis);
+                    const modes = ['cmd', 'speak', 'popup_msg'];
+                    const next = modes[(modes.indexOf(runState.popupMode) + 1) % modes.length];
+                    applyActionMode(next);
                 }
                 return;
             }

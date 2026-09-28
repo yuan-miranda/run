@@ -931,7 +931,7 @@ body:not(.kb-mode) .user-card:hover {
 .card-actions {
     display: grid;
     gap: 6px;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     width: 100%;
 }
 
@@ -1103,6 +1103,54 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* ── Action mode selector ── */
+.action-mode-selector {
+    display: flex;
+    border: 1px solid var(--run-border-strong, var(--border-heavy));
+    margin-bottom: 1.25rem;
+    overflow: hidden;
+}
+
+.action-mode-btn {
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    background: none;
+    border: none;
+    border-right: 1px solid var(--run-border-strong, var(--border-heavy));
+    color: var(--run-text-dim, var(--muted));
+    cursor: pointer;
+    flex: 1;
+    padding: 10px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background-color 160ms, color 160ms;
+    position: relative;
+}
+
+.action-mode-btn:last-child {
+    border-right: none;
+}
+
+.action-mode-btn:hover {
+    background: var(--run-hover, var(--border));
+    color: var(--run-text, var(--text));
+}
+
+.action-mode-btn.active {
+    background: var(--run-text, var(--text));
+    color: var(--run-text-inverse, var(--bg));
+}
+
+.action-mode-btn.active .btn-hint {
+    background: var(--run-text-inverse, var(--bg));
+    color: var(--run-text, var(--text));
 }
 
 .action-body {
