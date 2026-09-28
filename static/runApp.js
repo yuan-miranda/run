@@ -19,10 +19,10 @@ const RunApp = (() => {
         popup_msg: ['Reminder: save your work now.', 'Notice: update available.', 'Quick check: please confirm.']
     };
     const demoUsers = [
-        { username: 'loren-00000000-W', updated_at: new Date(Date.now() - 4000).toISOString(), visible: true, demo: true },
-        { username: 'kirk-00000000-W', updated_at: new Date(Date.now() - 17000).toISOString(), visible: false, demo: true },
-        { username: 'windows-00000000-W', updated_at: new Date(Date.now() - 75000).toISOString(), visible: false, demo: true },
-        { username: 'ubuntu-00000000-L', updated_at: new Date(Date.now() - 90000).toISOString(), visible: true, demo: true }
+        { username: 'a-00000000-W', updated_at: new Date(Date.now() - 4000).toISOString(), visible: true, demo: true },
+        { username: 'b-00000000-W', updated_at: new Date(Date.now() - 17000).toISOString(), visible: false, demo: true },
+        { username: 'c-00000000-W', updated_at: new Date(Date.now() - 75000).toISOString(), visible: false, demo: true },
+        { username: 'd-00000000-L', updated_at: new Date(Date.now() - 90000).toISOString(), visible: true, demo: true }
     ];
     const $ = id => document.getElementById(id);
     const themeNames = ['night', 'graphite', 'midnight', 'forest', 'ember', 'polar'];
@@ -128,7 +128,7 @@ const RunApp = (() => {
 
     // ── Data helpers ──
     function getStatus(user, nowMs = Date.now()) {
-        if (user.demo && user.username === 'loren-00000000-W') return 'green';
+        if (user.demo && user.username === 'a-00000000-W') return 'green';
         const diff = (nowMs - parseServerTime(user.updated_at).getTime()) / 1000;
         return diff < 10 ? 'green' : diff < 30 ? 'yellow' : 'red';
     }
