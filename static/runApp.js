@@ -277,15 +277,23 @@ const RunApp = (() => {
     }
 
     // ── Selection ──
+    function setRunClientName(username) {
+        const el = $('runClientName');
+        if (!el) return;
+        el.textContent = username ? getDisplayUsername(username) : '\u00a0';
+    }
+
     function clearActiveSelection() {
         runState.activeUsername = null; runState.interactionMode = null;
         document.body.classList.remove('kb-mode');
         document.querySelectorAll('.user-card').forEach(c => c.classList.remove('selected'));
+        setRunClientName(null);
         refreshHintsIfNeeded();
     }
     function setActiveSelection(user, mode, { scroll = false } = {}) {
         if (!user) { clearActiveSelection(); return; }
         runState.activeUsername = user.username; runState.interactionMode = mode;
+        setRunClientName(user.username);
         document.body.classList.toggle('kb-mode', mode === 'keyboard');
         const sorted = getRenderableRows();
         const idx = sorted.findIndex(u => u.username === user.username);

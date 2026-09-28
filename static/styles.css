@@ -358,6 +358,24 @@ header {
     display: none;
 }
 
+.run-client-wrap {
+    border-right: 1px solid var(--border);
+    z-index: 50;
+    display: none;
+    align-items: stretch;
+    overflow: visible;
+}
+
+.run-client-name {
+    cursor: default;
+    pointer-events: none;
+    color: var(--run-text-muted, var(--text));
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* ── Shared button base for header ── */
 .folder-btn,
 .file-btn {
@@ -1161,7 +1179,8 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
 
 .action-footer {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
     padding-top: 4px;
 }
 
@@ -1485,6 +1504,7 @@ body.view-frames .folder-dropdown-wrap {
 }
 
 body.view-frames .run-connect-wrap,
+body.view-frames .run-client-wrap,
 body.view-frames .run-theme-wrap {
     display: none !important;
 }
@@ -1520,6 +1540,10 @@ body.view-run .run-theme-wrap {
     display: flex !important;
 }
 
+body.view-run .run-client-wrap {
+    display: flex !important;
+}
+
 body.view-run .sidebar-run-section {
     display: block;
 }
@@ -1542,6 +1566,7 @@ body.view-action #view-action {
 body.view-action .frames-header-right,
 body.view-action .folder-dropdown-wrap,
 body.view-action .run-connect-wrap,
+body.view-action .run-client-wrap,
 body.view-action .run-theme-wrap {
     display: none !important;
 }
