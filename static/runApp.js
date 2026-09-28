@@ -357,7 +357,6 @@ const RunApp = (() => {
         runState.cmdLoadedFromUpload = false;
         $('popup-input').value = '';
         $('popup-target-label').textContent = getDisplayUsername(user.username);
-        $('popup-overlay').classList.add('open');
         $('textarea-wrap').classList.remove('show-hint');
         const isCmd = mode === 'cmd', isSpk = mode === 'speak';
         $('vis-section').style.display = isCmd ? 'flex' : 'none';
@@ -367,12 +366,15 @@ const RunApp = (() => {
         $('shell-section').open = false; $('spk-controls').open = false;
         $('popup-mode-label').textContent = isCmd ? 'Execute PowerShell' : isSpk ? 'Voice Message' : 'Message Box';
         updateOptionsUI();
+        document.body.classList.remove('view-run', 'view-frames');
+        document.body.classList.add('view-action');
         setTimeout(() => { $('popup-input').focus(); syncTabHint(); }, 50);
     }
     function closePopup() {
-        $('popup-overlay').classList.remove('open');
         $('textarea-wrap').classList.remove('show-hint');
         runState.popupMode = null; runState.popupUser = null; runState.popupExampleText = '';
+        document.body.classList.remove('view-action');
+        document.body.classList.add('view-run');
     }
 
     // ── Command building ──
@@ -608,7 +610,7 @@ const RunApp = (() => {
 
         // Keyboard shortcuts
         document.addEventListener('keydown', e => {
-            if (window.__getCurrentMode() !== 'run') return;
+            if (!runState.popupMode && window.__getCurrentMode() !== 'run') return;
             if (runState.popupMode) {
                 if (e.key === 'Escape') closePopup();
                 if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); doSendPopup(); }
@@ -648,8 +650,8 @@ const RunApp = (() => {
         });
 
         document.addEventListener('click', e => {
-            if (window.__getCurrentMode() !== 'run') return;
             if (runState.popupMode) return;
+            if (window.__getCurrentMode() !== 'run') return;
             if (!e.target.closest('.user-card')) clearActiveSelection();
         });
 

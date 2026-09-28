@@ -140,73 +140,78 @@
         </div>
     </div>
 
-    <div class="popup-overlay" id="popup-overlay">
-        <div class="popup-box">
-            <div class="popup-header">
-                <span class="popup-title" id="popup-mode-label">POWERSHELL</span>
-                <span class="popup-target" id="popup-target-label">TARGET_USER</span>
-            </div>
-            <div class="textarea-wrap" id="textarea-wrap">
-                <textarea class="popup-input" id="popup-input" rows="6"></textarea>
-                <span class="tab-hint" id="tab-hint">
-                    <button type="button" class="tab-hint-row" id="tab-autofill-hint">
-                        <span class="btn-hint">TAB</span> autofill
-                    </button>
-                    <button type="button" class="tab-hint-row" id="tab-unfocus-hint">
-                        <span class="btn-hint">SHIFT+TAB</span> unfocus
-                    </button>
+    <div id="view-action">
+        <div class="action-page">
+            <div class="action-back-row">
+                <button class="action-back-btn" id="popup-cancel">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"/></svg>
+                    back
+                </button>
+                <span class="action-breadcrumb">
+                    <span class="action-breadcrumb-mode" id="popup-mode-label">POWERSHELL</span>
+                    <span class="action-breadcrumb-sep">·</span>
+                    <span class="action-breadcrumb-target" id="popup-target-label">TARGET_USER</span>
                 </span>
             </div>
-            <input type="file" id="file-upload" accept=".ps1,.txt" style="display:none;">
-            <div id="vis-section" style="display:none;" class="option-row">
-                <button class="opt-btn" id="vis-true" tabindex="-1">Visible</button>
-                <button class="opt-btn" id="vis-false" tabindex="-1">Hidden</button>
-                <span class="btn-hint">SHIFT</span>
-            </div>
-            <div id="voice-section" style="display:none;" class="option-row">
-                <button class="opt-btn" id="voice-david" tabindex="-1">David</button>
-                <button class="opt-btn" id="voice-zira" tabindex="-1">Zira</button>
-                <span class="btn-hint">SHIFT</span>
-            </div>
-            <details id="spk-controls" class="collapsible-section spk-controls" style="display:none;">
-                <summary class="collapsible-summary">
-                    <span>SPK Controls</span>
-                    <span class="collapsible-meta" id="spk-summary-meta">Volume 100 | Speed 0</span>
-                </summary>
-                <div class="collapsible-body spk-controls-body">
-                    <div class="spk-row">
-                        <div class="spk-row-head">
-                            <label for="spk-volume">Volume</label>
-                            <span class="spk-value" id="spk-volume-value">100</span>
-                        </div>
-                        <input id="spk-volume" class="spk-slider" type="range" min="0" max="100" step="1" value="100">
-                    </div>
-                    <div class="spk-row">
-                        <div class="spk-row-head">
-                            <label for="spk-speed">Speed</label>
-                            <span class="spk-value" id="spk-speed-value">0</span>
-                        </div>
-                        <input id="spk-speed" class="spk-slider" type="range" min="-10" max="10" step="1" value="0">
-                    </div>
-                </div>
-            </details>
-            <details id="shell-section" class="collapsible-section" style="display:none;">
-                <summary class="collapsible-summary">
-                    <span>PowerShell Tools</span>
-                    <span class="collapsible-meta collapsible-meta-shell" id="shell-summary-meta">
-                        <span class="collapsible-meta-pill" id="shell-summary-ps">PS1</span>
-                        <span class="collapsible-meta-pill" id="shell-summary-upload">UPLOAD</span>
+            <div class="action-body">
+                <div class="textarea-wrap" id="textarea-wrap">
+                    <textarea class="popup-input" id="popup-input" rows="6"></textarea>
+                    <span class="tab-hint" id="tab-hint">
+                        <button type="button" class="tab-hint-row" id="tab-autofill-hint">
+                            <span class="btn-hint">TAB</span> autofill
+                        </button>
+                        <button type="button" class="tab-hint-row" id="tab-unfocus-hint">
+                            <span class="btn-hint">SHIFT+TAB</span> unfocus
+                        </button>
                     </span>
-                </summary>
-                <div class="collapsible-body">
-                    <button class="opt-btn" id="upload-btn" tabindex="-1">Upload</button>
                 </div>
-            </details>
-            <div class="popup-footer">
-                <div class="popup-actions">
-                    <button class="popup-btn" id="popup-cancel">Cancel <span class="btn-hint">ESC</span></button>
-                    <button class="popup-btn confirm" id="popup-confirm">Send <span
-                            class="btn-hint">CTRL+ENTER</span></button>
+                <input type="file" id="file-upload" accept=".ps1,.txt" style="display:none;">
+                <div id="vis-section" style="display:none;" class="option-row">
+                    <button class="opt-btn" id="vis-true">Visible</button>
+                    <button class="opt-btn" id="vis-false">Hidden</button>
+                    <span class="btn-hint">SHIFT</span>
+                </div>
+                <div id="voice-section" style="display:none;" class="option-row">
+                    <button class="opt-btn" id="voice-david">David</button>
+                    <button class="opt-btn" id="voice-zira">Zira</button>
+                    <span class="btn-hint">SHIFT</span>
+                </div>
+                <details id="spk-controls" class="collapsible-section spk-controls" style="display:none;">
+                    <summary class="collapsible-summary">
+                        <span>SPK Controls</span>
+                        <span class="collapsible-meta" id="spk-summary-meta">Volume 100 | Speed 0</span>
+                    </summary>
+                    <div class="collapsible-body spk-controls-body">
+                        <div class="spk-row">
+                            <div class="spk-row-head">
+                                <label for="spk-volume">Volume</label>
+                                <span class="spk-value" id="spk-volume-value">100</span>
+                            </div>
+                            <input id="spk-volume" class="spk-slider" type="range" min="0" max="100" step="1" value="100">
+                        </div>
+                        <div class="spk-row">
+                            <div class="spk-row-head">
+                                <label for="spk-speed">Speed</label>
+                                <span class="spk-value" id="spk-speed-value">0</span>
+                            </div>
+                            <input id="spk-speed" class="spk-slider" type="range" min="-10" max="10" step="1" value="0">
+                        </div>
+                    </div>
+                </details>
+                <details id="shell-section" class="collapsible-section" style="display:none;">
+                    <summary class="collapsible-summary">
+                        <span>PowerShell Tools</span>
+                        <span class="collapsible-meta collapsible-meta-shell" id="shell-summary-meta">
+                            <span class="collapsible-meta-pill" id="shell-summary-ps">PS1</span>
+                            <span class="collapsible-meta-pill" id="shell-summary-upload">UPLOAD</span>
+                        </span>
+                    </summary>
+                    <div class="collapsible-body">
+                        <button class="opt-btn" id="upload-btn">Upload</button>
+                    </div>
+                </details>
+                <div class="action-footer">
+                    <button class="popup-btn confirm" id="popup-confirm">Send <span class="btn-hint">CTRL+ENTER</span></button>
                 </div>
             </div>
         </div>
