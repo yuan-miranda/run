@@ -1,5 +1,6 @@
 const FramesApp = (() => {
-    function getVpsUrl() { return localStorage.getItem('vps_url') || ''; }
+    const VPS_URL = 'http://runx.ddns.net/';
+    function getVpsUrl() { return VPS_URL; }
     function getVpsPassword() { return sessionStorage.getItem('vps_password') || ''; }
     function authHeaders(extra = {}) {
         return { ...extra, 'x-password': getVpsPassword() };
@@ -193,13 +194,6 @@ const FramesApp = (() => {
 
     function initFoldersIfReady() {
         if (!isInitialized) return false;
-        if (!getVpsUrl()) {
-            state.error = 'VPS URL not configured';
-            els.folderName.textContent = 'url required';
-            els.statusmsg.textContent = 'VPS URL not configured';
-            syncControlStates();
-            return false;
-        }
         initFolders();
         return true;
     }

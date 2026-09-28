@@ -1,7 +1,9 @@
 const RunApp = (() => {
+    const VPS_URL = 'http://runx.ddns.net/';
+
     const runState = {
         rows: [], sortedRows: [],
-        url: localStorage.getItem('vps_url'),
+        url: VPS_URL,
         password: sessionStorage.getItem('vps_password') || '',
         popupMode: null, popupUser: null,
         selectedVoice: 'David', selectedVis: true, activeUsername: null, interactionMode: null,
@@ -57,10 +59,8 @@ const RunApp = (() => {
 
     // ── Connection ──
     function setStoredCredentials(url, password = runState.password) {
-        runState.url = url;
+        runState.url = VPS_URL;
         runState.password = password || '';
-        if (url) { localStorage.setItem('vps_url', url); }
-        else { localStorage.removeItem('vps_url'); }
         if (runState.password) sessionStorage.setItem('vps_password', runState.password);
         else sessionStorage.removeItem('vps_password');
     }
@@ -107,13 +107,10 @@ const RunApp = (() => {
         await connectWithCredentials(runState.url.trim(), { notifyOnFail: true });
     }
     function promptAllCredentials() {
-        const urlInput = prompt('VPS URL (e.g. http://your-vps:8000):', runState.url || '');
-        if (!urlInput) return false;
-
         const passwordInput = prompt('Dashboard password:');
         if (passwordInput === null || !passwordInput) return false;
 
-        runState.url = urlInput.trim();
+        runState.url = VPS_URL;
         runState.password = passwordInput;
         return true;
     }
@@ -657,16 +654,16 @@ const RunApp = (() => {
         });
 
         // Initial connection
-        if (!runState.url) {
+        if (!runState.password) {
             const ok = promptAllCredentials();
             if (!ok) { renderGrid(); }
-            else if (runState.url) {
+            else {
                 $('user-grid').innerHTML = '<div class="empty">Connecting...</div>';
-                connectWithCredentials(runState.url, { notifyOnFail: false }).then(ok => { if (!ok) renderGrid(); });
-            } else { renderGrid(); }
+                connectWithCredentials(VPS_URL, { notifyOnFail: false }).then(ok => { if (!ok) renderGrid(); });
+            }
         } else {
             $('user-grid').innerHTML = '<div class="empty">Connecting...</div>';
-            connectWithCredentials(runState.url, { notifyOnFail: false }).then(ok => { if (!ok) renderGrid(); });
+            connectWithCredentials(VPS_URL, { notifyOnFail: false }).then(ok => { if (!ok) renderGrid(); });
         }
 
         $('popup-cancel').onclick = closePopup;
