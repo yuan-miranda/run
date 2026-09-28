@@ -273,6 +273,7 @@ const RunApp = (() => {
             if (active) setActiveSelection(active, runState.interactionMode || 'hover');
             else clearActiveSelection();
         }
+        if ($('actionTargetMenu')?.classList.contains('open')) renderTargetDropdown();
         runState.isRendering = false;
     }
 
@@ -372,15 +373,40 @@ const RunApp = (() => {
         updateOptionsUI();
         setTimeout(() => { $('popup-input').focus(); syncTabHint(); }, 50);
     }
+    function closeTargetDropdown() {
+        $('popup-target-label')?.classList.remove('open');
+        $('actionTargetMenu')?.classList.remove('open');
+    }
+    function renderTargetDropdown() {
+        const menu = $('actionTargetMenu');
+        if (!menu) return;
+        menu.innerHTML = '';
+        const current = runState.popupUser;
+        const others = getRenderableRows().filter(u => u.username !== current?.username);
+        if (!others.length) { closeTargetDropdown(); return; }
+        others.forEach(u => {
+            const item = document.createElement('div');
+            item.className = 'dropdown-item';
+            item.textContent = getDisplayUsername(u.username);
+            item.addEventListener('click', () => {
+                closeTargetDropdown();
+                openPopup(runState.popupMode || 'cmd', u);
+            });
+            menu.appendChild(item);
+        });
+    }
     function openPopup(mode, user) {
         runState.popupUser = user; runState.selectedVis = !!user.visible;
         $('popup-target-label').textContent = getDisplayUsername(user.username);
         document.body.classList.remove('view-run', 'view-frames');
         document.body.classList.add('view-action');
+        closeTargetDropdown();
+        renderTargetDropdown();
         applyActionMode(mode);
     }
     function closePopup() {
         $('textarea-wrap').classList.remove('show-hint');
+        closeTargetDropdown();
         runState.popupMode = null; runState.popupUser = null; runState.popupExampleText = '';
         document.body.classList.remove('view-action');
         document.body.classList.add('view-run');
@@ -591,6 +617,18 @@ const RunApp = (() => {
             const action = btn.dataset.action; if (!action) return;
             if (action === 'ps') openPopup('cmd', user);
             if (action === 'output') doViewOutput(user);
+        });
+
+        // Target dropdown inside the action page breadcrumb
+        $('popup-target-label').addEventListener('click', e => {
+            e.stopPropagation();
+            if (!runState.popupUser) return;
+            renderTargetDropdown();
+            $('popup-target-label').classList.toggle('open');
+            $('actionTargetMenu').classList.toggle('open');
+        });
+        document.addEventListener('click', e => {
+            if (!$('actionTargetWrap')?.contains(e.target)) closeTargetDropdown();
         });
 
         // Mode selector buttons inside the action page
