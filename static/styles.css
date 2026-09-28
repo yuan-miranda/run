@@ -376,6 +376,16 @@ header {
     white-space: nowrap;
 }
 
+#actionTargetWrap .run-client-name {
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+#actionTargetWrap .dropdown-menu {
+    min-width: 160px;
+    max-width: 260px;
+}
+
 /* ── Shared button base for header ── */
 .folder-btn,
 .file-btn {
@@ -917,8 +927,6 @@ body:not(.kb-mode) .user-card:hover {
     margin-right: 6px;
 }
 
-
-
 .card-header {
     align-items: center;
     display: flex;
@@ -1039,9 +1047,17 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
     scrollbar-color: var(--border-heavy) transparent;
 }
 
-#view-action::-webkit-scrollbar { width: 6px; }
-#view-action::-webkit-scrollbar-track { background: transparent; }
-#view-action::-webkit-scrollbar-thumb { background: var(--border-heavy); }
+#view-action::-webkit-scrollbar {
+    width: 6px;
+}
+
+#view-action::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#view-action::-webkit-scrollbar-thumb {
+    background: var(--border-heavy);
+}
 
 .action-page {
     max-width: 640px;
@@ -1050,15 +1066,6 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
     display: flex;
     flex-direction: column;
     gap: 0;
-}
-
-.action-back-row {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 2rem;
-    padding-bottom: 1.25rem;
-    border-bottom: 1px solid var(--run-border-subtle, var(--border));
 }
 
 .action-back-btn {
@@ -1088,67 +1095,6 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
 
 .action-back-btn svg {
     flex-shrink: 0;
-}
-
-.action-breadcrumb {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    min-width: 0;
-    overflow: hidden;
-}
-
-.action-breadcrumb-mode {
-    font-size: 11px;
-    font-weight: bold;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-    color: var(--run-text-dim, var(--muted));
-    white-space: nowrap;
-    flex-shrink: 0;
-}
-
-.action-breadcrumb-sep {
-    color: var(--run-border-strong, var(--border-heavy));
-    font-size: 13px;
-    flex-shrink: 0;
-}
-
-.action-target-wrap {
-    position: relative;
-    display: inline-flex;
-    min-width: 0;
-    border-right: none;
-    z-index: 50;
-}
-
-.action-breadcrumb-target {
-    font-family: inherit;
-    font-size: 16px;
-    font-weight: bold;
-    color: var(--run-text, var(--text));
-    background: none;
-    border: none;
-    padding: 2px 6px;
-    margin: -2px -6px;
-    border-radius: 3px;
-    cursor: pointer;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 100%;
-}
-
-.action-breadcrumb-target:hover,
-.action-breadcrumb-target.open {
-    background: var(--border);
-}
-
-.action-target-wrap .dropdown-menu {
-    left: 0;
-    right: auto;
-    min-width: 160px;
-    max-width: 260px;
 }
 
 /* ── Action mode selector ── */
@@ -1213,16 +1159,6 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
 }
 
 /* Legacy popup aliases kept for JS compatibility */
-.popup-footer {
-    padding-top: 12px;
-}
-
-.popup-actions {
-    display: flex;
-    gap: 8px;
-    justify-content: flex-end;
-}
-
 .popup-footer {
     padding-top: 12px;
 }
@@ -1527,13 +1463,14 @@ body.view-frames .frames-header-right {
     display: flex !important;
 }
 
-body.view-frames .folder-dropdown-wrap {
+body.view-frames #folderWrap {
     display: flex;
 }
 
 body.view-frames .run-connect-wrap,
 body.view-frames .run-client-wrap,
-body.view-frames .run-theme-wrap {
+body.view-frames .run-theme-wrap,
+body.view-frames #actionTargetWrap {
     display: none !important;
 }
 
@@ -1559,7 +1496,7 @@ body.view-run .frames-header-right {
     display: none !important;
 }
 
-body.view-run .folder-dropdown-wrap {
+body.view-run #folderWrap {
     display: none;
 }
 
@@ -1568,8 +1505,8 @@ body.view-run .run-theme-wrap {
     display: flex !important;
 }
 
-body.view-run .run-client-wrap {
-    display: flex !important;
+body.view-run #actionTargetWrap {
+    display: none !important;
 }
 
 body.view-run .sidebar-run-section {
@@ -1580,7 +1517,6 @@ body.view-run .sidebar-frames-section {
     display: none;
 }
 
-/* ── Action page view ── */
 body.view-action #view-frames,
 body.view-action #view-run {
     display: none;
@@ -1590,13 +1526,16 @@ body.view-action #view-action {
     display: block;
 }
 
-/* Hide header controls that aren't relevant in action view */
 body.view-action .frames-header-right,
-body.view-action .folder-dropdown-wrap,
+body.view-action #folderWrap,
 body.view-action .run-connect-wrap,
 body.view-action .run-client-wrap,
 body.view-action .run-theme-wrap {
     display: none !important;
+}
+
+body.view-action #actionTargetWrap {
+    display: flex !important;
 }
 
 body.view-action .sidebar-frames-section {
@@ -1888,7 +1827,7 @@ body.view-action .sidebar-run-section {
     body.view-run .run-theme-wrap,
     body.view-frames .frames-header-right,
     body.view-run .frames-header-right,
-    body.view-frames .folder-dropdown-wrap {
+    body.view-frames #folderWrap {
         display: none !important;
     }
 
@@ -2002,15 +1941,6 @@ body.view-action .sidebar-run-section {
     /* Action page */
     .action-page {
         padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom));
-    }
-
-    .action-back-row {
-        margin-bottom: 1.25rem;
-        padding-bottom: 1rem;
-    }
-
-    .action-breadcrumb-target {
-        font-size: 14px;
     }
 
     .popup-btn {

@@ -23,8 +23,12 @@
             <div class="run-connect-wrap" id="runConnectWrap">
                 <button class="folder-btn" id="run-connect-btn">connect</button>
             </div>
-            <div class="run-client-wrap" id="runClientWrap">
-                <span class="folder-btn run-client-name" id="runClientName">&nbsp;</span>
+            <div class="run-client-wrap" id="runClientWrap" style="display: none;">
+                <span class="folder-btn run-client-name" id="runClientName"></span>
+            </div>
+            <div class="folder-dropdown-wrap" id="actionTargetWrap" style="display: none;">
+                <button class="folder-btn run-client-name" id="popup-target-label">TARGET_USER</button>
+                <div class="dropdown-menu" id="actionTargetMenu"></div>
             </div>
         </div>
         <div class="header-right">
@@ -145,18 +149,13 @@
 
     <div id="view-action">
         <div class="action-page">
-            <div class="action-back-row">
-                <span class="action-breadcrumb">
-                    <span class="action-target-wrap folder-dropdown-wrap" id="actionTargetWrap">
-                        <button class="action-breadcrumb-target folder-btn" id="popup-target-label">TARGET_USER</button>
-                        <div class="dropdown-menu" id="actionTargetMenu"></div>
-                    </span>
-                </span>
-            </div>
             <div class="action-mode-selector" id="action-mode-selector">
-                <button class="action-mode-btn" data-mode="cmd" id="mode-btn-cmd">CMD <span class="btn-hint">C</span></button>
-                <button class="action-mode-btn" data-mode="speak" id="mode-btn-speak">SPK <span class="btn-hint">S</span></button>
-                <button class="action-mode-btn" data-mode="popup_msg" id="mode-btn-popup_msg">MSG <span class="btn-hint">A</span></button>
+                <button class="action-mode-btn" data-mode="cmd" id="mode-btn-cmd">CMD <span
+                        class="btn-hint">C</span></button>
+                <button class="action-mode-btn" data-mode="speak" id="mode-btn-speak">SPK <span
+                        class="btn-hint">S</span></button>
+                <button class="action-mode-btn" data-mode="popup_msg" id="mode-btn-popup_msg">MSG <span
+                        class="btn-hint">A</span></button>
             </div>
             <div class="action-body">
                 <div class="textarea-wrap" id="textarea-wrap">
@@ -192,7 +191,8 @@
                                 <label for="spk-volume">Volume</label>
                                 <span class="spk-value" id="spk-volume-value">100</span>
                             </div>
-                            <input id="spk-volume" class="spk-slider" type="range" min="0" max="100" step="1" value="100">
+                            <input id="spk-volume" class="spk-slider" type="range" min="0" max="100" step="1"
+                                value="100">
                         </div>
                         <div class="spk-row">
                             <div class="spk-row-head">
@@ -217,10 +217,13 @@
                 </details>
                 <div class="action-footer">
                     <button class="action-back-btn" id="popup-cancel">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"/></svg>
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                            <path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" />
+                        </svg>
                         back
                     </button>
-                    <button class="popup-btn confirm" id="popup-confirm">Send <span class="btn-hint">CTRL+ENTER</span></button>
+                    <button class="popup-btn confirm" id="popup-confirm">Send <span
+                            class="btn-hint">CTRL+ENTER</span></button>
                 </div>
             </div>
         </div>

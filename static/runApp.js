@@ -280,8 +280,15 @@ const RunApp = (() => {
     // ── Selection ──
     function setRunClientName(username) {
         const el = $('runClientName');
-        if (!el) return;
-        el.textContent = username ? getDisplayUsername(username) : '\u00a0';
+        const wrap = $('runClientWrap');
+        if (!el || !wrap) return;
+        if (username) {
+            el.textContent = getDisplayUsername(username);
+            wrap.style.display = 'flex';
+        } else {
+            el.textContent = '';
+            wrap.style.display = 'none';
+        }
     }
 
     function clearActiveSelection() {
