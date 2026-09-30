@@ -402,12 +402,28 @@ const RunApp = (() => {
         if (!menu) return;
         menu.innerHTML = '';
         const current = runState.popupUser;
-        const others = getRenderableRows().filter(u => u.username !== current?.username);
+
+        const allRows = getRenderableRows();
+        const allNames = allRows.map(u => u.username);
+
+        if (typeof FramesApp !== 'undefined' && FramesApp.sizeDropdownToContent) {
+            FramesApp.sizeDropdownToContent(
+                $('popup-target-label'),
+                menu,
+                $('actionTargetWrap'),
+                allNames,
+                'folder-btn run-client-name'
+            );
+        }
+
+        const others = allRows.filter(u => u.username !== current?.username);
         if (!others.length) { closeTargetDropdown(); return; }
         others.forEach(u => {
             const item = document.createElement('div');
             item.className = 'dropdown-item';
+
             item.textContent = u.username;
+
             item.addEventListener('click', () => {
                 closeTargetDropdown();
                 openPopup(runState.popupMode || 'cmd', u);
