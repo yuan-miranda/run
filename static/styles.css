@@ -1048,22 +1048,8 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
 }
 
 .action-back-btn {
-    font-family: inherit;
-    font-size: 15px;
-    font-weight: bold;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-    background: none;
-    border: 1px solid var(--run-border-strong, var(--border-heavy));
     color: var(--run-text-dim, var(--muted));
-    cursor: pointer;
-    padding: 8px 14px 8px 10px;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    transition: background-color 160ms, border-color 160ms, color 160ms;
-    flex-shrink: 0;
-    border-radius: 0;
+    padding-left: 10px;
 }
 
 .action-back-btn:hover {
