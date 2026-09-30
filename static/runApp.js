@@ -360,24 +360,34 @@ const RunApp = (() => {
     }
 
     // ── Popup open/close ──
+    const ACTION_MODE_LABELS = { cmd: 'CMD', speak: 'SPK', popup_msg: 'MSG', placeholder: 'PLACEHOLDER' };
+    function closeActionModeDropdown() {
+        $('action-mode-btn')?.classList.remove('open');
+        $('actionModeMenu')?.classList.remove('open');
+    }
     function applyActionMode(mode) {
         runState.popupMode = mode;
         runState.popupExampleText = (mode === 'speak' || mode === 'popup_msg') ? pickRandomPopupExample(mode) : '';
         runState.cmdLoadedFromUpload = false;
         $('popup-input').value = '';
         $('textarea-wrap').classList.remove('show-hint');
-        const isCmd = mode === 'cmd', isSpk = mode === 'speak';
+        const isCmd = mode === 'cmd', isSpk = mode === 'speak', isPlaceholder = mode === 'placeholder';
+        $('textarea-wrap').style.display = isPlaceholder ? 'none' : 'flex';
+        $('placeholder-body').style.display = isPlaceholder ? 'flex' : 'none';
         $('vis-section').style.display = isCmd ? 'flex' : 'none';
         $('shell-section').style.display = isCmd ? 'block' : 'none';
         $('voice-section').style.display = isSpk ? 'flex' : 'none';
         $('spk-controls').style.display = isSpk ? 'block' : 'none';
         $('shell-section').open = false; $('spk-controls').open = false;
-        // Update mode selector active state
-        document.querySelectorAll('.action-mode-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.mode === mode);
+        $('popup-confirm').style.display = isPlaceholder ? 'none' : '';
+        // Update header dropdown label + active state
+        const label = $('action-mode-label'); if (label) label.textContent = ACTION_MODE_LABELS[mode] || mode;
+        document.querySelectorAll('#actionModeMenu .file-dropdown-item').forEach(item => {
+            item.classList.toggle('active', item.dataset.mode === mode);
         });
+        closeActionModeDropdown();
         updateOptionsUI();
-        setTimeout(() => { $('popup-input').focus(); syncTabHint(); }, 50);
+        if (!isPlaceholder) setTimeout(() => { $('popup-input').focus(); syncTabHint(); }, 50);
     }
     function closeTargetDropdown() {
         $('popup-target-label')?.classList.remove('open');
@@ -413,6 +423,7 @@ const RunApp = (() => {
     function closePopup() {
         $('textarea-wrap').classList.remove('show-hint');
         closeTargetDropdown();
+        closeActionModeDropdown();
         runState.popupMode = null; runState.popupUser = null; runState.popupExampleText = '';
         document.body.classList.remove('view-action');
         document.body.classList.add('view-run');
@@ -637,12 +648,21 @@ const RunApp = (() => {
             if (!$('actionTargetWrap')?.contains(e.target)) closeTargetDropdown();
         });
 
-        // Mode selector buttons inside the action page
-        document.querySelectorAll('.action-mode-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
+        // Action mode dropdown (header) — mirrors the theme dropdown pattern
+        $('action-mode-btn')?.addEventListener('click', e => {
+            e.stopPropagation();
+            if (!runState.popupUser) return;
+            $('action-mode-btn').classList.toggle('open');
+            $('actionModeMenu').classList.toggle('open');
+        });
+        document.querySelectorAll('#actionModeMenu .file-dropdown-item').forEach(item => {
+            item.addEventListener('click', () => {
                 if (!runState.popupUser) return;
-                applyActionMode(btn.dataset.mode);
+                applyActionMode(item.dataset.mode);
             });
+        });
+        document.addEventListener('click', e => {
+            if (!$('actionModeWrap')?.contains(e.target)) closeActionModeDropdown();
         });
 
         // Option button listeners
@@ -673,11 +693,6 @@ const RunApp = (() => {
             if (runState.popupMode) {
                 if (e.key === 'Escape') closePopup();
                 if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); doSendPopup(); }
-                if (e.key === 'Shift' && document.activeElement !== $('popup-input')) {
-                    const modes = ['cmd', 'speak', 'popup_msg'];
-                    const next = modes[(modes.indexOf(runState.popupMode) + 1) % modes.length];
-                    applyActionMode(next);
-                }
                 return;
             }
             if (e.key === 'Escape') { clearActiveSelection(); return; }

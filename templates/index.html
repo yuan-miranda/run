@@ -54,6 +54,15 @@
                     <div class="file-dropdown-item" data-theme-val="polar">Polar</div>
                 </div>
             </div>
+            <div class="action-mode-wrap file-dropdown-wrap" id="actionModeWrap">
+                <button class="file-btn" id="action-mode-btn"><span id="action-mode-label">CMD</span></button>
+                <div class="file-dropdown-menu" id="actionModeMenu">
+                    <div class="file-dropdown-item active" data-mode="cmd">CMD</div>
+                    <div class="file-dropdown-item" data-mode="speak">SPK</div>
+                    <div class="file-dropdown-item" data-mode="popup_msg">MSG</div>
+                    <div class="file-dropdown-item" data-mode="placeholder">PLACEHOLDER</div>
+                </div>
+            </div>
             <button class="hamburger-btn" id="hamburgerBtn" aria-label="Menu">&#9776;</button>
         </div>
     </header>
@@ -149,14 +158,6 @@
 
     <div id="view-action">
         <div class="action-page">
-            <div class="action-mode-selector" id="action-mode-selector">
-                <button class="action-mode-btn" data-mode="cmd" id="mode-btn-cmd">CMD <span
-                        class="btn-hint">C</span></button>
-                <button class="action-mode-btn" data-mode="speak" id="mode-btn-speak">SPK <span
-                        class="btn-hint">S</span></button>
-                <button class="action-mode-btn" data-mode="popup_msg" id="mode-btn-popup_msg">MSG <span
-                        class="btn-hint">A</span></button>
-            </div>
             <div class="action-body">
                 <div class="textarea-wrap" id="textarea-wrap">
                     <textarea class="popup-input" id="popup-input" rows="6"></textarea>
@@ -169,6 +170,7 @@
                         </button>
                     </span>
                 </div>
+                <div id="placeholder-body" class="action-placeholder-body" style="display:none;"></div>
                 <input type="file" id="file-upload" accept=".ps1,.txt" style="display:none;">
                 <div id="vis-section" style="display:none;" class="option-row">
                     <button class="opt-btn" id="vis-true">Visible</button>
