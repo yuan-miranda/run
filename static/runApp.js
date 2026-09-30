@@ -403,7 +403,7 @@ const RunApp = (() => {
     }
     function openPopup(mode, user) {
         runState.popupUser = user; runState.selectedVis = !!user.visible;
-        $('popup-target-label').textContent = getDisplayUsername(user.username);
+        $('popup-target-label').textContent = user.username;
         document.body.classList.remove('view-run', 'view-frames');
         document.body.classList.add('view-action');
         closeTargetDropdown();
