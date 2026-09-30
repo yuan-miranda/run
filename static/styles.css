@@ -1522,6 +1522,22 @@ body.view-action .sidebar-run-section {
     display: block;
 }
 
+.sidebar-action-section {
+    display: none;
+}
+
+.sidebar-action-target {
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--text);
+    letter-spacing: .04em;
+    padding: 9px 14px;
+    border: 1px solid var(--border-heavy);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .run-connect-wrap .folder-btn.connected {
     color: var(--run-status-yellow, #bdbdbd);
 }
@@ -1805,6 +1821,19 @@ body.view-action .sidebar-run-section {
     body.view-run .frames-header-right,
     body.view-frames #folderWrap {
         display: none !important;
+    }
+
+    body.view-action #actionTargetWrap,
+    body.view-action .action-mode-wrap {
+        display: none !important;
+    }
+
+    body.view-action .sidebar-action-section {
+        display: block;
+    }
+
+    body.view-action .sidebar-run-section {
+        display: none;
     }
 
     #fpsWrap {

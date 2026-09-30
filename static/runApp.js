@@ -385,6 +385,10 @@ const RunApp = (() => {
         document.querySelectorAll('#actionModeMenu .file-dropdown-item').forEach(item => {
             item.classList.toggle('active', item.dataset.mode === mode);
         });
+        // Sync sidebar mode buttons
+        document.querySelectorAll('#sidebar-mode-list .sidebar-theme-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.mode === mode);
+        });
         closeActionModeDropdown();
         updateOptionsUI();
         if (!isPlaceholder) setTimeout(() => { $('popup-input').focus(); syncTabHint(); }, 50);
@@ -414,6 +418,8 @@ const RunApp = (() => {
     function openPopup(mode, user) {
         runState.popupUser = user; runState.selectedVis = !!user.visible;
         $('popup-target-label').textContent = user.username;
+        const sidebarTarget = $('sidebar-action-target');
+        if (sidebarTarget) sidebarTarget.textContent = user.username;
         document.body.classList.remove('view-run', 'view-frames');
         document.body.classList.add('view-action');
         closeTargetDropdown();
@@ -593,7 +599,16 @@ const RunApp = (() => {
 
         // Sidebar theme buttons
         document.querySelectorAll('.sidebar-theme-btn').forEach(btn => {
-            btn.addEventListener('click', () => applyTheme(btn.dataset.themeVal));
+            if (btn.dataset.themeVal) btn.addEventListener('click', () => applyTheme(btn.dataset.themeVal));
+        });
+
+        // Sidebar action mode buttons
+        document.querySelectorAll('#sidebar-mode-list .sidebar-theme-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (!runState.popupUser) return;
+                applyActionMode(btn.dataset.mode);
+                closeSidebar();
+            });
         });
 
         // Sidebar download
