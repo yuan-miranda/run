@@ -1102,6 +1102,12 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
     display: none;
 }
 
+#actionModeMenu {
+    left: auto;
+    right: -1px;
+    min-width: 140px;
+}
+
 .action-placeholder-body {
     display: none;
     align-items: center;
