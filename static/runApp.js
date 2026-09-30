@@ -283,7 +283,7 @@ const RunApp = (() => {
         const wrap = $('runClientWrap');
         if (!el || !wrap) return;
         if (username) {
-            el.textContent = getDisplayUsername(username);
+            el.textContent = username;
             wrap.style.display = 'flex';
         } else {
             el.textContent = '';
