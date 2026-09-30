@@ -914,14 +914,14 @@ body:not(.kb-mode) .user-card:hover {
 
 .card-ts {
     color: var(--run-text-soft, var(--muted));
-    font-size: 12px;
+    font-size: 13px;
     height: 18px;
 }
 
 .card-username {
     color: var(--run-text, var(--text));
     flex: 1;
-    font-size: 15px;
+    font-size: 16px;
     font-weight: bold;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -947,7 +947,7 @@ body:not(.kb-mode) .user-card:hover {
     color: var(--run-text-muted, var(--text));
     cursor: pointer;
     font-family: inherit;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: bold;
     height: 35px;
     position: relative;
@@ -985,12 +985,12 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
     background: var(--run-hint-bg, #333);
     border-radius: 2px;
     color: var(--run-hint-fg, #fff);
-    font-size: 10px;
+    font-size: 12px;
     padding: 2px 5px;
 }
 
 .card-btn .btn-hint {
-    font-size: 9px;
+    font-size: 10px;
     line-height: 1;
     padding: 1px 4px;
     pointer-events: none;
@@ -1049,7 +1049,7 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
 
 .action-back-btn {
     font-family: inherit;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: bold;
     letter-spacing: .06em;
     text-transform: uppercase;
@@ -1092,7 +1092,7 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
     min-height: 140px;
     border: 1px dashed var(--run-border-strong, var(--border-heavy));
     color: var(--run-text-dim, var(--muted));
-    font-size: 12px;
+    font-size: 14px;
     letter-spacing: .06em;
     text-transform: uppercase;
 }
@@ -1112,7 +1112,7 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
 
 .popup-btn {
     font-family: inherit;
-    font-size: 13px;
+    font-size: 15px;
     background: none;
     border: 1px solid var(--run-border-strong, var(--border-heavy));
     color: var(--run-text, var(--text));
@@ -1151,7 +1151,7 @@ body:not(.kb-mode) .popup-btn:hover {
     border-radius: 2px;
     color: var(--run-text, var(--text));
     font-family: inherit;
-    font-size: 14px;
+    font-size: 16px;
     height: 8.5rem;
     min-height: 8.5rem;
     max-height: 8.5rem;
@@ -1190,7 +1190,7 @@ body:not(.kb-mode) .popup-btn:hover {
     cursor: pointer;
     flex: 1;
     font-family: inherit;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: bold;
     padding: 8px;
     text-transform: uppercase;
@@ -1242,7 +1242,7 @@ body:not(.kb-mode) .opt-btn:hover {
     color: var(--run-text, var(--text));
     cursor: pointer;
     display: flex;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: bold;
     gap: 8px;
     justify-content: space-between;
@@ -1263,7 +1263,7 @@ body:not(.kb-mode) .collapsible-summary:hover {
 
 .collapsible-meta {
     color: var(--run-text-dim, var(--muted));
-    font-size: 10px;
+    font-size: 12px;
     font-weight: normal;
     letter-spacing: .08em;
 }
@@ -1310,7 +1310,7 @@ body:not(.kb-mode) .collapsible-summary:hover {
 
 .spk-row label {
     color: var(--run-text, var(--text));
-    font-size: 11px;
+    font-size: 13px;
     font-weight: bold;
     letter-spacing: .08em;
     text-transform: uppercase;
@@ -1318,7 +1318,7 @@ body:not(.kb-mode) .collapsible-summary:hover {
 
 .spk-value {
     color: var(--run-text-dim, var(--muted));
-    font-size: 11px;
+    font-size: 13px;
     font-weight: bold;
     min-width: 44px;
     text-align: right;
@@ -1357,7 +1357,7 @@ body:not(.kb-mode) .collapsible-summary:hover {
     display: none;
     flex-direction: column;
     font-family: inherit;
-    font-size: 10px;
+    font-size: 12px;
     gap: 4px;
     pointer-events: none;
     position: absolute;
@@ -1884,7 +1884,7 @@ body.view-action .sidebar-run-section {
 
     .card-btn {
         border-radius: 3px;
-        font-size: 11px;
+        font-size: 13px;
         height: 36px;
         touch-action: manipulation;
     }
