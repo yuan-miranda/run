@@ -1100,12 +1100,7 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
 /* ── Action mode dropdown (header) ── */
 .action-mode-wrap {
     display: none;
-}
-
-#actionModeMenu {
-    left: auto;
-    right: -1px;
-    min-width: 140px;
+    min-width: 130px;
 }
 
 .action-placeholder-body {
