@@ -301,7 +301,6 @@ const RunApp = (() => {
     function setActiveSelection(user, mode, { scroll = false } = {}) {
         if (!user) { clearActiveSelection(); return; }
         runState.activeUsername = user.username; runState.interactionMode = mode;
-        setRunClientName(user.username);
         document.body.classList.toggle('kb-mode', mode === 'keyboard');
         const sorted = getRenderableRows();
         const idx = sorted.findIndex(u => u.username === user.username);
