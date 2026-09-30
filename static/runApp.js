@@ -407,7 +407,7 @@ const RunApp = (() => {
         others.forEach(u => {
             const item = document.createElement('div');
             item.className = 'dropdown-item';
-            item.textContent = getDisplayUsername(u.username);
+            item.textContent = u.username;
             item.addEventListener('click', () => {
                 closeTargetDropdown();
                 openPopup(runState.popupMode || 'cmd', u);
