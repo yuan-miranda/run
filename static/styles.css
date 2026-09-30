@@ -731,27 +731,6 @@ input[type=range]::-moz-range-thumb {
     white-space: nowrap;
 }
 
-.speed-select {
-    font-family: inherit;
-    font-size: 13px;
-    background: none;
-    border: none;
-    color: var(--text);
-    padding: 0 2px;
-    cursor: pointer;
-    border-radius: 0;
-    letter-spacing: .04em;
-    -webkit-appearance: none;
-    appearance: none;
-    height: 100%;
-    width: 44px;
-}
-
-.speed-select:disabled {
-    opacity: .45;
-    cursor: not-allowed;
-}
-
 .speed-wrap .file-btn {
     height: 26px;
     padding: 0 10px;
@@ -1131,17 +1110,6 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
     padding-top: 4px;
 }
 
-/* Legacy popup aliases kept for JS compatibility */
-.popup-footer {
-    padding-top: 12px;
-}
-
-.popup-actions {
-    display: flex;
-    gap: 8px;
-    justify-content: flex-end;
-}
-
 .popup-btn {
     font-family: inherit;
     font-size: 13px;
@@ -1261,15 +1229,6 @@ body:not(.kb-mode) .opt-btn:hover {
     white-space: nowrap;
 }
 
-.shell-sep {
-    color: var(--run-text-dim, var(--muted));
-    font-size: 12px;
-    font-weight: bold;
-    opacity: .9;
-    user-select: none;
-    margin: 0 -4px;
-}
-
 /* ── Collapsible sections ── */
 .collapsible-section {
     border: 1px solid var(--run-border-subtle, var(--border));
@@ -1379,10 +1338,6 @@ body:not(.kb-mode) .collapsible-summary:hover {
 
 #shell-section .opt-btn {
     min-width: 58px;
-}
-
-#shell-section .shell-sep {
-    margin: 0;
 }
 
 /* ── Textarea + tab hints ── */
@@ -1880,13 +1835,8 @@ body.view-action .sidebar-run-section {
         flex-shrink: 0;
     }
 
-    .speed-label,
-    .speed-select {
+    .speed-label {
         font-size: 11px;
-    }
-
-    .speed-select {
-        width: 36px;
     }
 
     .counter {
@@ -1952,20 +1902,6 @@ body.view-action .sidebar-run-section {
         font-size: 14px;
         min-height: 44px;
         padding: 12px 20px;
-    }
-
-    .popup-actions {
-        gap: 10px;
-        width: 100%;
-    }
-
-    .popup-actions .popup-btn {
-        flex: 1;
-        justify-content: center;
-    }
-
-    .popup-footer {
-        padding-top: 16px;
     }
 
     .popup-input {

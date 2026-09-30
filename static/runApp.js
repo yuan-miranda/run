@@ -3,7 +3,6 @@ const RunApp = (() => {
 
     const runState = {
         rows: [], sortedRows: [],
-        url: VPS_URL,
         password: sessionStorage.getItem('vps_password') || '',
         popupMode: null, popupUser: null,
         selectedVoice: 'David', selectedVis: true, activeUsername: null, interactionMode: null,
@@ -24,6 +23,7 @@ const RunApp = (() => {
         { username: 'c-00000000-W', updated_at: new Date(Date.now() - 75000).toISOString(), visible: false, demo: true },
         { username: 'd-00000000-L', updated_at: new Date(Date.now() - 90000).toISOString(), visible: true, demo: true }
     ];
+
     const $ = id => document.getElementById(id);
     const themeNames = ['night', 'graphite', 'midnight', 'forest', 'ember', 'polar'];
     const conflictTimers = new Map();
@@ -58,8 +58,7 @@ const RunApp = (() => {
     }
 
     // ── Connection ──
-    function setStoredCredentials(url, password = runState.password) {
-        runState.url = VPS_URL;
+    function storePassword(password) {
         runState.password = password || '';
         if (runState.password) sessionStorage.setItem('vps_password', runState.password);
         else sessionStorage.removeItem('vps_password');
@@ -74,55 +73,49 @@ const RunApp = (() => {
         });
     }
     function disconnectAndReset() {
-        setStoredCredentials(null, ''); setConnectionState(false);
+        storePassword(''); setConnectionState(false);
         runState.rows = []; runState.sortedRows = []; runState.lastRenderSignature = null;
         renderGrid();
         if (typeof FramesApp?.resetFramesState === 'function') FramesApp.resetFramesState();
     }
-    async function validateVpsConnection(url, password) {
-        if (!url || !password) return false;
+    async function validateVpsConnection(password) {
+        if (!password) return false;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 7000);
         try {
-            const res = await fetch(`${url}/api/clients`, {
+            const res = await fetch(`${VPS_URL}/api/clients`, {
                 signal: controller.signal,
                 headers: { 'x-password': password }
             });
             return res.ok;
         } catch { return false; } finally { clearTimeout(timeoutId); }
     }
-    async function connectWithCredentials(url, { notifyOnFail = true } = {}) {
-        const isValid = await validateVpsConnection(url, runState.password);
+    async function connectWithCredentials({ notifyOnFail = true } = {}) {
+        const isValid = await validateVpsConnection(runState.password);
         if (!isValid) {
-            setStoredCredentials(null, ''); setConnectionState(false);
-            if (notifyOnFail) alert('Connection failed. URL was reset. Please reconnect.');
+            storePassword(''); setConnectionState(false);
+            if (notifyOnFail) alert('Connection failed. Please reconnect.');
             return false;
         }
-        setStoredCredentials(url, runState.password); setConnectionState(true);
+        storePassword(runState.password); setConnectionState(true);
         fetchData(); return true;
     }
     async function promptAndConnect() {
-        const ok = promptAllCredentials();
-        if (!ok) return;
-        await connectWithCredentials(runState.url.trim(), { notifyOnFail: true });
+        if (!promptAllCredentials()) return;
+        await connectWithCredentials({ notifyOnFail: true });
     }
     function promptAllCredentials() {
         const passwordInput = prompt('Dashboard password:');
         if (passwordInput === null || !passwordInput) return false;
-
-        runState.url = VPS_URL;
         runState.password = passwordInput;
         return true;
     }
     function parseServerTime(value) {
         if (!value) return NaN;
-
         const text = String(value).trim();
-
         if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(text)) {
             return new Date(text.replace(' ', 'T') + 'Z');
         }
-
         return new Date(text);
     }
 
@@ -134,7 +127,6 @@ const RunApp = (() => {
     }
     const STATUS_ORDER = { green: 0, yellow: 1, red: 2 };
     function parseModernUsername(username) {
-        // Accept either trailing -W (Windows) or -L (Linux) for modern usernames
         const match = String(username || '').trim().match(/^(.*)-([^-]+)-(?:W|L)$/i);
         if (!match) return { baseName: String(username || '').trim(), id: '' };
         return { baseName: match[1], id: match[2] };
@@ -163,7 +155,7 @@ const RunApp = (() => {
         return null;
     }
     function buildRowsRenderSignature(rows, isSorted = false) {
-        const nowMs = Date.now() + runState.serverTimeOffset;
+        const nowMs = Date.now();
         const source = isSorted ? rows : sortRows(rows);
         return source
             .map(u => {
@@ -330,7 +322,6 @@ const RunApp = (() => {
         return runState.popupExampleText || pickRandomPopupExample(m) || $('popup-input').placeholder;
     }
     function updateOptionsUI() {
-        // Toggle active class on option buttons
         const setActive = (id, cond) => $(id).className = 'opt-btn' + (cond ? ' active' : '');
         setActive('voice-david', runState.selectedVoice === 'David');
         setActive('voice-zira', runState.selectedVoice === 'Zira');
@@ -380,12 +371,10 @@ const RunApp = (() => {
         $('spk-controls').style.display = isSpk ? 'block' : 'none';
         $('shell-section').open = false; $('spk-controls').open = false;
         $('popup-confirm').style.display = isPlaceholder ? 'none' : '';
-        // Update header dropdown label + active state
         const label = $('action-mode-label'); if (label) label.textContent = ACTION_MODE_LABELS[mode] || mode;
         document.querySelectorAll('#actionModeMenu .file-dropdown-item').forEach(item => {
             item.classList.toggle('active', item.dataset.mode === mode);
         });
-        // Sync sidebar mode buttons
         document.querySelectorAll('#sidebar-mode-list .sidebar-theme-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.mode === mode);
         });
@@ -402,17 +391,12 @@ const RunApp = (() => {
         if (!menu) return;
         menu.innerHTML = '';
         const current = runState.popupUser;
-
         const allRows = getRenderableRows();
-        const allNames = allRows.map(u => u.username);
 
         if (typeof FramesApp !== 'undefined' && FramesApp.sizeDropdownToContent) {
             FramesApp.sizeDropdownToContent(
-                $('popup-target-label'),
-                menu,
-                $('actionTargetWrap'),
-                allNames,
-                'folder-btn run-client-name'
+                $('popup-target-label'), menu, $('actionTargetWrap'),
+                allRows.map(u => u.username), 'folder-btn run-client-name'
             );
         }
 
@@ -421,9 +405,7 @@ const RunApp = (() => {
         others.forEach(u => {
             const item = document.createElement('div');
             item.className = 'dropdown-item';
-
             item.textContent = u.username;
-
             item.addEventListener('click', () => {
                 closeTargetDropdown();
                 openPopup(runState.popupMode || 'cmd', u);
@@ -472,6 +454,7 @@ const RunApp = (() => {
     function isSpecialCommandInput(text) {
         return /^(panic|nodat|altf4|sauce)(?:\b|$)/i.test((text || '').trim());
     }
+
     // ── Send / fetch ──
     async function doSendPopup() {
         const user = runState.popupUser, mode = runState.popupMode;
@@ -501,25 +484,14 @@ const RunApp = (() => {
         };
 
         try {
-            const res = await fetch(`${runState.url}/api/command`, {
+            const res = await fetch(`${VPS_URL}/api/command`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-password': runState.password
-                },
+                headers: { 'Content-Type': 'application/json', 'x-password': runState.password },
                 body: JSON.stringify(body)
             });
-
-            if (!res.ok) {
-                console.error('Command request failed:', res.status, await res.text());
-                return;
-            }
-
-            closePopup();
-            fetchData();
-        } catch (e) {
-            console.error('Send error', e);
-        }
+            if (!res.ok) return;
+            closePopup(); fetchData();
+        } catch { }
     }
 
     async function doViewOutput(user) {
@@ -532,10 +504,10 @@ const RunApp = (() => {
     }
 
     async function fetchData() {
-        if (!runState.url || !runState.isConnected || runState.fetchInFlight) return;
+        if (!runState.isConnected || runState.fetchInFlight) return;
         runState.fetchInFlight = true;
         try {
-            const res = await fetch(`${runState.url}/api/clients`, {
+            const res = await fetch(`${VPS_URL}/api/clients`, {
                 headers: { 'x-password': runState.password }
             });
             const nextRows = await res.json();
@@ -545,7 +517,7 @@ const RunApp = (() => {
             if (sig === runState.lastRenderSignature) return;
             runState.lastRenderSignature = sig;
             renderGrid();
-        } catch (e) { console.error(e); } finally { runState.fetchInFlight = false; }
+        } catch { } finally { runState.fetchInFlight = false; }
     }
 
     // ── Visibility ──
@@ -556,18 +528,16 @@ const RunApp = (() => {
         const idx = runState.rows.findIndex(r => r.username === runState.popupUser.username);
         if (idx !== -1) runState.rows[idx] = { ...runState.rows[idx], visible: runState.selectedVis };
         updateOptionsUI(); renderGrid();
-        if (!runState.isConnected || !runState.url || runState.popupUser.demo) return;
+        if (!runState.isConnected || runState.popupUser.demo) return;
         try {
-            await fetch(`${runState.url}/api/visibility`, {
+            await fetch(`${VPS_URL}/api/visibility`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-password': runState.password
-                },
+                headers: { 'Content-Type': 'application/json', 'x-password': runState.password },
                 body: JSON.stringify({ username: runState.popupUser.username, visible: runState.selectedVis ? 1 : 0 })
             });
-        } catch (e) { console.error('Visibility sync error', e); }
+        } catch { }
     }
+
     // ── Tab / autofill ──
     function syncTabHint() {
         const ta = $('popup-input'), wrap = $('textarea-wrap');
@@ -679,7 +649,7 @@ const RunApp = (() => {
             if (!$('actionTargetWrap')?.contains(e.target)) closeTargetDropdown();
         });
 
-        // Action mode dropdown (header) — mirrors the theme dropdown pattern
+        // Action mode dropdown (header)
         $('action-mode-btn')?.addEventListener('click', e => {
             e.stopPropagation();
             if (!runState.popupUser) return;
@@ -767,11 +737,11 @@ const RunApp = (() => {
             if (!ok) { renderGrid(); }
             else {
                 $('user-grid').innerHTML = '<div class="empty">Connecting...</div>';
-                connectWithCredentials(VPS_URL, { notifyOnFail: false }).then(ok => { if (!ok) renderGrid(); });
+                connectWithCredentials({ notifyOnFail: false }).then(ok => { if (!ok) renderGrid(); });
             }
         } else {
             $('user-grid').innerHTML = '<div class="empty">Connecting...</div>';
-            connectWithCredentials(VPS_URL, { notifyOnFail: false }).then(ok => { if (!ok) renderGrid(); });
+            connectWithCredentials({ notifyOnFail: false }).then(ok => { if (!ok) renderGrid(); });
         }
 
         $('popup-cancel').onclick = closePopup;

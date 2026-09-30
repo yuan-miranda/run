@@ -1,10 +1,7 @@
 const FramesApp = (() => {
     const VPS_URL = 'http://runx.ddns.net/';
-    function getVpsUrl() { return VPS_URL; }
-    function getVpsPassword() { return sessionStorage.getItem('vps_password') || ''; }
-    function authHeaders(extra = {}) {
-        return { ...extra, 'x-password': getVpsPassword() };
-    }
+    const authHeaders = (extra = {}) => ({ ...extra, 'x-password': sessionStorage.getItem('vps_password') || '' });
+
     let isInitialized = false;
 
     const state = {
@@ -14,6 +11,8 @@ const FramesApp = (() => {
         loading: true, viewInitialized: false, restoreView: null,
         error: null, fps: 12, lastActivityAt: Date.now()
     };
+
+    // Cached DOM elements — populated once in bindElements()
     const els = {};
     const storageKey = 'framesViewerState';
     const $ = id => document.getElementById(id);
@@ -55,12 +54,17 @@ const FramesApp = (() => {
         const ids = ['frames-status-msg', 'mainImage', 'controlsRow', 'sliderWrap', 'slider',
             'counter', 'fileName', 'progressWrap', 'progressBar', 'folderBtn', 'folderName',
             'dropdownMenu', 'playBtn', 'fpsWrap', 'fpsBtn', 'fpsMenu', 'fpsLabel',
-            'fileBtn', 'fileDropdownMenu', 'downloadItem', 'prevBtn', 'nextBtn'];
-        ids.forEach(k => {
-            const key = k.replace(/-/g, '');
-            els[key] = $(k);
-        });
-        els.statusmsg = $('frames-status-msg');
+            'fileBtn', 'fileDropdownMenu', 'downloadItem', 'prevBtn', 'nextBtn',
+            'imageArea', 'zoomLevel', 'sidebar-file-name', 'sidebar-folder-list',
+            'folderWrap', 'fileWrap'];
+        ids.forEach(k => { els[k.replace(/-/g, '')] = $(k); });
+        // Friendly aliases for hyphenated ids
+        els.statusmsg = els.framesstatusmsg;
+        els.sidebarfilename = $('sidebar-file-name');
+        els.sidebarfolderlist = $('sidebar-folder-list');
+        els.folderWrap = $('folderWrap');
+        els.fileWrap = $('fileWrap');
+
         const fpsBtnFps = parseInt(els.fpsBtn?.dataset.fps || '12', 10);
         if (Number.isFinite(fpsBtnFps)) state.fps = fpsBtnFps;
         updateSidebarFpsActive(state.fps);
@@ -112,11 +116,9 @@ const FramesApp = (() => {
         els.mainImage.src = state.urls[i];
         els.mainImage.style.display = 'block';
         els.counter.textContent = formatCounter(i + 1, state.total);
-        const meta = state.imagesMeta[i];
-        const name = meta ? meta.name : '';
+        const name = state.imagesMeta[i]?.name || '';
         els.fileName.textContent = name;
-        const sidebarFileName = $('sidebar-file-name');
-        if (sidebarFileName) sidebarFileName.textContent = name || 'no file';
+        if (els.sidebarfilename) els.sidebarfilename.textContent = name || 'no file';
         els.slider.value = i;
         syncControlStates();
         if (state.currentFolder) {
@@ -142,7 +144,7 @@ const FramesApp = (() => {
     }
 
     function updateSidebarFolderActive(name) {
-        $('sidebar-folder-list')?.querySelectorAll('.sidebar-folder-btn').forEach(btn => {
+        els.sidebarfolderlist?.querySelectorAll('.sidebar-folder-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.folderName === name);
         });
     }
@@ -167,10 +169,6 @@ const FramesApp = (() => {
         }, Math.round(1000 / (state.fps || 12)));
     }
 
-    // ── (no-op stubs kept for API compat) ──
-    function setGithubToken() { }
-    function getGithubToken() { return ''; }
-
     // ── Reset ──
     function resetFramesState() {
         Object.assign(state, {
@@ -184,12 +182,15 @@ const FramesApp = (() => {
         if (els.progressBar) els.progressBar.style.width = '0%';
         if (els.counter) els.counter.textContent = '— / —';
         if (els.fileName) els.fileName.textContent = '';
-        const sfn = $('sidebar-file-name');
-        if (sfn) sfn.textContent = 'no file';
+        if (els.sidebarfilename) els.sidebarfilename.textContent = 'no file';
         if (els.dropdownMenu) els.dropdownMenu.innerHTML = '';
         if (els.folderName) els.folderName.textContent = 'loading...';
         if (els.statusmsg) { els.statusmsg.style.display = ''; els.statusmsg.textContent = 'loading...'; }
         syncControlStates();
+    }
+
+    function initFolders() {
+        fetchFolders().catch(() => { });
     }
 
     function initFoldersIfReady() {
@@ -200,13 +201,11 @@ const FramesApp = (() => {
 
     // ── VPS API ──
     async function fetchFrameFiles(username) {
-        const base = getVpsUrl();
-        if (!base) throw new Error('VPS URL not configured');
-        const res = await fetch(`${base}/api/frames/${encodeURIComponent(username)}`, {
+        const res = await fetch(`${VPS_URL}/api/frames/${encodeURIComponent(username)}`, {
             headers: authHeaders()
         });
         if (!res.ok) throw new Error('error ' + res.status);
-        return await res.json();
+        return res.json();
     }
 
     // ── Download ──
@@ -215,8 +214,7 @@ const FramesApp = (() => {
         if (!url) return;
         const name = state.imagesMeta[state.idx]?.name || 'frame.png';
         const a = document.createElement('a');
-        a.href = url;
-        a.download = name;
+        a.href = url; a.download = name;
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
     }
 
@@ -273,9 +271,8 @@ const FramesApp = (() => {
                 setLoading(false); return;
             }
             state.imagesMeta = images; state.total = images.length;
-            const base = `${getVpsUrl()}/frames/${encodeURIComponent(folder)}`;
-            const imageUrls = images.map(img => `${base}/${encodeURIComponent(img.name)}`);
-            state.urls = imageUrls;
+            const base = `${VPS_URL}/frames/${encodeURIComponent(folder)}`;
+            state.urls = images.map(img => `${base}/${encodeURIComponent(img.name)}`);
             await preloadImages(state.urls);
             els.slider.max = state.total - 1;
             els.controlsRow.style.display = 'flex';
@@ -291,18 +288,14 @@ const FramesApp = (() => {
         } finally { setLoading(false); syncControlStates(); }
     }
 
-    async function initFolders() {
+    async function fetchFolders() {
         try {
-            const base = getVpsUrl();
-            const res = await fetch(`${base}/api/clients`, {
-                headers: authHeaders()
-            });
+            const res = await fetch(`${VPS_URL}/api/clients`, { headers: authHeaders() });
             if (!res.ok) throw new Error('error ' + res.status);
             const clients = await res.json();
             const folders = clients.map(c => ({ name: c.username }));
             els.dropdownMenu.innerHTML = '';
-            const sidebarList = $('sidebar-folder-list');
-            if (sidebarList) sidebarList.innerHTML = '';
+            if (els.sidebarfolderlist) els.sidebarfolderlist.innerHTML = '';
 
             folders.forEach(f => {
                 const item = document.createElement('div');
@@ -310,7 +303,7 @@ const FramesApp = (() => {
                 item.addEventListener('click', () => loadFolder(f.name));
                 els.dropdownMenu.appendChild(item);
 
-                if (sidebarList) {
+                if (els.sidebarfolderlist) {
                     const btn = document.createElement('button');
                     btn.className = 'sidebar-row-btn sidebar-folder-btn';
                     btn.textContent = f.name; btn.dataset.folderName = f.name;
@@ -319,11 +312,11 @@ const FramesApp = (() => {
                         $('sidebar')?.classList.remove('open');
                         $('sidebarOverlay')?.classList.remove('open');
                     });
-                    sidebarList.appendChild(btn);
+                    els.sidebarfolderlist.appendChild(btn);
                 }
             });
 
-            sizeDropdownToContent(els.folderBtn, els.dropdownMenu, $('folderWrap'), folders.map(f => f.name), 'folder-btn');
+            sizeDropdownToContent(els.folderBtn, els.dropdownMenu, els.folderWrap, folders.map(f => f.name), 'folder-btn');
             const saved = readSavedState();
             const def = folders.find(f => f.name === saved.folder)
                 || folders.find(f => f.name === 'carlo')
@@ -421,9 +414,9 @@ const FramesApp = (() => {
 
         // Close dropdowns on outside click
         document.addEventListener('click', e => {
-            if (!$('folderWrap').contains(e.target)) { els.folderBtn.classList.remove('open'); els.dropdownMenu.classList.remove('open'); }
-            if (!$('fileWrap').contains(e.target)) { els.fileBtn.classList.remove('open'); els.fileDropdownMenu.classList.remove('open'); }
-            if (!$('fpsWrap')?.contains(e.target)) { els.fpsBtn.classList.remove('open'); els.fpsMenu.classList.remove('open'); }
+            if (!els.folderWrap.contains(e.target)) { els.folderBtn.classList.remove('open'); els.dropdownMenu.classList.remove('open'); }
+            if (!els.fileWrap.contains(e.target)) { els.fileBtn.classList.remove('open'); els.fileDropdownMenu.classList.remove('open'); }
+            if (!els.fpsWrap?.contains(e.target)) { els.fpsBtn.classList.remove('open'); els.fpsMenu.classList.remove('open'); }
         });
 
         setupPanZoom();
@@ -436,16 +429,16 @@ const FramesApp = (() => {
 
     function applyTransform() {
         els.mainImage.style.transform = `translate(${view.ox}px,${view.oy}px) scale(${view.scale})`;
-        const zl = $('zoomLevel');
-        zl.textContent = Math.round(view.scale * 100) + '%'; zl.classList.add('visible');
+        els.zoomLevel.textContent = Math.round(view.scale * 100) + '%';
+        els.zoomLevel.classList.add('visible');
         clearTimeout(zoomHideTimer);
-        zoomHideTimer = setTimeout(() => zl.classList.remove('visible'), 1200);
+        zoomHideTimer = setTimeout(() => els.zoomLevel.classList.remove('visible'), 1200);
         saveViewState();
     }
     function fitToArea() {
         const img = els.mainImage;
         if (!img.naturalWidth) return;
-        const area = $('imageArea');
+        const area = els.imageArea;
         const scale = Math.min(area.clientWidth / img.naturalWidth, area.clientHeight / img.naturalHeight, 1);
         view.scale = scale;
         view.ox = (area.clientWidth - img.naturalWidth * scale) / 2;
@@ -454,14 +447,14 @@ const FramesApp = (() => {
     }
     function resetView() { fitToArea(); }
     function clampPan() {
-        const img = els.mainImage, area = $('imageArea');
+        const img = els.mainImage, area = els.imageArea;
         const aw = area.clientWidth, ah = area.clientHeight;
         const iw = img.naturalWidth * view.scale, ih = img.naturalHeight * view.scale;
         view.ox = iw <= aw ? (aw - iw) / 2 : Math.min(0, Math.max(aw - iw, view.ox));
         view.oy = ih <= ah ? (ah - ih) / 2 : Math.min(0, Math.max(ah - ih, view.oy));
     }
     function zoomAt(cx, cy, delta) {
-        const area = $('imageArea');
+        const area = els.imageArea;
         const rect = area.getBoundingClientRect();
         const mx = cx - rect.left, my = cy - rect.top;
         const factor = delta > 0 ? 1.12 : 1 / 1.12;
@@ -473,7 +466,7 @@ const FramesApp = (() => {
         clampPan(); applyTransform();
     }
     function setupPanZoom() {
-        const area = $('imageArea');
+        const area = els.imageArea;
         area.addEventListener('wheel', e => {
             if (state.loading || !state.total) return;
             e.preventDefault(); zoomAt(e.clientX, e.clientY, -e.deltaY);
@@ -562,5 +555,5 @@ const FramesApp = (() => {
         });
     }
 
-    return { init, loadFolder, state, setGithubToken, getGithubToken, initFoldersIfReady, onShow, resetFramesState, downloadCurrentFrame, sizeDropdownToContent };
+    return { init, loadFolder, state, initFoldersIfReady, onShow, resetFramesState, downloadCurrentFrame, sizeDropdownToContent };
 })();
