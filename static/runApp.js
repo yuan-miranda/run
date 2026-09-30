@@ -360,7 +360,7 @@ const RunApp = (() => {
     }
 
     // ── Popup open/close ──
-    const ACTION_MODE_LABELS = { cmd: 'CMD', speak: 'SPK', popup_msg: 'MSG', placeholder: 'PLACEHOLDER' };
+    const ACTION_MODE_LABELS = { cmd: 'cmd', speak: 'spk', popup_msg: 'msg', placeholder: 'placeholder' };
     function closeActionModeDropdown() {
         $('action-mode-btn')?.classList.remove('open');
         $('actionModeMenu')?.classList.remove('open');
