@@ -417,6 +417,7 @@ const RunApp = (() => {
         runState.popupMode = null; runState.popupUser = null; runState.popupExampleText = '';
         document.body.classList.remove('view-action');
         document.body.classList.add('view-run');
+        setRunClientName(null);
     }
 
     // ── Command building ──
