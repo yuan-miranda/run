@@ -990,7 +990,7 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
 }
 
 .card-btn .btn-hint {
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1;
     padding: 1px 4px;
     pointer-events: none;
@@ -1057,7 +1057,7 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
     border: 1px solid var(--run-border-strong, var(--border-heavy));
     color: var(--run-text-dim, var(--muted));
     cursor: pointer;
-    padding: 6px 14px 6px 10px;
+    padding: 8px 14px 8px 10px;
     display: inline-flex;
     align-items: center;
     gap: 6px;
