@@ -351,10 +351,25 @@ const RunApp = (() => {
     }
 
     // ── Popup open/close ──
-    const ACTION_MODE_LABELS = { cmd: 'cmd', speak: 'spk', popup_msg: 'msg', placeholder: 'placeholder' };
+    const ACTION_MODE_LABELS = {
+        cmd: 'Commandline',
+        speak: 'Speak',
+        popup_msg: 'Message',
+        scripts: 'Scripts',
+        placeholder: 'Scripts'
+    };
     function closeActionModeDropdown() {
         $('action-mode-btn')?.classList.remove('open');
         $('actionModeMenu')?.classList.remove('open');
+    }
+    function sizeActionModeDropdown() {
+        if (typeof FramesApp !== 'undefined' && FramesApp.sizeDropdownToContent) {
+            FramesApp.sizeDropdownToContent(
+                $('action-mode-btn'), $('actionModeMenu'), $('actionModeWrap'),
+                Array.from($('actionModeMenu').querySelectorAll('.file-dropdown-item')).map(i => i.textContent.trim()),
+                'file-btn'
+            );
+        }
     }
     function applyActionMode(mode) {
         runState.popupMode = mode;
@@ -362,15 +377,15 @@ const RunApp = (() => {
         runState.cmdLoadedFromUpload = false;
         $('popup-input').value = '';
         $('textarea-wrap').classList.remove('show-hint');
-        const isCmd = mode === 'cmd', isSpk = mode === 'speak', isPlaceholder = mode === 'placeholder';
-        $('textarea-wrap').style.display = isPlaceholder ? 'none' : 'flex';
-        $('placeholder-body').style.display = isPlaceholder ? 'flex' : 'none';
+        const isCmd = mode === 'cmd', isSpk = mode === 'speak', isScripts = mode === 'scripts' || mode === 'placeholder';
+        $('textarea-wrap').style.display = isScripts ? 'none' : 'flex';
+        $('placeholder-body').style.display = isScripts ? 'flex' : 'none';
         $('vis-section').style.display = isCmd ? 'flex' : 'none';
         $('shell-section').style.display = isCmd ? 'block' : 'none';
         $('voice-section').style.display = isSpk ? 'flex' : 'none';
         $('spk-controls').style.display = isSpk ? 'block' : 'none';
         $('shell-section').open = false; $('spk-controls').open = false;
-        $('popup-confirm').style.display = isPlaceholder ? 'none' : '';
+        $('popup-confirm').style.display = isScripts ? 'none' : '';
         const label = $('action-mode-label'); if (label) label.textContent = ACTION_MODE_LABELS[mode] || mode;
         document.querySelectorAll('#actionModeMenu .file-dropdown-item').forEach(item => {
             item.classList.toggle('active', item.dataset.mode === mode);
@@ -380,7 +395,7 @@ const RunApp = (() => {
         });
         closeActionModeDropdown();
         updateOptionsUI();
-        if (!isPlaceholder) setTimeout(() => { $('popup-input').focus(); syncTabHint(); }, 50);
+        if (!isScripts) setTimeout(() => { $('popup-input').focus(); syncTabHint(); }, 50);
     }
     function closeTargetDropdown() {
         $('popup-target-label')?.classList.remove('open');
@@ -422,6 +437,7 @@ const RunApp = (() => {
         document.body.classList.add('view-action');
         closeTargetDropdown();
         renderTargetDropdown();
+        sizeActionModeDropdown();
         applyActionMode(mode);
     }
     function closePopup() {
@@ -558,6 +574,7 @@ const RunApp = (() => {
     function init() {
         applyTheme(runState.themeSelection);
         setConnectionState(false);
+        sizeActionModeDropdown();
 
         // Theme dropdown
         const themeBtn = $('run-theme-btn'), themeMenu = $('runThemeMenu');
