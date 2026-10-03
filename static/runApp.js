@@ -190,12 +190,14 @@ const RunApp = (() => {
         const displayUsername = getDisplayUsername(user.username);
         const showWin = isWindowsUsername(user.username);
         const showLinux = isLinuxUsername(user.username);
+        const verTitle = user.version ? `title="Version: ${user.version.slice(0, 7)}"` : '';
+
         return `
                 <div class="card-header">
                     <div style="flex:1;min-width:0;">
                         <div style="display:flex;align-items:center;gap:8px;">
                             ${showWin ? WIN_LOGO_HTML : ''}${showLinux ? LINUX_LOGO_HTML : ''}
-                            <span class="card-username ${alive ? '' : 'offline'}">${displayUsername}</span>
+                            <span class="card-username ${alive ? '' : 'offline'}" ${verTitle}>${displayUsername}</span>
                         </div>
                         <div class="card-ts">${tsText}</div>
                     </div>
@@ -208,10 +210,13 @@ const RunApp = (() => {
                         OUT ${showHint && canInteract ? '<span class="btn-hint">V</span>' : ''}
                     </button>
                 </div>`;
+
+
     }
     function getCardRenderSignature(user, status, alive, tsText, showHint) {
-        return `${user.username}|${getDisplayUsername(user.username)}|${status}|${alive ? 1 : 0}|${showHint ? 1 : 0}|${tsText}`;
+        return `${user.username}|${getDisplayUsername(user.username)}|${user.version || ''}|${status}|${alive ? 1 : 0}|${showHint ? 1 : 0}|${tsText}`;
     }
+
 
     function renderGrid() {
         runState.isRendering = true;

