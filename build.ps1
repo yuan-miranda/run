@@ -15,12 +15,13 @@ if (-not $sha) {
 Write-Host "Embedding New Git Commit SHA: $sha" -ForegroundColor Green
 
 $runPs1 = Get-Content "run.ps1" -Raw
-$runPs1Updated = $runPs1 -replace '\$SCRIPT_VERSION = "[^"]*"', "\$SCRIPT_VERSION = `"$sha`""
+$runPs1Updated = $runPs1 -replace '(?m)^\$SCRIPT_VERSION = ".*?"$', "`$SCRIPT_VERSION = `"$sha`""
 Set-Content "run.ps1" -Value $runPs1Updated -NoNewline
 
 $ssControlPs1 = Get-Content "frames_dev/ss_control.ps1" -Raw
-$ssControlUpdated = $ssControlPs1 -replace '\$SCRIPT_VERSION = "[^"]*"', "\$SCRIPT_VERSION = `"$sha`""
+$ssControlUpdated = $ssControlPs1 -replace '(?m)^\$SCRIPT_VERSION = ".*?"$', "`$SCRIPT_VERSION = `"$sha`""
 Set-Content "frames_dev/ss_control.ps1" -Value $ssControlUpdated -NoNewline
+
 
 Write-Host "Compiling run.exe..." -ForegroundColor Cyan
 Invoke-PS2EXE -InputFile "run.ps1" -OutputFile "run.exe" -noConsole -noOutput -noError
