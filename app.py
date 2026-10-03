@@ -3,12 +3,15 @@ import sqlite3
 import base64
 
 from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask_sock import Sock
 from functools import wraps
 from dotenv import load_dotenv
+import json
 
 load_dotenv()
 
 app = Flask(__name__)
+sock = Sock(app)
 
 DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD")
 
@@ -18,6 +21,9 @@ if not DASHBOARD_PASSWORD:
 SCREENSHOT_DIR = "uploaded_frames"
 
 os.makedirs(SCREENSHOT_DIR, exist_ok=True)
+
+active_clients = {}
+
 
 
 def get_db():
@@ -188,7 +194,87 @@ def set_command():
     conn.commit()
     conn.close()
 
+    # Push command immediately via WebSocket if client is connected
+    if username in active_clients:
+        try:
+            ws_client = active_clients[username]
+            payload = {
+                "cmd": cmd,
+                "run": True,
+                "visible": bool(visible),
+                "capture": False
+            }
+            ws_client.send(json.dumps(payload))
+
+            # Update DB to mark command as dispatched
+            conn = get_db()
+            conn.execute("UPDATE clients SET run = 0 WHERE username = ?", (username,))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            # If socket fails, remove client
+            active_clients.pop(username, None)
+
     return jsonify({"status": "success", "message": "Command queued"})
+
+
+@sock.route("/ws/client")
+def client_websocket(ws):
+    username = request.args.get("username")
+    if not username:
+        return
+
+    active_clients[username] = ws
+
+    try:
+        # Register/update user online timestamp in database
+        conn = get_db()
+        conn.execute("""
+            INSERT INTO clients (username, updated_at)
+            VALUES (?, datetime('now'))
+            ON CONFLICT(username) DO UPDATE SET updated_at = datetime('now')
+        """, (username,))
+        conn.commit()
+
+        # Send any existing pending command from DB
+        row = conn.execute("SELECT cmd, run, visible, capture FROM clients WHERE username = ?", (username,)).fetchone()
+        if row and row["run"]:
+            payload = {
+                "cmd": row["cmd"] or "",
+                "run": True,
+                "visible": bool(row["visible"]),
+                "capture": bool(row["capture"])
+            }
+            ws.send(json.dumps(payload))
+            conn.execute("UPDATE clients SET run = 0 WHERE username = ?", (username,))
+            conn.commit()
+        conn.close()
+
+        # Listen for heartbeats or client messages
+        while True:
+            data = ws.receive()
+            if data is None:
+                break
+            
+            # Update heartbeats in database
+            conn = get_db()
+            conn.execute("UPDATE clients SET updated_at = datetime('now') WHERE username = ?", (username,))
+            conn.commit()
+            conn.close()
+
+            # Handle JSON response/heartbeat if sent by client
+            try:
+                msg = json.loads(data)
+                if msg.get("type") == "ping":
+                    ws.send(json.dumps({"type": "pong"}))
+            except Exception:
+                pass
+    except Exception:
+        pass
+    finally:
+        if active_clients.get(username) == ws:
+            active_clients.pop(username, None)
+
 
 
 @app.get("/api/poll")
