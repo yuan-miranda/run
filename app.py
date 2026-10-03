@@ -276,8 +276,8 @@ def client_websocket(ws):
             active_clients.pop(username, None)
 
 
-
 @app.get("/api/poll")
+
 def poll_command():
     username = request.args.get("username")
 
@@ -355,22 +355,6 @@ def poll_frames():
 
     conn = get_db()
 
-    conn.execute(
-        """
-        INSERT INTO clients (
-            username,
-            updated_at
-        )
-        VALUES (?, datetime('now'))
-
-        ON CONFLICT(username) DO UPDATE SET
-            updated_at = datetime('now')
-    """,
-        (username,),
-    )
-
-    conn.commit()
-
     row = conn.execute(
         """
         SELECT capture
@@ -387,6 +371,7 @@ def poll_frames():
     conn.close()
 
     return jsonify({"capture": capture_val})
+
 
 
 @app.post("/api/upload")
