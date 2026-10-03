@@ -31,7 +31,8 @@ Invoke-PS2EXE -InputFile "installer.ps1" -OutputFile "installer.exe" -noConsole 
 Write-Host "Updating commit with compiled binaries and pushing to Git..." -ForegroundColor Yellow
 git add run.ps1 frames_dev/ss_control.ps1 run.exe installer.exe
 git commit --amend -m "$CommitMessage ($sha)"
-git push
+git push --force-with-lease
+
 
 Write-Host "Build, commit, and push complete! Version stamped: $sha" -ForegroundColor Green
 
