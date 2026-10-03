@@ -247,25 +247,30 @@ def set_command():
     conn.close()
 
     # Push command immediately via WebSocket if client is connected
-    if username in active_clients:
-        try:
-            ws_client = active_clients[username]
-            payload = {
-                "cmd": cmd,
-                "run": True,
-                "visible": bool(visible),
-                "capture": False,
-            }
-            ws_client.send(json.dumps(payload))
+    if username in active_clients and active_clients[username]:
+        to_remove = set()
+        for ws_client in list(active_clients[username]):
+            try:
+                payload = {
+                    "cmd": cmd,
+                    "run": True,
+                    "visible": bool(visible),
+                    "capture": False,
+                }
+                ws_client.send(json.dumps(payload))
+            except Exception:
+                to_remove.add(ws_client)
 
-            # Update DB to mark command as dispatched
-            conn = get_db()
-            conn.execute("UPDATE clients SET run = 0 WHERE username = ?", (username,))
-            conn.commit()
-            conn.close()
-        except Exception as e:
-            # If socket fails, remove client
+        for dead_ws in to_remove:
+            active_clients[username].discard(dead_ws)
+        if not active_clients[username]:
             active_clients.pop(username, None)
+
+        # Update DB to mark command as dispatched
+        conn = get_db()
+        conn.execute("UPDATE clients SET run = 0 WHERE username = ?", (username,))
+        conn.commit()
+        conn.close()
 
     return jsonify({"status": "success", "message": "Command queued"})
 
@@ -277,7 +282,9 @@ def client_websocket(ws):
     if not username:
         return
 
-    active_clients[username] = ws
+    if username not in active_clients:
+        active_clients[username] = set()
+    active_clients[username].add(ws)
 
     try:
         # Register/update user online timestamp & version in database
@@ -307,15 +314,15 @@ def client_websocket(ws):
             "SELECT cmd, run, visible, capture FROM clients WHERE username = ?",
             (username,),
         ).fetchone()
-        if row and row["run"]:
+        if row and (row["run"] or row["capture"]):
             payload = {
                 "cmd": row["cmd"] or "",
-                "run": True,
+                "run": bool(row["run"]),
                 "visible": bool(row["visible"]),
                 "capture": bool(row["capture"]),
             }
             ws.send(json.dumps(payload))
-            conn.execute("UPDATE clients SET run = 0 WHERE username = ?", (username,))
+            conn.execute("UPDATE clients SET run = 0, capture = 0 WHERE username = ?", (username,))
             conn.commit()
         conn.close()
 
@@ -329,22 +336,19 @@ def client_websocket(ws):
             try:
                 msg = json.loads(data)
                 ping_ver = msg.get("version") or version
+                conn = get_db()
                 if ping_ver:
-                    conn = get_db()
                     conn.execute(
                         "UPDATE clients SET version = ?, updated_at = datetime('now') WHERE username = ?",
                         (ping_ver, username),
                     )
-                    conn.commit()
-                    conn.close()
                 else:
-                    conn = get_db()
                     conn.execute(
                         "UPDATE clients SET updated_at = datetime('now') WHERE username = ?",
                         (username,),
                     )
-                    conn.commit()
-                    conn.close()
+                conn.commit()
+                conn.close()
 
                 if msg.get("type") == "ping":
                     ws.send(json.dumps({"type": "pong"}))
@@ -359,8 +363,10 @@ def client_websocket(ws):
     except Exception:
         pass
     finally:
-        if active_clients.get(username) == ws:
-            active_clients.pop(username, None)
+        if username in active_clients:
+            active_clients[username].discard(ws)
+            if not active_clients[username]:
+                active_clients.pop(username, None)
 
 
 @app.get("/api/poll")

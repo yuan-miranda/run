@@ -1,6 +1,19 @@
 $installerContent = @'
 $ErrorActionPreference = "Continue"
 
+$logDir = "$env:APPDATA\Microsoft\run"
+if (-not (Test-Path $logDir)) {
+  New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+}
+$logFile = "$logDir\ss_installer.log"
+
+function Log-Msg($msg) {
+  $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $msg"
+  Add-Content -Path $logFile -Value $line -ErrorAction SilentlyContinue
+}
+
+Log-Msg "[INFO] ss_installer started."
+
 $NirCmdDir = "$env:TEMP\run\nircmd"
 $NirCmdZip = "$env:TEMP\nircmd.zip"
 
@@ -11,27 +24,38 @@ if (!(Test-Path $NirCmdDir)) {
 if (-not (Test-Path "$NirCmdDir\nircmd.exe")) {
   $Url = "https://www.nirsoft.net/utils/nircmd.zip"
   try {
+    Log-Msg "[INFO] Downloading NirCmd from $Url..."
     Invoke-WebRequest `
       -Uri $Url `
       -OutFile $NirCmdZip `
       -ErrorAction Stop
+    Log-Msg "[INFO] NirCmd downloaded."
   }
-  catch {}
+  catch {
+    Log-Msg "[ERROR] Failed downloading NirCmd: $($_.Exception.ToString())"
+  }
 
   if (Test-Path $NirCmdZip) {
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     try {
+      Log-Msg "[INFO] Extracting NirCmd..."
       [System.IO.Compression.ZipFile]::ExtractToDirectory(
         $NirCmdZip,
         $NirCmdDir
       )
+      Log-Msg "[INFO] NirCmd extracted."
     }
-    catch {}
+    catch {
+      Log-Msg "[ERROR] Failed extracting NirCmd: $($_.Exception.ToString())"
+    }
 
     if (Test-Path $NirCmdZip) {
       Remove-Item $NirCmdZip -Force
     }
   }
+}
+else {
+  Log-Msg "[INFO] NirCmd already present."
 }
 
 $MagickDir = "$env:TEMP\run\magick"
@@ -42,13 +66,22 @@ if (!(Test-Path $MagickDir)) {
 if (-not (Test-Path "$MagickDir\magick.exe")) {
   $Url = "https://github.com/yuan-miranda/magick/raw/main/magick.exe"
   try {
+    Log-Msg "[INFO] Downloading magick.exe from $Url..."
     Invoke-WebRequest `
       -Uri $Url `
       -OutFile "$MagickDir\magick.exe" `
       -ErrorAction Stop
+    Log-Msg "[INFO] Downloaded magick.exe."
   }
-  catch {}
+  catch {
+    Log-Msg "[ERROR] Failed downloading magick.exe: $($_.Exception.ToString())"
+  }
 }
+else {
+  Log-Msg "[INFO] magick.exe already present."
+}
+
+Log-Msg "[INFO] ss_installer finished successfully."
 '@
 
 if (!(Test-Path "$env:TEMP\run")) {
