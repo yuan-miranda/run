@@ -190,10 +190,19 @@ const RunApp = (() => {
         const displayUsername = getDisplayUsername(user.username);
         const showWin = isWindowsUsername(user.username);
         const showLinux = isLinuxUsername(user.username);
-        const verText = user.version ? user.version.slice(0, 7) : 'unknown';
-        const verTitle = `title="Version: ${verText}"`;
 
-
+        let verTitleText = 'unknown';
+        if (user.version) {
+            const shaStr = user.version.slice(0, 7);
+            if (user.commits_behind === 0) {
+                verTitleText = `${shaStr} (latest)`;
+            } else if (typeof user.commits_behind === 'number') {
+                verTitleText = `${shaStr} (${user.commits_behind} behind)`;
+            } else {
+                verTitleText = shaStr;
+            }
+        }
+        const verTitle = `title="${verTitleText}"`;
 
         return `
                 <div class="card-header" ${verTitle}>
@@ -213,13 +222,11 @@ const RunApp = (() => {
                         OUT ${showHint && canInteract ? '<span class="btn-hint">V</span>' : ''}
                     </button>
                 </div>`;
-
-
-
     }
     function getCardRenderSignature(user, status, alive, tsText, showHint) {
-        return `${user.username}|${getDisplayUsername(user.username)}|${user.version || ''}|${status}|${alive ? 1 : 0}|${showHint ? 1 : 0}|${tsText}`;
+        return `${user.username}|${getDisplayUsername(user.username)}|${user.version || ''}|${user.commits_behind ?? ''}|${status}|${alive ? 1 : 0}|${showHint ? 1 : 0}|${tsText}`;
     }
+
 
 
     function renderGrid() {
