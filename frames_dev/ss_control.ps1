@@ -27,8 +27,6 @@ $uniqueUser = "$($env:USERNAME)-$uniqueId-W"
 $SCRIPT_VERSION = "101e4bb"
 $clientVersion = $SCRIPT_VERSION
 
-
-
 $UserFolder = Join-Path (Join-Path $env:TEMP "frames-repo") $uniqueUser
 if (!(Test-Path $UserFolder)) {
   $null = New-Item $UserFolder -ItemType Directory

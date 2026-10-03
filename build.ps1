@@ -1,12 +1,12 @@
 param (
-    [string]$CommitMessage = "updated exe"
+  [string]$CommitMessage = "updated exe"
 )
 
 # 1. Get current Git SHA
 $sha = (git rev-parse --short HEAD).Trim()
 if (-not $sha) {
-    Write-Error "Failed to fetch Git commit SHA."
-    exit 1
+  Write-Error "Failed to fetch Git commit SHA."
+  exit 1
 }
 
 Write-Host "Embedding Git Commit SHA: $sha" -ForegroundColor Green
@@ -37,7 +37,3 @@ git commit -m "$fullMsg"
 git push
 
 Write-Host "Build, commit, and push complete! Version stamped: $sha" -ForegroundColor Green
-
-
-
-

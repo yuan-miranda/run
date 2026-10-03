@@ -71,5 +71,3 @@ if (Test-Path $self) {
     $self
   ) -WindowStyle Hidden -Wait
 }
-
-# FIXING THE FORMATTING LIKE REMOVING LOGS : NOTE TO MYSELF REMOVE IT ALL LATER
