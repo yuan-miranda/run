@@ -38,7 +38,7 @@ else {
 }
 
 $uniqueUser = "$($env:USERNAME)-$uniqueId-W"
-$SCRIPT_VERSION = "ebc2769"
+$SCRIPT_VERSION = "2af43f8"
 $clientVersion = $SCRIPT_VERSION
 
 Log-Msg "[INFO] Client: $uniqueUser, Version: $clientVersion"
