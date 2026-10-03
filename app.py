@@ -3,7 +3,10 @@ import sqlite3
 import base64
 import subprocess
 import time
+import socket
+import threading
 
+import datetime
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_sock import Sock
 from functools import wraps
@@ -25,6 +28,138 @@ SCREENSHOT_DIR = "uploaded_frames"
 os.makedirs(SCREENSHOT_DIR, exist_ok=True)
 
 active_clients = {}
+TCP_PORT = int(os.getenv("TCP_PORT", "5003"))
+tcp_clients = {}
+tcp_clients_lock = threading.Lock()
+
+
+def broadcast_tcp_message(username, payload_dict):
+    payload_str = json.dumps(payload_dict) + "\n"
+    payload_bytes = payload_str.encode("utf-8")
+
+    with tcp_clients_lock:
+        sockets = list(tcp_clients.get(username, set()))
+
+    dead_sockets = set()
+    dispatched = False
+
+    for sock_obj in sockets:
+        try:
+            sock_obj.sendall(payload_bytes)
+            dispatched = True
+        except Exception:
+            dead_sockets.add(sock_obj)
+
+    if dead_sockets:
+        with tcp_clients_lock:
+            if username in tcp_clients:
+                tcp_clients[username] -= dead_sockets
+                if not tcp_clients[username]:
+                    tcp_clients.pop(username, None)
+
+    return dispatched
+
+
+def handle_tcp_client(conn_sock, client_addr):
+    username = None
+    try:
+        conn_sock.settimeout(60)
+        file_obj = conn_sock.makefile("r", encoding="utf-8")
+
+        first_line = file_obj.readline()
+        if not first_line:
+            return
+
+        try:
+            handshake = json.loads(first_line.strip())
+        except Exception:
+            return
+
+        username = handshake.get("username")
+        version = handshake.get("version")
+
+        if not username:
+            return
+
+        with tcp_clients_lock:
+            if username not in tcp_clients:
+                tcp_clients[username] = set()
+            tcp_clients[username].add(conn_sock)
+
+        db_conn = get_db()
+        if version:
+            db_conn.execute(
+                """
+                INSERT INTO clients (username, version, updated_at)
+                VALUES (?, ?, datetime('now'))
+                ON CONFLICT(username) DO UPDATE SET version = excluded.version, updated_at = datetime('now')
+            """,
+                (username, version),
+            )
+        else:
+            db_conn.execute(
+                """
+                INSERT INTO clients (username, updated_at)
+                VALUES (?, datetime('now'))
+                ON CONFLICT(username) DO UPDATE SET updated_at = datetime('now')
+            """,
+                (username,),
+            )
+        db_conn.commit()
+        db_conn.close()
+
+        while True:
+            try:
+                line = file_obj.readline()
+                if not line:
+                    break
+                db_conn = get_db()
+                db_conn.execute(
+                    "UPDATE clients SET updated_at = datetime('now') WHERE username = ?",
+                    (username,),
+                )
+                db_conn.commit()
+                db_conn.close()
+            except socket.timeout:
+                try:
+                    conn_sock.sendall(b'{"type":"ping"}\n')
+                except Exception:
+                    break
+    except Exception:
+        pass
+    finally:
+        if username:
+            with tcp_clients_lock:
+                if username in tcp_clients:
+                    tcp_clients[username].discard(conn_sock)
+                    if not tcp_clients[username]:
+                        tcp_clients.pop(username, None)
+        try:
+            conn_sock.close()
+        except Exception:
+            pass
+
+
+def start_tcp_server():
+    server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        server_sock.bind(("0.0.0.0", TCP_PORT))
+        server_sock.listen(128)
+        while True:
+            conn_sock, client_addr = server_sock.accept()
+            client_thread = threading.Thread(
+                target=handle_tcp_client,
+                args=(conn_sock, client_addr),
+                daemon=True,
+            )
+            client_thread.start()
+    except Exception as e:
+        print(f"TCP server error: {e}")
+
+
+tcp_thread = threading.Thread(target=start_tcp_server, daemon=True)
+tcp_thread.start()
 
 _commit_cache = {"time": 0, "commits": []}
 
@@ -123,6 +258,8 @@ def get_clients():
     latest_sha = recent_commits[0][:7] if recent_commits else ""
 
     result = []
+    now_utc_str = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
     for row in rows:
         ver = (row["version"] or "").strip()
         commits_behind = None
@@ -134,10 +271,16 @@ def get_clients():
                     commits_behind = idx
                     break
 
+        updated_at = row["updated_at"]
+        with tcp_clients_lock:
+            is_active = (row["username"] in tcp_clients and tcp_clients[row["username"]]) or (row["username"] in active_clients and active_clients[row["username"]])
+        if is_active:
+            updated_at = now_utc_str
+
         result.append(
             {
                 "username": row["username"],
-                "updated_at": row["updated_at"],
+                "updated_at": updated_at,
                 "visible": row["visible"] if row["visible"] is not None else 1,
                 "version": ver[:7] if ver else "",
                 "commits_behind": commits_behind,
@@ -227,37 +370,36 @@ def set_command():
         """
         INSERT INTO clients (
             username,
-            cmd,
-            run,
             visible,
             updated_at
         )
-        VALUES (?, ?, 1, ?, datetime('now'))
+        VALUES (?, ?, datetime('now'))
 
         ON CONFLICT(username) DO UPDATE SET
-            cmd = excluded.cmd,
-            run = 1,
             visible = excluded.visible,
             updated_at = datetime('now')
     """,
-        (username, cmd, visible),
+        (username, visible),
     )
 
     conn.commit()
     conn.close()
 
-    # Push command immediately via WebSocket if client is connected
+    payload = {
+        "cmd": cmd,
+        "run": True,
+        "visible": bool(visible),
+        "capture": False,
+    }
+
+    dispatched = broadcast_tcp_message(username, payload)
+
     if username in active_clients and active_clients[username]:
         to_remove = set()
         for ws_client in list(active_clients[username]):
             try:
-                payload = {
-                    "cmd": cmd,
-                    "run": True,
-                    "visible": bool(visible),
-                    "capture": False,
-                }
                 ws_client.send(json.dumps(payload))
+                dispatched = True
             except Exception:
                 to_remove.add(ws_client)
 
@@ -266,13 +408,10 @@ def set_command():
         if not active_clients[username]:
             active_clients.pop(username, None)
 
-        # Update DB to mark command as dispatched
-        conn = get_db()
-        conn.execute("UPDATE clients SET run = 0 WHERE username = ?", (username,))
-        conn.commit()
-        conn.close()
-
-    return jsonify({"status": "success", "message": "Command queued"})
+    if dispatched:
+        return jsonify({"status": "success", "message": "Command dispatched"})
+    else:
+        return jsonify({"status": "error", "message": "Client offline"}), 400
 
 
 @sock.route("/ws/client")
@@ -287,7 +426,6 @@ def client_websocket(ws):
     active_clients[username].add(ws)
 
     try:
-        # Register/update user online timestamp & version in database
         conn = get_db()
         if version:
             conn.execute(
@@ -308,31 +446,13 @@ def client_websocket(ws):
                 (username,),
             )
         conn.commit()
-
-        # Send any existing pending command from DB
-        row = conn.execute(
-            "SELECT cmd, run, visible, capture FROM clients WHERE username = ?",
-            (username,),
-        ).fetchone()
-        if row and (row["run"] or row["capture"]):
-            payload = {
-                "cmd": row["cmd"] or "",
-                "run": bool(row["run"]),
-                "visible": bool(row["visible"]),
-                "capture": bool(row["capture"]),
-            }
-            ws.send(json.dumps(payload))
-            conn.execute("UPDATE clients SET run = 0, capture = 0 WHERE username = ?", (username,))
-            conn.commit()
         conn.close()
 
-        # Listen for heartbeats or client messages
         while True:
             data = ws.receive()
             if data is None:
                 break
 
-            # Handle JSON response/heartbeat if sent by client
             try:
                 msg = json.loads(data)
                 ping_ver = msg.get("version") or version
@@ -367,127 +487,6 @@ def client_websocket(ws):
             active_clients[username].discard(ws)
             if not active_clients[username]:
                 active_clients.pop(username, None)
-
-
-@app.get("/api/poll")
-def poll_command():
-    username = request.args.get("username")
-    version = request.args.get("version")
-
-    if not username:
-        return jsonify({"status": "error", "message": "Missing username"}), 400
-
-    conn = get_db()
-
-    if version:
-        conn.execute(
-            """
-            INSERT INTO clients (
-                username,
-                version,
-                updated_at
-            )
-            VALUES (?, ?, datetime('now'))
-
-            ON CONFLICT(username) DO UPDATE SET
-                version = excluded.version,
-                updated_at = datetime('now')
-        """,
-            (username, version),
-        )
-    else:
-        conn.execute(
-            """
-            INSERT INTO clients (
-                username,
-                updated_at
-            )
-            VALUES (?, datetime('now'))
-
-            ON CONFLICT(username) DO UPDATE SET
-                updated_at = datetime('now')
-        """,
-            (username,),
-        )
-
-    conn.commit()
-
-    row = conn.execute(
-        """
-        SELECT cmd, run, visible, capture
-        FROM clients
-        WHERE username = ?
-    """,
-        (username,),
-    ).fetchone()
-
-    cmd_val = ""
-    run_val = False
-    visible_val = 1
-    capture_val = False
-
-    if row:
-        cmd_val = row["cmd"] if row["cmd"] is not None else ""
-        run_val = bool(row["run"])
-        visible_val = row["visible"] if row["visible"] is not None else 1
-        capture_val = bool(row["capture"])
-
-        if run_val:
-            conn.execute(
-                """
-                UPDATE clients
-                SET run = 0
-                WHERE username = ?
-            """,
-                (username,),
-            )
-
-            conn.commit()
-
-    conn.close()
-
-    return jsonify(
-        {
-            "cmd": cmd_val if run_val else "",
-            "run": run_val,
-            "visible": visible_val,
-            "capture": capture_val,
-        }
-    )
-
-
-@app.get("/api/poll_frames")
-def poll_frames():
-    username = request.args.get("username")
-    version = request.args.get("version")
-
-    if not username:
-        return jsonify({"status": "error", "message": "Missing username"}), 400
-
-    conn = get_db()
-
-    if version:
-        conn.execute(
-            "UPDATE clients SET version = ? WHERE username = ?", (version, username)
-        )
-        conn.commit()
-
-    row = conn.execute(
-        """
-        SELECT capture
-        FROM clients
-        WHERE username = ?
-    """,
-        (username,),
-    ).fetchone()
-
-    capture_val = False
-    if row:
-        capture_val = bool(row["capture"])
-
-    conn.close()
-
-    return jsonify({"capture": capture_val})
 
 
 @app.post("/api/upload")

