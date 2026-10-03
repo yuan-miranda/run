@@ -190,10 +190,13 @@ const RunApp = (() => {
         const displayUsername = getDisplayUsername(user.username);
         const showWin = isWindowsUsername(user.username);
         const showLinux = isLinuxUsername(user.username);
-        const verTitle = user.version ? `title="Version: ${user.version.slice(0, 7)}"` : '';
+        const verText = user.version ? user.version.slice(0, 7) : 'unknown';
+        const verTitle = `title="Version: ${verText}"`;
+
+
 
         return `
-                <div class="card-header">
+                <div class="card-header" ${verTitle}>
                     <div style="flex:1;min-width:0;">
                         <div style="display:flex;align-items:center;gap:8px;">
                             ${showWin ? WIN_LOGO_HTML : ''}${showLinux ? LINUX_LOGO_HTML : ''}
@@ -210,6 +213,7 @@ const RunApp = (() => {
                         OUT ${showHint && canInteract ? '<span class="btn-hint">V</span>' : ''}
                     </button>
                 </div>`;
+
 
 
     }
