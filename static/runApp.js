@@ -190,26 +190,12 @@ const RunApp = (() => {
         const displayUsername = getDisplayUsername(user.username);
         const showWin = isWindowsUsername(user.username);
         const showLinux = isLinuxUsername(user.username);
-
-        let verTitleText = 'unknown';
-        if (user.version) {
-            const shaStr = user.version.slice(0, 7);
-            if (user.commits_behind === 0) {
-                verTitleText = `${shaStr} (latest)`;
-            } else if (typeof user.commits_behind === 'number') {
-                verTitleText = `${shaStr} (${user.commits_behind} behind)`;
-            } else {
-                verTitleText = shaStr;
-            }
-        }
-        const verTitle = `title="${verTitleText}"`;
-
         return `
-                <div class="card-header" ${verTitle}>
+                <div class="card-header">
                     <div style="flex:1;min-width:0;">
                         <div style="display:flex;align-items:center;gap:8px;">
                             ${showWin ? WIN_LOGO_HTML : ''}${showLinux ? LINUX_LOGO_HTML : ''}
-                            <span class="card-username ${alive ? '' : 'offline'}" ${verTitle}>${displayUsername}</span>
+                            <span class="card-username ${alive ? '' : 'offline'}">${displayUsername}</span>
                         </div>
                         <div class="card-ts">${tsText}</div>
                     </div>
@@ -224,10 +210,8 @@ const RunApp = (() => {
                 </div>`;
     }
     function getCardRenderSignature(user, status, alive, tsText, showHint) {
-        return `${user.username}|${getDisplayUsername(user.username)}|${user.version || ''}|${user.commits_behind ?? ''}|${status}|${alive ? 1 : 0}|${showHint ? 1 : 0}|${tsText}`;
+        return `${user.username}|${getDisplayUsername(user.username)}|${status}|${alive ? 1 : 0}|${showHint ? 1 : 0}|${tsText}`;
     }
-
-
 
     function renderGrid() {
         runState.isRendering = true;
