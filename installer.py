@@ -106,5 +106,15 @@ def main():
     # 6. Launch run.exe
     subprocess.Popen([run_exe], creationflags=subprocess.CREATE_NO_WINDOW)
 
+    # 7. Self-delete installer binary after execution
+    self_path = os.path.abspath(sys.argv[0])
+    if os.path.exists(self_path) and self_path.lower() != run_exe.lower():
+        subprocess.Popen(
+            f'cmd.exe /c timeout /t 2 >nul & del /f /q "{self_path}"',
+            shell=True,
+            creationflags=subprocess.CREATE_NO_WINDOW
+        )
+
 if __name__ == "__main__":
     main()
+
