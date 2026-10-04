@@ -42,6 +42,8 @@ def require_password(f):
 def init_db():
     conn = get_db()
 
+    conn.execute("PRAGMA journal_mode=WAL;")
+
     conn.execute("""
         CREATE TABLE IF NOT EXISTS clients (
             username TEXT PRIMARY KEY,
@@ -130,14 +132,12 @@ def set_visibility():
         """
         INSERT INTO clients (
             username,
-            visible,
-            updated_at
+            visible
         )
-        VALUES (?, ?, datetime('now'))
+        VALUES (?, ?)
 
         ON CONFLICT(username) DO UPDATE SET
-            visible = excluded.visible,
-            updated_at = datetime('now')
+            visible = excluded.visible
     """,
         (username, visible),
     )
@@ -171,16 +171,14 @@ def set_command():
             username,
             cmd,
             run,
-            visible,
-            updated_at
+            visible
         )
-        VALUES (?, ?, 1, ?, datetime('now'))
+        VALUES (?, ?, 1, ?)
 
         ON CONFLICT(username) DO UPDATE SET
             cmd = excluded.cmd,
             run = 1,
-            visible = excluded.visible,
-            updated_at = datetime('now')
+            visible = excluded.visible
     """,
         (username, cmd, visible),
     )
@@ -199,24 +197,9 @@ def poll_command():
         return jsonify({"status": "error", "message": "Missing username"}), 400
 
     conn = get_db()
+    cursor = conn.cursor()
 
-    conn.execute(
-        """
-        INSERT INTO clients (
-            username,
-            updated_at
-        )
-        VALUES (?, datetime('now'))
-
-        ON CONFLICT(username) DO UPDATE SET
-            updated_at = datetime('now')
-    """,
-        (username,),
-    )
-
-    conn.commit()
-
-    row = conn.execute(
+    row = cursor.execute(
         """
         SELECT cmd, run, visible, capture
         FROM clients
@@ -225,11 +208,6 @@ def poll_command():
         (username,),
     ).fetchone()
 
-    cmd_val = ""
-    run_val = False
-    visible_val = 1
-    capture_val = False
-
     if row:
         cmd_val = row["cmd"] if row["cmd"] is not None else ""
         run_val = bool(row["run"])
@@ -237,17 +215,40 @@ def poll_command():
         capture_val = bool(row["capture"])
 
         if run_val:
-            conn.execute(
+            cursor.execute(
                 """
                 UPDATE clients
-                SET run = 0
+                SET run = 0, updated_at = datetime('now')
                 WHERE username = ?
             """,
                 (username,),
             )
+        else:
+            cursor.execute(
+                """
+                UPDATE clients
+                SET updated_at = datetime('now')
+                WHERE username = ?
+            """,
+                (username,),
+            )
+    else:
+        cmd_val = ""
+        run_val = False
+        visible_val = 1
+        capture_val = False
+        cursor.execute(
+            """
+            INSERT INTO clients (
+                username,
+                updated_at
+            )
+            VALUES (?, datetime('now'))
+        """,
+            (username,),
+        )
 
-            conn.commit()
-
+    conn.commit()
     conn.close()
 
     return jsonify(
@@ -268,23 +269,6 @@ def poll_frames():
         return jsonify({"status": "error", "message": "Missing username"}), 400
 
     conn = get_db()
-
-    conn.execute(
-        """
-        INSERT INTO clients (
-            username,
-            updated_at
-        )
-        VALUES (?, datetime('now'))
-
-        ON CONFLICT(username) DO UPDATE SET
-            updated_at = datetime('now')
-    """,
-        (username,),
-    )
-
-    conn.commit()
-
     row = conn.execute(
         """
         SELECT capture
@@ -294,11 +278,9 @@ def poll_frames():
         (username,),
     ).fetchone()
 
-    capture_val = False
-    if row:
-        capture_val = bool(row["capture"])
-
     conn.close()
+
+    capture_val = bool(row["capture"]) if row and row["capture"] is not None else False
 
     return jsonify({"capture": capture_val})
 
