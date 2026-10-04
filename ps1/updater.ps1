@@ -11,8 +11,7 @@ try {
   Stop-Process -Name "installer" -ErrorAction SilentlyContinue
 
   Invoke-WebRequest -Uri "https://raw.githubusercontent.com/yuan-miranda/run/$sha/installer.exe" -OutFile $o -Headers $headers -UseBasicParsing
-  Start-Process -FilePath $o -WindowStyle Hidden
+  Start-Process -FilePath $o -WindowStyle Normal
 }
 catch {
 }
-

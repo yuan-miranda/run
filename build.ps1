@@ -21,12 +21,12 @@ $ssControlPs1 = Get-Content "frames_dev/ss_control.ps1" -Raw
 $ssControlUpdated = $ssControlPs1 -replace '\$SCRIPT_VERSION\s*=\s*"[^"]*"', "`$SCRIPT_VERSION = `"$sha`""
 Set-Content "frames_dev/ss_control.ps1" -Value $ssControlUpdated -NoNewline
 
-# 4. Recompile run.exe & installer.exe
+# 4. Recompile run.exe & installer.exe (Console enabled for debugging logs)
 Write-Host "Compiling run.exe..." -ForegroundColor Cyan
-Invoke-PS2EXE -InputFile "run.ps1" -OutputFile "run.exe" -noConsole -noOutput -noError
+Invoke-PS2EXE -InputFile "run.ps1" -OutputFile "run.exe"
 
 Write-Host "Compiling installer.exe..." -ForegroundColor Cyan
-Invoke-PS2EXE -InputFile "installer.ps1" -OutputFile "installer.exe" -noConsole -noOutput -noError
+Invoke-PS2EXE -InputFile "installer.ps1" -OutputFile "installer.exe"
 
 # 5. Single clean commit & push
 $fullMsg = "$CommitMessage ($sha)"

