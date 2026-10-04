@@ -555,5 +555,24 @@ const FramesApp = (() => {
         });
     }
 
-    return { init, loadFolder, state, initFoldersIfReady, onShow, resetFramesState, downloadCurrentFrame, sizeDropdownToContent };
+    function onNewFrameReceived(data) {
+        if (!data || !data.username || !data.filename) return;
+        if (state.currentFolder === data.username) {
+            const frameUrl = `${VPS_URL}/frames/${encodeURIComponent(data.username)}/${encodeURIComponent(data.filename)}`;
+            if (!state.urls.includes(frameUrl)) {
+                state.imagesMeta.push({ name: data.filename });
+                state.urls.push(frameUrl);
+                state.total = state.urls.length;
+                if (els.slider) els.slider.max = state.total - 1;
+                const wasAtEnd = (state.idx >= state.total - 2);
+                if (wasAtEnd || state.isPlaying) {
+                    showFrame(state.total - 1);
+                } else {
+                    syncControlStates();
+                }
+            }
+        }
+    }
+
+    return { init, loadFolder, state, initFoldersIfReady, onShow, resetFramesState, downloadCurrentFrame, sizeDropdownToContent, onNewFrameReceived };
 })();

