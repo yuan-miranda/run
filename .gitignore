@@ -3,3 +3,14 @@ other/
 *.tmp
 .vercel
 .env
+
+# Python & PyInstaller
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec
+
+# Database & Uploads
+*.db
+uploaded_frames/
