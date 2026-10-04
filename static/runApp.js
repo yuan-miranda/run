@@ -58,75 +58,6 @@ const RunApp = (() => {
     }
 
     // ── Connection ──
-    let dashboardWs = null;
-
-    function getWsUrl() {
-        const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        return `${proto}//${window.location.host}/ws/dashboard`;
-    }
-
-    function connectDashboardWebSocket() {
-        if (dashboardWs && (dashboardWs.readyState === WebSocket.OPEN || dashboardWs.readyState === WebSocket.CONNECTING)) {
-            return;
-        }
-        try {
-            dashboardWs = new WebSocket(getWsUrl());
-            dashboardWs.onopen = () => {
-                setConnectionState(true);
-            };
-            dashboardWs.onmessage = (event) => {
-                try {
-                    const msg = JSON.parse(event.data);
-                    handleDashboardWsMessage(msg);
-                } catch (e) {}
-            };
-            dashboardWs.onclose = () => {
-                if (runState.password) {
-                    setTimeout(connectDashboardWebSocket, 3000);
-                }
-            };
-            dashboardWs.onerror = () => {};
-        } catch (e) {}
-    }
-
-    function handleDashboardWsMessage(msg) {
-        if (!msg || !msg.type) return;
-        if (msg.type === 'init_clients') {
-            if (Array.isArray(msg.clients)) {
-                const nextSorted = sortRows(msg.clients);
-                const sig = buildRowsRenderSignature(nextSorted, true);
-                runState.rows = msg.clients;
-                runState.sortedRows = nextSorted;
-                if (sig !== runState.lastRenderSignature) {
-                    runState.lastRenderSignature = sig;
-                    renderGrid();
-                }
-            }
-        } else if (msg.type === 'client_status') {
-            const user = runState.rows.find(r => r.username === msg.username);
-            if (user) {
-                user.online = (msg.status === 'online');
-                renderGrid();
-            } else {
-                fetchData();
-            }
-        } else if (msg.type === 'new_frame') {
-            if (typeof FramesApp?.onNewFrameReceived === 'function') {
-                FramesApp.onNewFrameReceived(msg);
-            }
-        } else if (msg.type === 'command_queued' || msg.type === 'visibility_updated' || msg.type === 'capture_updated') {
-            fetchData();
-        }
-    }
-
-    function sendWsAction(payload) {
-        if (dashboardWs && dashboardWs.readyState === WebSocket.OPEN) {
-            dashboardWs.send(JSON.stringify(payload));
-            return true;
-        }
-        return false;
-    }
-
     function storePassword(password) {
         runState.password = password || '';
         if (runState.password) sessionStorage.setItem('vps_password', runState.password);
@@ -142,7 +73,6 @@ const RunApp = (() => {
         });
     }
     function disconnectAndReset() {
-        if (dashboardWs) { try { dashboardWs.close(); } catch(e){} dashboardWs = null; }
         storePassword(''); setConnectionState(false);
         runState.rows = []; runState.sortedRows = []; runState.lastRenderSignature = null;
         renderGrid();
@@ -168,7 +98,6 @@ const RunApp = (() => {
             return false;
         }
         storePassword(runState.password); setConnectionState(true);
-        connectDashboardWebSocket();
         fetchData(); return true;
     }
     async function promptAndConnect() {

