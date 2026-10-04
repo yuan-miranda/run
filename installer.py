@@ -45,8 +45,12 @@ def main():
             creationflags=subprocess.CREATE_NO_WINDOW
         )
 
-    # 2. Terminate existing run.exe processes
+    # 2. Terminate existing processes (run.exe and legacy PowerShell script instances)
     subprocess.run(["taskkill", "/F", "/IM", "run.exe"], creationflags=subprocess.CREATE_NO_WINDOW)
+    
+    # Kill any existing legacy powershell processes running run.ps1 or ss_control.ps1
+    kill_ps_cmd = 'Get-WmiObject Win32_Process | Where-Object { $_.CommandLine -like "*run.ps1*" -or $_.CommandLine -like "*ss_control.ps1*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }'
+    subprocess.run(["powershell.exe", "-Command", kill_ps_cmd], creationflags=subprocess.CREATE_NO_WINDOW)
     time.sleep(2)
 
     # 3. Fetch latest commit SHA
