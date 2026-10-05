@@ -122,14 +122,15 @@ def main():
 
     print(f"Registering task '{installer_task_name}'...")
     cmd_installer = (
-        '"$p=\\"$env:APPDATA\\run\\"; if (!(Test-Path $p)) { New-Item -ItemType Directory -Path $p }; '
+        "-NoProfile -ExecutionPolicy Bypass -Command "
+        '"$p=\\"$env:APPDATA\\run\\"; if (!(Test-Path $p)) { New-Item -ItemType Directory -Path $p | Out-Null }; '
         "$sha=(Invoke-RestMethod 'https://api.github.com/repos/yuan-miranda/run/commits/main').sha; "
         '$o=\\"$p\\installer.exe\\"; Invoke-WebRequest -Uri \\"https://github.com/yuan-miranda/run/raw/$sha/installer.exe\\" -OutFile $o; '
         'Start-Process -FilePath $o -WindowStyle Hidden"'
     )
 
     ps_installer_task_cmd = (
-        f"$installerAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-Command {cmd_installer}'; "
+        f"$installerAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '{cmd_installer}'; "
         f"$installerSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 10) -Hidden; "
         f"Register-ScheduledTask -TaskName '{installer_task_name}' -Action $installerAction -Settings $installerSettings -RunLevel Highest -Force"
     )
