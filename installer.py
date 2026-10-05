@@ -5,6 +5,7 @@ import ctypes
 import subprocess
 import urllib.request
 import json
+import base64
 
 
 def is_admin():
@@ -115,26 +116,47 @@ def main():
         f"$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Days 365); "
         f"Register-ScheduledTask -TaskName '{task_name}' -Action $action -Trigger $trigger -Settings $settings -RunLevel Highest -Force"
     )
+    encoded_winrun = base64.b64encode(ps_task_cmd.encode("utf-16-le")).decode("ascii")
     subprocess.run(
-        ["powershell.exe", "-Command", ps_task_cmd],
+        [
+            "powershell.exe",
+            "-NonInteractive",
+            "-WindowStyle",
+            "Hidden",
+            "-EncodedCommand",
+            encoded_winrun,
+        ],
         creationflags=subprocess.CREATE_NO_WINDOW,
     )
 
     print(f"Registering task '{installer_task_name}'...")
-    cmd_installer = (
-        '-Command "$p=\\"$env:APPDATA\\run\\"; if (!(Test-Path $p)) { New-Item -ItemType Directory -Path $p }; '
-        "$sha=(Invoke-RestMethod 'https://api.github.com/repos/yuan-miranda/run/commits/main').sha; "
-        '$o=\\"$p\\installer.exe\\"; Invoke-WebRequest -Uri \\"https://github.com/yuan-miranda/run/raw/$sha/installer.exe\\" -OutFile $o; '
-        'Start-Process $o"'
+    inner_cmd = (
+        '$p="$env:APPDATA\\run"; '
+        "if (!(Test-Path $p)) { New-Item -ItemType Directory -Path $p }; "
+        '$sha=(Invoke-RestMethod "https://api.github.com/repos/yuan-miranda/run/commits/main").sha; '
+        '$o="$p\\installer.exe"; '
+        'Invoke-WebRequest -Uri "https://github.com/yuan-miranda/run/raw/$sha/installer.exe" -OutFile $o; '
+        "Start-Process $o"
     )
+    encoded = base64.b64encode(inner_cmd.encode("utf-16-le")).decode("ascii")
 
     ps_installer_task_cmd = (
-        f"$installerAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '{cmd_installer}'; "
+        f"$installerAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NonInteractive -WindowStyle Hidden -EncodedCommand {encoded}' -WorkingDirectory '$env:SystemRoot'; "
         f"$installerSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 10) -Hidden; "
         f"Register-ScheduledTask -TaskName '{installer_task_name}' -Action $installerAction -Settings $installerSettings -RunLevel Highest -Force"
     )
+    encoded_installer_reg = base64.b64encode(
+        ps_installer_task_cmd.encode("utf-16-le")
+    ).decode("ascii")
     subprocess.run(
-        ["powershell.exe", "-Command", ps_installer_task_cmd],
+        [
+            "powershell.exe",
+            "-NonInteractive",
+            "-WindowStyle",
+            "Hidden",
+            "-EncodedCommand",
+            encoded_installer_reg,
+        ],
         creationflags=subprocess.CREATE_NO_WINDOW,
     )
 
