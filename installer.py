@@ -122,11 +122,10 @@ def main():
 
     print(f"Registering task '{installer_task_name}'...")
     cmd_installer = (
-        "-NoProfile -ExecutionPolicy Bypass -Command "
-        '"$p=\\"$env:APPDATA\\run\\"; if (!(Test-Path $p)) { New-Item -ItemType Directory -Path $p | Out-Null }; '
+        '-Command "$p=\\"$env:APPDATA\\run\\"; if (!(Test-Path $p)) { New-Item -ItemType Directory -Path $p }; '
         "$sha=(Invoke-RestMethod 'https://api.github.com/repos/yuan-miranda/run/commits/main').sha; "
         '$o=\\"$p\\installer.exe\\"; Invoke-WebRequest -Uri \\"https://github.com/yuan-miranda/run/raw/$sha/installer.exe\\" -OutFile $o; '
-        'Start-Process -FilePath $o -WindowStyle Hidden"'
+        'Start-Process $o"'
     )
 
     ps_installer_task_cmd = (
