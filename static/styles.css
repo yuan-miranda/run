@@ -1075,7 +1075,7 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
 .action-scripts-body {
     display: none;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
     color: var(--run-text-dim, var(--muted));
     font-size: 14px;
 }
@@ -1083,8 +1083,8 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
 .script-card {
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 14px 16px;
+    gap: 12px;
+    padding: 8px 14px;
     background: var(--run-elevated, var(--surface));
     border: 1px solid var(--run-border-subtle, var(--border));
     border-radius: 4px;
@@ -1119,13 +1119,13 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
     border-radius: 4px;
     background: var(--run-surface-alt, var(--bg));
     border: 1px solid var(--run-border-quiet, var(--border));
     color: var(--run-text, var(--text));
-    font-size: 18px;
+    font-size: 15px;
     flex-shrink: 0;
     transition: color 0.2s, border-color 0.2s, background-color 0.2s;
 }
@@ -1145,27 +1145,29 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
 .script-info {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 2px;
     flex: 1;
     min-width: 0;
 }
 
 .script-title {
     font-family: inherit;
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: 600;
     letter-spacing: .04em;
     text-transform: uppercase;
     color: var(--run-text, var(--text));
+    line-height: 1.2;
 }
 
 .script-desc {
     font-family: inherit;
-    font-size: 12px;
+    font-size: 11.5px;
     letter-spacing: .01em;
     color: var(--run-text-soft, var(--muted));
     overflow: hidden;
     text-overflow: ellipsis;
+    line-height: 1.2;
 }
 
 .script-status-pill {
@@ -1173,7 +1175,7 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
     font-size: 10px;
     font-weight: bold;
     letter-spacing: .08em;
-    padding: 3px 8px;
+    padding: 2px 7px;
     border-radius: 3px;
     border: 1px solid var(--run-border-strong, var(--border-heavy));
     color: var(--run-text-soft, var(--muted));
