@@ -68,11 +68,15 @@ init_db()
 
 # ── WebSockets Handlers ──
 
+active_clients = {}
+
+
 @socketio.on('register')
 def handle_register(data):
     username = data.get('username')
     if not username:
         return
+    active_clients[request.sid] = username
     join_room(username)
 
     conn = get_db()
@@ -88,6 +92,14 @@ def handle_register(data):
     conn.close()
 
     emit('set_capture', {'capture': capture_val}, room=username)
+    socketio.emit('status_change', {'username': username, 'online': True})
+
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    username = active_clients.pop(request.sid, None)
+    if username and username not in active_clients.values():
+        socketio.emit('status_change', {'username': username, 'online': False})
 
 
 @socketio.on('heartbeat')
@@ -144,12 +156,15 @@ def get_clients():
 
     conn.close()
 
+    online_usernames = set(active_clients.values())
+
     return jsonify(
         [
             {
                 "username": row["username"],
                 "updated_at": row["updated_at"],
                 "visible": row["visible"] if row["visible"] is not None else 1,
+                "online": row["username"] in online_usernames,
             }
             for row in rows
         ]

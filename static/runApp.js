@@ -120,8 +120,34 @@ const RunApp = (() => {
     }
 
     // ── Data helpers ──
+    let dashboardSocket = null;
+    function initDashboardSocket() {
+        if (dashboardSocket || typeof io === 'undefined') return;
+        try {
+            dashboardSocket = io(VPS_URL);
+            dashboardSocket.on('status_change', (data) => {
+                if (!data || !data.username || !runState.isConnected) return;
+                const row = runState.rows.find(r => r.username === data.username);
+                if (row) {
+                    row.online = !!data.online;
+                    runState.sortedRows = sortRows(runState.rows);
+                    renderGrid();
+                } else {
+                    fetchData();
+                }
+            });
+        } catch { }
+    }
+
     function getStatus(user, nowMs = Date.now()) {
         if (user.demo && user.username === 'a-00000000-W') return 'green';
+        if (user.demo) {
+            const diff = (nowMs - parseServerTime(user.updated_at).getTime()) / 1000;
+            return diff < 10 ? 'green' : diff < 30 ? 'yellow' : 'red';
+        }
+        if (typeof user.online === 'boolean') {
+            return user.online ? 'green' : 'red';
+        }
         const diff = (nowMs - parseServerTime(user.updated_at).getTime()) / 1000;
         return diff < 10 ? 'green' : diff < 30 ? 'yellow' : 'red';
     }
@@ -524,6 +550,7 @@ const RunApp = (() => {
 
     async function fetchData() {
         if (!runState.isConnected || runState.fetchInFlight) return;
+        initDashboardSocket();
         runState.fetchInFlight = true;
         try {
             const res = await fetch(`${VPS_URL}/api/clients`, {
