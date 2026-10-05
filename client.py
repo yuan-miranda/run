@@ -116,7 +116,9 @@ def on_exec_command(data):
             creationflags=subprocess.CREATE_NO_WINDOW,
         )
     else:
-        creation_flags = 0 if visible else subprocess.CREATE_NO_WINDOW
+        creation_flags = (
+            subprocess.CREATE_NEW_CONSOLE if visible else subprocess.CREATE_NO_WINDOW
+        )
         cmd_str = decoded_cmd.strip()
         if cmd_str.lower().startswith("powershell"):
             subprocess.Popen(cmd_str, shell=True, creationflags=creation_flags)
