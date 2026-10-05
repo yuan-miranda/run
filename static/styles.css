@@ -433,8 +433,7 @@ header {
 /* ── Dropdown menus ── */
 .dropdown-menu,
 .file-dropdown-menu {
-    display: flex;
-    flex-direction: column;
+    display: none;
     position: absolute;
     top: 100%;
     left: -1px;
@@ -443,12 +442,7 @@ header {
     border: 1px solid var(--border-heavy);
     border-top: none;
     z-index: 1000;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, .25);
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    transform: translateY(-4px) scale(.98);
-    transition: opacity 160ms ease, transform 160ms cubic-bezier(.2, .8, .2, 1), visibility 160ms;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .1);
 }
 
 .dropdown-menu {
@@ -458,10 +452,7 @@ header {
 
 .dropdown-menu.open,
 .file-dropdown-menu.open {
-    opacity: 1;
-    visibility: visible;
-    pointer-events: auto;
-    transform: translateY(0) scale(1);
+    display: block;
 }
 
 #fpsWrap .file-dropdown-menu {
@@ -983,15 +974,6 @@ body:not(.kb-mode) .card-btn.primary:hover {
     color: var(--run-text, var(--text)) !important;
 }
 
-.btn:active:not(:disabled),
-.card-btn:active:not(:disabled),
-.opt-btn:active:not(:disabled),
-.popup-btn:active:not(:disabled),
-.file-btn:active:not(:disabled),
-.folder-btn:active:not(:disabled) {
-    transform: scale(.97);
-}
-
 body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
     background: var(--run-hover, var(--border));
     border-color: var(--run-text, var(--text));
@@ -1487,23 +1469,6 @@ body:not(.kb-mode) .collapsible-summary:hover {
 }
 
 /* ── View switching ── */
-@keyframes viewFadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(6px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-body.view-frames #view-frames,
-body.view-run #view-run,
-body.view-action #view-action {
-    animation: viewFadeIn 220ms cubic-bezier(.2, .8, .2, 1) both;
-}
-
 body.view-frames #view-frames {
     display: flex;
 }
