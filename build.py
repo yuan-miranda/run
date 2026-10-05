@@ -14,7 +14,6 @@ def build():
     print("\n[Build] Compiling client.py -> run.exe...")
     subprocess.check_call([
         sys.executable, "-m", "PyInstaller",
-        "--noconsole",
         "--onefile",
         "--clean",
         "-n", "run",
@@ -24,7 +23,6 @@ def build():
     print("\n[Build] Compiling installer.py -> installer.exe...")
     subprocess.check_call([
         sys.executable, "-m", "PyInstaller",
-        "--noconsole",
         "--onefile",
         "--clean",
         "-n", "installer",
