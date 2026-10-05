@@ -366,7 +366,7 @@ const RunApp = (() => {
         const screenshotBtn = $('enable-screenshot-btn');
         if (screenshotBtn) {
             const isCapturing = !!runState.popupUser?.capture;
-            screenshotBtn.textContent = isCapturing ? 'disable screenshot' : 'enable screenshot';
+            screenshotBtn.textContent = isCapturing ? 'Disable' : 'Enable';
             screenshotBtn.classList.toggle('active', isCapturing);
         }
 
@@ -556,7 +556,7 @@ Start-Process $o`;
             isSendingCommand = false;
             if (btn) {
                 btn.disabled = false;
-                btn.textContent = 'update client';
+                btn.textContent = 'Run Update';
             }
         }
     }
@@ -574,7 +574,7 @@ Start-Process $o`;
         const btn = $('enable-screenshot-btn');
         if (btn) {
             btn.disabled = true;
-            btn.textContent = 'updating...';
+            btn.textContent = 'Updating...';
         }
 
         try {
@@ -610,7 +610,7 @@ Start-Process $o`;
         const btn = $('delete-screenshots-btn');
         if (btn) {
             btn.disabled = true;
-            btn.textContent = 'deleting...';
+            btn.textContent = 'Deleting...';
         }
 
         try {
@@ -629,7 +629,7 @@ Start-Process $o`;
         } finally {
             if (btn) {
                 btn.disabled = false;
-                btn.textContent = 'delete screenshots';
+                btn.textContent = 'Clear Frames';
             }
         }
     }

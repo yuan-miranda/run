@@ -1075,7 +1075,7 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
 .action-scripts-body {
     display: none;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
     color: var(--run-text-dim, var(--muted));
     font-size: 14px;
 }
@@ -1085,24 +1085,58 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 14px 16px;
+    padding: 12px 16px;
     background: var(--run-elevated, var(--surface));
-    border: 1px solid var(--run-border-strong, var(--border-heavy));
-    border-radius: 2px;
+    border: 1px solid var(--run-border-subtle, var(--border));
+    border-radius: 4px;
     width: 100%;
+    transition: border-color 0.2s, background-color 0.2s;
+}
+
+.script-card:hover {
+    border-color: var(--run-border-hover, var(--border-heavy));
+    background: var(--run-elevated-strong, var(--surface));
+}
+
+.script-card-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+}
+
+.script-icon-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 4px;
+    background: var(--run-surface-alt, var(--bg));
+    border: 1px solid var(--run-border-quiet, var(--border));
+    color: var(--run-text, var(--text));
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.script-icon-wrap.danger {
+    color: #e57373;
+    border-color: rgba(229, 115, 115, 0.3);
+    background: rgba(229, 115, 115, 0.08);
 }
 
 .script-info {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
+    min-width: 0;
 }
 
 .script-title {
     font-family: inherit;
     font-size: 13px;
-    font-weight: bold;
-    letter-spacing: .05em;
+    font-weight: 600;
+    letter-spacing: .04em;
     text-transform: uppercase;
     color: var(--run-text, var(--text));
 }
@@ -1110,15 +1144,32 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
 .script-desc {
     font-family: inherit;
     font-size: 12px;
-    letter-spacing: .02em;
+    letter-spacing: .01em;
     color: var(--run-text-soft, var(--muted));
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .script-run-btn {
     flex: 0 0 auto;
-    padding: 10px 18px;
+    padding: 8px 16px;
     font-size: 12px;
+    letter-spacing: .05em;
+    border-radius: 3px;
+    min-width: 110px;
+    text-align: center;
     white-space: nowrap;
+}
+
+.script-run-btn.script-btn-danger {
+    color: #e57373;
+    border-color: rgba(229, 115, 115, 0.4);
+}
+
+body:not(.kb-mode) .script-run-btn.script-btn-danger:hover {
+    background: rgba(229, 115, 115, 0.15);
+    border-color: #e57373;
+    color: #ff8a8a;
 }
 
 .action-body {

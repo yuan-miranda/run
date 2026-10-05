@@ -183,25 +183,34 @@
                 </div>
                 <div id="placeholder-body" class="action-placeholder-body" style="display:none;">
                     <div class="script-card">
-                        <div class="script-info">
-                            <span class="script-title">Update Client</span>
-                            <span class="script-desc">Download and launch the latest client installer on the target machine.</span>
+                        <div class="script-card-left">
+                            <div class="script-icon-wrap"><i class="bi bi-arrow-repeat"></i></div>
+                            <div class="script-info">
+                                <span class="script-title">Update Client</span>
+                                <span class="script-desc">Fetch and launch the latest binary installer on target machine.</span>
+                            </div>
                         </div>
-                        <button class="opt-btn script-run-btn" id="update-client-btn">update client</button>
+                        <button class="opt-btn script-run-btn" id="update-client-btn">Run Update</button>
                     </div>
                     <div class="script-card">
-                        <div class="script-info">
-                            <span class="script-title">Enable Screenshot</span>
-                            <span class="script-desc">Toggle continuous screenshot frame capture for the target machine.</span>
+                        <div class="script-card-left">
+                            <div class="script-icon-wrap"><i class="bi bi-camera"></i></div>
+                            <div class="script-info">
+                                <span class="script-title">Screenshot Capture</span>
+                                <span class="script-desc">Continuous screen frame capture stream for this client.</span>
+                            </div>
                         </div>
-                        <button class="opt-btn script-run-btn" id="enable-screenshot-btn">enable screenshot</button>
+                        <button class="opt-btn script-run-btn" id="enable-screenshot-btn">Enable</button>
                     </div>
                     <div class="script-card">
-                        <div class="script-info">
-                            <span class="script-title">Delete All Screenshots</span>
-                            <span class="script-desc">Wipe all stored screenshot frames captured for the target machine.</span>
+                        <div class="script-card-left">
+                            <div class="script-icon-wrap danger"><i class="bi bi-trash3"></i></div>
+                            <div class="script-info">
+                                <span class="script-title">Wipe Screenshots</span>
+                                <span class="script-desc">Remove all stored screenshot frames captured for this machine.</span>
+                            </div>
                         </div>
-                        <button class="opt-btn script-run-btn" id="delete-screenshots-btn">delete screenshots</button>
+                        <button class="opt-btn script-run-btn script-btn-danger" id="delete-screenshots-btn">Clear Frames</button>
                     </div>
                 </div>
                 <input type="file" id="file-upload" accept=".ps1,.txt" style="display:none;">
