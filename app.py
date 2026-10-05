@@ -127,11 +127,17 @@ def handle_upload_frame(data):
     file_path = os.path.join(client_folder, filename)
 
     try:
-        if "," in image_base64:
-            image_base64 = image_base64.split(",", 1)[1]
-        image_bytes = base64.b64decode(image_base64)
+        raw_b64 = image_base64
+        if "," in raw_b64:
+            raw_b64 = raw_b64.split(",", 1)[1]
+        image_bytes = base64.b64decode(raw_b64)
         with open(file_path, "wb") as f:
             f.write(image_bytes)
+
+        socketio.emit('new_frame', {
+            'username': username,
+            'filename': filename
+        })
     except Exception as e:
         print(f"[Upload Frame Error] {e}")
 

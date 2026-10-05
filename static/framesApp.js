@@ -534,9 +534,44 @@ const FramesApp = (() => {
         document.addEventListener('visibilitychange', () => { if (!document.hidden) mark(); });
     }
 
+    // ── Real-time SocketIO frame updates ──
+    let framesSocket = null;
+    function handleNewFrame(data) {
+        if (!data || !data.username || data.username !== state.currentFolder) return;
+        const filename = data.filename;
+        if (!filename) return;
+
+        if (!state.imagesMeta.some(img => img.name === filename)) {
+            const wasAtLastFrame = (state.total === 0 || state.idx === state.total - 1);
+            state.imagesMeta.push({ name: filename });
+            const url = `${VPS_URL}/frames/${encodeURIComponent(data.username)}/${encodeURIComponent(filename)}`;
+            state.urls.push(url);
+            state.total = state.urls.length;
+            if (els.slider) els.slider.max = state.total - 1;
+
+            const img = new Image();
+            img.src = url;
+
+            if (wasAtLastFrame) {
+                showFrame(state.total - 1);
+            } else {
+                els.counter.textContent = formatCounter(state.idx + 1, state.total);
+                syncControlStates();
+            }
+        }
+    }
+
+    function initSocket() {
+        if (framesSocket || typeof io === 'undefined') return;
+        try {
+            framesSocket = io(VPS_URL);
+            framesSocket.on('new_frame', data => handleNewFrame(data));
+        } catch { }
+    }
+
     function init() {
         if (isInitialized) return;
-        bindElements(); setupListeners(); setupActivityMonitor(); syncControlStates();
+        bindElements(); setupListeners(); setupActivityMonitor(); initSocket(); syncControlStates();
         isInitialized = true;
         state.autoRefresh = setInterval(() => {
             if (state.currentFolder && Date.now() - state.lastActivityAt >= 10000)
@@ -555,5 +590,5 @@ const FramesApp = (() => {
         });
     }
 
-    return { init, loadFolder, state, initFoldersIfReady, onShow, resetFramesState, downloadCurrentFrame, sizeDropdownToContent };
+    return { init, loadFolder, state, initFoldersIfReady, onShow, resetFramesState, downloadCurrentFrame, sizeDropdownToContent, handleNewFrame };
 })();
