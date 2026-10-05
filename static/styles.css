@@ -1076,10 +1076,6 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
     display: none;
     flex-direction: column;
     gap: 12px;
-    padding: 16px;
-    min-height: 140px;
-    border: 1px solid var(--run-border-subtle, var(--border));
-    background: var(--run-panel, var(--surface));
     color: var(--run-text-dim, var(--muted));
     font-size: 14px;
 }

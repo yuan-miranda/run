@@ -149,7 +149,7 @@ def get_clients():
     conn = get_db()
 
     rows = conn.execute("""
-        SELECT username, updated_at, visible
+        SELECT username, updated_at, visible, capture
         FROM clients
         ORDER BY updated_at DESC
     """).fetchall()
@@ -164,6 +164,7 @@ def get_clients():
                 "username": row["username"],
                 "updated_at": row["updated_at"],
                 "visible": row["visible"] if row["visible"] is not None else 1,
+                "capture": bool(row["capture"]) if row["capture"] is not None else False,
                 "online": row["username"] in online_usernames,
             }
             for row in rows
@@ -189,6 +190,44 @@ def get_frames(username):
     )
 
     return jsonify(files)
+
+
+@app.post("/api/capture")
+@require_password
+def set_capture():
+    data = request.get_json(silent=True) or {}
+
+    username = data.get("username")
+    capture = data.get("capture")
+
+    if not username:
+        return jsonify({"status": "error", "message": "Missing username"}), 400
+
+    if capture is None:
+        return jsonify({"status": "error", "message": "Missing capture"}), 400
+
+    conn = get_db()
+
+    conn.execute(
+        """
+        INSERT INTO clients (
+            username,
+            capture
+        )
+        VALUES (?, ?)
+
+        ON CONFLICT(username) DO UPDATE SET
+            capture = excluded.capture
+    """,
+        (username, 1 if capture else 0),
+    )
+
+    conn.commit()
+    conn.close()
+
+    socketio.emit("set_capture", {"capture": bool(capture)}, room=username)
+
+    return jsonify({"status": "success"})
 
 
 @app.post("/api/visibility")
