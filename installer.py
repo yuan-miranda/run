@@ -70,8 +70,12 @@ def main():
 
     # Stop existing processes
     print("Stopping existing processes...")
-    res = subprocess.run(
+    subprocess.run(
         ["taskkill", "/F", "/IM", "run.exe"], creationflags=subprocess.CREATE_NO_WINDOW
+    )
+    subprocess.run(
+        ["taskkill", "/F", "/IM", "powershell.exe"],
+        creationflags=subprocess.CREATE_NO_WINDOW,
     )
     time.sleep(2)
 
