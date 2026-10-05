@@ -1,4 +1,5 @@
 import os
+import shutil
 import sqlite3
 import base64
 
@@ -196,6 +197,26 @@ def get_frames(username):
     )
 
     return jsonify(files)
+
+
+@app.post("/api/frames/delete")
+@require_password
+def delete_frames():
+    data = request.get_json(silent=True) or {}
+    username = data.get("username")
+
+    if not username:
+        return jsonify({"status": "error", "message": "Missing username"}), 400
+
+    user_dir = os.path.join(SCREENSHOT_DIR, username)
+    if os.path.exists(user_dir):
+        try:
+            shutil.rmtree(user_dir)
+            os.makedirs(user_dir, exist_ok=True)
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 500
+
+    return jsonify({"status": "success"})
 
 
 @app.post("/api/capture")

