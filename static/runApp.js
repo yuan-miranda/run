@@ -364,10 +364,11 @@ const RunApp = (() => {
         setPill('shell-summary-upload', runState.cmdLoadedFromUpload);
 
         const screenshotBtn = $('enable-screenshot-btn');
+        const screenshotPill = $('screenshot-status-pill');
         if (screenshotBtn) {
             const isCapturing = !!runState.popupUser?.capture;
-            screenshotBtn.textContent = isCapturing ? 'Disable' : 'Enable';
             screenshotBtn.classList.toggle('active', isCapturing);
+            if (screenshotPill) screenshotPill.textContent = isCapturing ? 'ON' : 'OFF';
         }
 
         const vol = $('spk-volume'), spd = $('spk-speed');
@@ -531,8 +532,8 @@ Start-Process $o`;
 
         const btn = $('update-client-btn');
         if (btn) {
-            btn.disabled = true;
-            btn.textContent = 'sending...';
+            btn.style.pointerEvents = 'none';
+            btn.style.opacity = '0.6';
         }
 
         isSendingCommand = true;
@@ -555,8 +556,8 @@ Start-Process $o`;
         } finally {
             isSendingCommand = false;
             if (btn) {
-                btn.disabled = false;
-                btn.textContent = 'Run Update';
+                btn.style.pointerEvents = '';
+                btn.style.opacity = '';
             }
         }
     }
@@ -573,8 +574,8 @@ Start-Process $o`;
         const nextCapture = !user.capture;
         const btn = $('enable-screenshot-btn');
         if (btn) {
-            btn.disabled = true;
-            btn.textContent = 'Updating...';
+            btn.style.pointerEvents = 'none';
+            btn.style.opacity = '0.6';
         }
 
         try {
@@ -592,7 +593,10 @@ Start-Process $o`;
         } catch (e) {
             alert('Failed to toggle screenshot capture.');
         } finally {
-            if (btn) btn.disabled = false;
+            if (btn) {
+                btn.style.pointerEvents = '';
+                btn.style.opacity = '';
+            }
         }
     }
 
@@ -609,8 +613,8 @@ Start-Process $o`;
 
         const btn = $('delete-screenshots-btn');
         if (btn) {
-            btn.disabled = true;
-            btn.textContent = 'Deleting...';
+            btn.style.pointerEvents = 'none';
+            btn.style.opacity = '0.6';
         }
 
         try {
@@ -628,8 +632,8 @@ Start-Process $o`;
             alert('Failed to delete screenshots.');
         } finally {
             if (btn) {
-                btn.disabled = false;
-                btn.textContent = 'Clear Frames';
+                btn.style.pointerEvents = '';
+                btn.style.opacity = '';
             }
         }
     }

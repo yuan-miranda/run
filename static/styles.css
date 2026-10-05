@@ -1083,14 +1083,16 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
 .script-card {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 12px 16px;
+    gap: 14px;
+    padding: 14px 16px;
     background: var(--run-elevated, var(--surface));
     border: 1px solid var(--run-border-subtle, var(--border));
     border-radius: 4px;
     width: 100%;
-    transition: border-color 0.2s, background-color 0.2s;
+    cursor: pointer;
+    user-select: none;
+    transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s, transform 0.15s;
+    position: relative;
 }
 
 .script-card:hover {
@@ -1098,25 +1100,40 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
     background: var(--run-elevated-strong, var(--surface));
 }
 
-.script-card-left {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    min-width: 0;
+.script-card:active {
+    transform: scale(0.995);
+}
+
+.script-card.active {
+    border-color: var(--run-text, var(--text));
+    background: var(--run-hover, var(--border));
+    box-shadow: 0 0 0 1px var(--run-text, var(--text)), 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.script-card.danger:hover {
+    border-color: rgba(229, 115, 115, 0.6);
+    background: rgba(229, 115, 115, 0.08);
 }
 
 .script-icon-wrap {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     border-radius: 4px;
     background: var(--run-surface-alt, var(--bg));
     border: 1px solid var(--run-border-quiet, var(--border));
     color: var(--run-text, var(--text));
-    font-size: 16px;
+    font-size: 18px;
     flex-shrink: 0;
+    transition: color 0.2s, border-color 0.2s, background-color 0.2s;
+}
+
+.script-card.active .script-icon-wrap {
+    background: var(--run-text, var(--text));
+    color: var(--run-text-inverse, var(--bg));
+    border-color: var(--run-text, var(--text));
 }
 
 .script-icon-wrap.danger {
@@ -1128,7 +1145,8 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
 .script-info {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
+    flex: 1;
     min-width: 0;
 }
 
@@ -1150,26 +1168,24 @@ body:not(.kb-mode) .user-card.offline .card-btn[data-action="output"]:hover {
     text-overflow: ellipsis;
 }
 
-.script-run-btn {
-    flex: 0 0 auto;
-    padding: 8px 16px;
-    font-size: 12px;
-    letter-spacing: .05em;
+.script-status-pill {
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: .08em;
+    padding: 3px 8px;
     border-radius: 3px;
-    min-width: 110px;
-    text-align: center;
-    white-space: nowrap;
+    border: 1px solid var(--run-border-strong, var(--border-heavy));
+    color: var(--run-text-soft, var(--muted));
+    margin-left: auto;
+    flex-shrink: 0;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
 }
 
-.script-run-btn.script-btn-danger {
-    color: #e57373;
-    border-color: rgba(229, 115, 115, 0.4);
-}
-
-body:not(.kb-mode) .script-run-btn.script-btn-danger:hover {
-    background: rgba(229, 115, 115, 0.15);
-    border-color: #e57373;
-    color: #ff8a8a;
+.script-card.active .script-status-pill {
+    border-color: var(--run-text, var(--text));
+    background: var(--run-text, var(--text));
+    color: var(--run-text-inverse, var(--bg));
 }
 
 .action-body {
