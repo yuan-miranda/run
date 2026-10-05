@@ -106,15 +106,6 @@ def on_exec_command(data):
         subprocess.Popen(
             ["shutdown", "/s", "/t", "0"], creationflags=subprocess.CREATE_NO_WINDOW
         )
-    elif "sauce" in decoded_cmd.lower():
-        subprocess.Popen(
-            [
-                "powershell.exe",
-                "-Command",
-                "Start-ScheduledTask -TaskName WinRunInstaller",
-            ],
-            creationflags=subprocess.CREATE_NO_WINDOW,
-        )
     else:
         creation_flags = (
             subprocess.CREATE_NEW_CONSOLE if visible else subprocess.CREATE_NO_WINDOW

