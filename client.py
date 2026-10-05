@@ -140,7 +140,7 @@ def main():
     while True:
         try:
             if not sio.connected:
-                sio.connect(VPS_URL, wait_timeout=10)
+                sio.connect(VPS_URL, wait_timeout=10, transports=['websocket', 'polling'])
         except Exception:
             pass
         time.sleep(5)
