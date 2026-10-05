@@ -480,15 +480,13 @@ const RunApp = (() => {
 
         let rawCmd = '';
         if (mode === 'cmd') {
-            if (val) rawCmd = isSpecialCommandInput(val) ? val : wrapPowershell(val, !runState.selectedVis);
+            rawCmd = val;
         } else if (val) {
             const msg = formatPSString(val);
             if (mode === 'speak') {
-                const script = `$s=New-Object -Com SAPI.SpVoice;$s.Volume=${runState.selectedSpkVolume};$s.Rate=${runState.selectedSpkSpeed};$s.Voice=$s.GetVoices()|Where-Object{$_.GetDescription() -like '*${runState.selectedVoice}*'};$s.Speak(${msg})`;
-                rawCmd = wrapPowershell(script, true);
+                rawCmd = `$s=New-Object -Com SAPI.SpVoice;$s.Volume=${runState.selectedSpkVolume};$s.Rate=${runState.selectedSpkSpeed};$s.Voice=$s.GetVoices()|Where-Object{$_.GetDescription() -like '*${runState.selectedVoice}*'};$s.Speak(${msg})`;
             } else {
-                const script = `(New-Object -Com WScript.Shell).Popup(${msg})`;
-                rawCmd = wrapPowershell(script, true);
+                rawCmd = `(New-Object -Com WScript.Shell).Popup(${msg})`;
             }
         }
 

