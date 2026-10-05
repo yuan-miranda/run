@@ -122,26 +122,35 @@ const RunApp = (() => {
     // ── Data helpers ──
     let dashboardSocket = null;
     function initDashboardSocket() {
-        if (dashboardSocket || typeof io === 'undefined') return;
-        try {
-            dashboardSocket = io(VPS_URL);
-            dashboardSocket.on('status_change', (data) => {
-                if (!data || !data.username || !runState.isConnected) return;
-                const row = runState.rows.find(r => r.username === data.username);
-                if (row) {
-                    row.online = !!data.online;
-                    runState.sortedRows = sortRows(runState.rows);
-                    renderGrid();
-                } else {
-                    fetchData();
-                }
-            });
-            dashboardSocket.on('new_frame', (data) => {
-                if (typeof FramesApp !== 'undefined' && FramesApp.handleNewFrame) {
-                    FramesApp.handleNewFrame(data);
-                }
-            });
-        } catch { }
+        if (typeof io === 'undefined') return;
+        if (!dashboardSocket) {
+            try {
+                dashboardSocket = io(VPS_URL);
+                dashboardSocket.on('connect', () => {
+                    if (runState.password) {
+                        dashboardSocket.emit('register_dashboard', { password: runState.password });
+                    }
+                });
+                dashboardSocket.on('status_change', (data) => {
+                    if (!data || !data.username || !runState.isConnected) return;
+                    const row = runState.rows.find(r => r.username === data.username);
+                    if (row) {
+                        row.online = !!data.online;
+                        runState.sortedRows = sortRows(runState.rows);
+                        renderGrid();
+                    } else {
+                        fetchData();
+                    }
+                });
+                dashboardSocket.on('new_frame', (data) => {
+                    if (typeof FramesApp !== 'undefined' && FramesApp.handleNewFrame) {
+                        FramesApp.handleNewFrame(data);
+                    }
+                });
+            } catch { }
+        } else if (dashboardSocket.connected && runState.password) {
+            dashboardSocket.emit('register_dashboard', { password: runState.password });
+        }
     }
 
     function getStatus(user, nowMs = Date.now()) {
@@ -887,12 +896,16 @@ Start-Process $o`;
                 if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); doSendPopup(); }
                 return;
             }
+            const activeTag = document.activeElement?.tagName;
+            if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
+
             if (e.key === 'Escape') { clearActiveSelection(); return; }
             const arrowKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
             if (arrowKeys.includes(e.key)) {
                 e.preventDefault();
                 const cards = document.querySelectorAll('.user-card'); if (!cards.length) return;
-                const cols = getComputedStyle(grid).gridTemplateColumns.split(' ').length;
+                const computedCols = getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/).filter(Boolean).length;
+                const cols = Math.max(1, computedCols);
                 const sorted = getRenderableRows();
                 const cur = runState.activeUsername ? sorted.findIndex(u => u.username === runState.activeUsername) : -1;
                 let next = cur < 0 ? 0 : cur;

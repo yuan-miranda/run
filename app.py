@@ -11,11 +11,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'run_secret_key_12345')
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "run_secret_key_12345")
 
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD")
+CLIENT_KEY = os.getenv("CLIENT_KEY", DASHBOARD_PASSWORD)
 
 if not DASHBOARD_PASSWORD:
     raise RuntimeError("DASHBOARD_PASSWORD is not set")
@@ -49,7 +50,8 @@ def init_db():
 
     conn.execute("PRAGMA journal_mode=WAL;")
 
-    conn.execute("""
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS clients (
             username TEXT PRIMARY KEY,
             cmd TEXT,
@@ -58,7 +60,8 @@ def init_db():
             capture INTEGER DEFAULT 0,
             updated_at TEXT
         )
-    """)
+    """
+    )
 
     conn.commit()
     conn.close()
@@ -70,57 +73,111 @@ init_db()
 # ── WebSockets Handlers ──
 
 active_clients = {}
+authenticated_sids = set()
 
 
-@socketio.on('register')
+@socketio.on("register_dashboard")
+def handle_register_dashboard(data):
+    if not isinstance(data, dict):
+        return
+    password = data.get("password")
+    if not password or password != DASHBOARD_PASSWORD:
+        return
+    join_room("dashboard")
+
+
+@socketio.on("register")
 def handle_register(data):
-    username = data.get('username')
+    if not isinstance(data, dict):
+        return
+    username = data.get("username")
+    auth_token = data.get("auth_token")
+    if not auth_token and hasattr(request, "auth") and isinstance(request.auth, dict):
+        auth_token = request.auth.get("token")
+
+    if not auth_token or (
+        auth_token != CLIENT_KEY and auth_token != DASHBOARD_PASSWORD
+    ):
+        print(
+            f"[WebSocket Auth] Rejecting unauthenticated socket connection for username='{username}' sid='{request.sid}'"
+        )
+        socketio.disconnect(request.sid)
+        return
+
     if not username:
         return
+
+    authenticated_sids.add(request.sid)
     active_clients[request.sid] = username
     join_room(username)
 
     conn = get_db()
     cursor = conn.cursor()
-    row = cursor.execute("SELECT capture FROM clients WHERE username = ?", (username,)).fetchone()
+    row = cursor.execute(
+        "SELECT capture FROM clients WHERE username = ?", (username,)
+    ).fetchone()
     if row:
-        cursor.execute("UPDATE clients SET updated_at = datetime('now') WHERE username = ?", (username,))
+        cursor.execute(
+            "UPDATE clients SET updated_at = datetime('now') WHERE username = ?",
+            (username,),
+        )
         capture_val = bool(row["capture"])
     else:
-        cursor.execute("INSERT INTO clients (username, updated_at) VALUES (?, datetime('now'))", (username,))
+        cursor.execute(
+            "INSERT INTO clients (username, updated_at) VALUES (?, datetime('now'))",
+            (username,),
+        )
         capture_val = False
     conn.commit()
     conn.close()
 
-    emit('set_capture', {'capture': capture_val}, room=username)
-    socketio.emit('status_change', {'username': username, 'online': True})
+    emit("set_capture", {"capture": capture_val}, room=username)
+    socketio.emit(
+        "status_change", {"username": username, "online": True}, room="dashboard"
+    )
 
 
-@socketio.on('disconnect')
+@socketio.on("disconnect")
 def handle_disconnect():
+    authenticated_sids.discard(request.sid)
     username = active_clients.pop(request.sid, None)
     if username and username not in active_clients.values():
-        socketio.emit('status_change', {'username': username, 'online': False})
+        socketio.emit(
+            "status_change", {"username": username, "online": False}, room="dashboard"
+        )
 
 
-@socketio.on('heartbeat')
+@socketio.on("heartbeat")
 def handle_heartbeat(data):
-    username = data.get('username')
-    if not username:
+    if request.sid not in authenticated_sids:
+        return
+    if not isinstance(data, dict):
+        return
+    username = data.get("username")
+    if not username or active_clients.get(request.sid) != username:
         return
     conn = get_db()
-    conn.execute("UPDATE clients SET updated_at = datetime('now') WHERE username = ?", (username,))
+    conn.execute(
+        "UPDATE clients SET updated_at = datetime('now') WHERE username = ?",
+        (username,),
+    )
     conn.commit()
     conn.close()
 
 
-@socketio.on('upload_frame')
+@socketio.on("upload_frame")
 def handle_upload_frame(data):
+    if request.sid not in authenticated_sids:
+        return
+    if not isinstance(data, dict):
+        return
     username = data.get("username")
+    if not username or active_clients.get(request.sid) != username:
+        return
     filename = data.get("filename")
     image_base64 = data.get("image")
 
-    if not username or not filename or not image_base64:
+    if not filename or not image_base64:
         return
 
     client_folder = os.path.join(SCREENSHOT_DIR, username)
@@ -135,15 +192,15 @@ def handle_upload_frame(data):
         with open(file_path, "wb") as f:
             f.write(image_bytes)
 
-        socketio.emit('new_frame', {
-            'username': username,
-            'filename': filename
-        })
+        socketio.emit(
+            "new_frame", {"username": username, "filename": filename}, room="dashboard"
+        )
     except Exception as e:
         print(f"[Upload Frame Error] {e}")
 
 
 # ── REST API Routes ──
+
 
 @app.route("/")
 def index():
@@ -155,11 +212,13 @@ def index():
 def get_clients():
     conn = get_db()
 
-    rows = conn.execute("""
+    rows = conn.execute(
+        """
         SELECT username, updated_at, visible, capture
         FROM clients
         ORDER BY updated_at DESC
-    """).fetchall()
+    """
+    ).fetchall()
 
     conn.close()
 
@@ -171,7 +230,9 @@ def get_clients():
                 "username": row["username"],
                 "updated_at": row["updated_at"],
                 "visible": row["visible"] if row["visible"] is not None else 1,
-                "capture": bool(row["capture"]) if row["capture"] is not None else False,
+                "capture": (
+                    bool(row["capture"]) if row["capture"] is not None else False
+                ),
                 "online": row["username"] in online_usernames,
             }
             for row in rows
@@ -339,10 +400,12 @@ def set_command():
     return jsonify({"status": "success", "message": "Command sent over WebSocket"})
 
 
-
-
 @app.post("/api/upload")
 def upload_screenshot():
+    auth_key = request.headers.get("x-password") or request.headers.get("x-client-key")
+    if not auth_key or (auth_key != DASHBOARD_PASSWORD and auth_key != CLIENT_KEY):
+        return jsonify({"detail": "Unauthorized"}), 401
+
     data = request.get_json(silent=True) or {}
 
     username = data.get("username")
@@ -383,4 +446,3 @@ def get_frame(username, filename):
 
 if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "5002")), debug=False)
-

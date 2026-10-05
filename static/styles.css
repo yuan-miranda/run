@@ -884,11 +884,22 @@ body.view-frames.frames-menu-disabled #hamburgerBtn {
     position: absolute;
 }
 
-.user-card.selected,
+.user-card.selected {
+    background: var(--run-elevated-strong, var(--surface)) !important;
+    border-color: var(--run-text, var(--text)) !important;
+    box-shadow: 0 0 0 1px var(--run-text, var(--text)), 0 4px 16px rgba(0, 0, 0, 0.4);
+    transform: translateY(-2px);
+}
+
 body:not(.kb-mode) .user-card:hover {
     background: var(--run-elevated, var(--surface));
     border-color: var(--run-border-hover, var(--border-heavy));
     transform: translateY(-2px);
+}
+
+body.kb-mode .user-card.selected {
+    border-color: var(--run-text, var(--text)) !important;
+    box-shadow: 0 0 0 2px var(--run-text, var(--text)), 0 0 12px rgba(255, 255, 255, 0.2);
 }
 
 .user-card.windows-user {

