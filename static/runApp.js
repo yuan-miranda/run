@@ -135,6 +135,7 @@ const RunApp = (() => {
                 } else {
                     fetchData();
                 }
+            });
             dashboardSocket.on('new_frame', (data) => {
                 if (typeof FramesApp !== 'undefined' && FramesApp.handleNewFrame) {
                     FramesApp.handleNewFrame(data);
