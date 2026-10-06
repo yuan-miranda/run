@@ -1,5 +1,5 @@
 const FramesApp = (() => {
-    const VPS_URL = 'http://runx.ddns.net/';
+    const VPS_URL = 'http://runx.ddns.net';
     const authHeaders = (extra = {}) => ({ ...extra, 'x-password': sessionStorage.getItem('vps_password') || '' });
 
     let isInitialized = false;
@@ -60,10 +60,6 @@ const FramesApp = (() => {
         ids.forEach(k => { els[k.replace(/-/g, '')] = $(k); });
         // Friendly aliases for hyphenated ids
         els.statusmsg = els.framesstatusmsg;
-        els.sidebarfilename = $('sidebar-file-name');
-        els.sidebarfolderlist = $('sidebar-folder-list');
-        els.folderWrap = $('folderWrap');
-        els.fileWrap = $('fileWrap');
 
         const fpsBtnFps = parseInt(els.fpsBtn?.dataset.fps || '12', 10);
         if (Number.isFinite(fpsBtnFps)) state.fps = fpsBtnFps;
@@ -318,9 +314,7 @@ const FramesApp = (() => {
 
             sizeDropdownToContent(els.folderBtn, els.dropdownMenu, els.folderWrap, folders.map(f => f.name), 'folder-btn');
             const saved = readSavedState();
-            const def = folders.find(f => f.name === saved.folder)
-                || folders.find(f => f.name === 'carlo')
-                || folders[0];
+            const def = folders.find(f => f.name === saved.folder) || folders[0];
             if (def) loadFolder(def.name);
             else {
                 state.error = 'no folders found';
@@ -534,8 +528,7 @@ const FramesApp = (() => {
         document.addEventListener('visibilitychange', () => { if (!document.hidden) mark(); });
     }
 
-    // ── Real-time SocketIO frame updates ──
-    let framesSocket = null;
+    // ── Real-time frame handler (invoked via dashboardSocket in runApp.js) ──
     function handleNewFrame(data) {
         if (!data || !data.username || data.username !== state.currentFolder) return;
         const filename = data.filename;
@@ -561,17 +554,9 @@ const FramesApp = (() => {
         }
     }
 
-    function initSocket() {
-        if (framesSocket || typeof io === 'undefined') return;
-        try {
-            framesSocket = io(VPS_URL);
-            framesSocket.on('new_frame', data => handleNewFrame(data));
-        } catch { }
-    }
-
     function init() {
         if (isInitialized) return;
-        bindElements(); setupListeners(); setupActivityMonitor(); initSocket(); syncControlStates();
+        bindElements(); setupListeners(); setupActivityMonitor(); syncControlStates();
         isInitialized = true;
         state.autoRefresh = setInterval(() => {
             if (state.currentFolder && Date.now() - state.lastActivityAt >= 10000)

