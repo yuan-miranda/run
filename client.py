@@ -22,12 +22,22 @@ try:
     import client_config
 
     CLIENT_KEY = client_config.CLIENT_KEY
-    CLIENT_VERSION = client_config.CLIENT_VERSION
+    CLIENT_VERSION = getattr(client_config, "CLIENT_VERSION", "dev")
 except ImportError:
     CLIENT_KEY = ""
     CLIENT_VERSION = "dev"
 
 ID_PATH = os.path.join(os.getenv("APPDATA"), "Microsoft", "run", "run.txt")
+DAT_PATH = os.path.join(os.getenv("APPDATA"), "Microsoft", "run", "run.dat")
+
+if os.path.exists(DAT_PATH):
+    try:
+        with open(DAT_PATH, "r", encoding="utf-8") as f:
+            v_raw = f.read().strip()
+            if v_raw:
+                CLIENT_VERSION = v_raw[:7]
+    except Exception:
+        pass
 
 os.makedirs(os.path.dirname(ID_PATH), exist_ok=True)
 if os.path.exists(ID_PATH):
