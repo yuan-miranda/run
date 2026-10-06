@@ -16,23 +16,11 @@ def build():
 
     client_key = os.getenv("DASHBOARD_PASSWORD", "DEFAULT_SECRET")
 
-    # Stage uncommitted source code changes
-    try:
-        status = subprocess.check_output(
-            ["git", "status", "--porcelain"], cwd=root_dir, stderr=subprocess.DEVNULL
-        ).decode("utf-8").strip()
-        if status:
-            print("[Build] Staging source code changes...")
-            subprocess.check_call(["git", "add", "-A"], cwd=root_dir)
-            print("[Build] Creating git release commit...")
-            subprocess.check_call(["git", "commit", "-m", "build: update release binaries"], cwd=root_dir)
-    except Exception as e:
-        print(f"[Build Note] Git pre-commit skipped: {e}")
-
+    # Fetch current base commit SHA to stamp into binary
     try:
         git_hash = (
             subprocess.check_output(
-                ["git", "rev-parse", "HEAD"], cwd=root_dir, stderr=subprocess.DEVNULL
+                ["git", "rev-parse", "--short", "HEAD"], cwd=root_dir, stderr=subprocess.DEVNULL
             )
             .decode("utf-8")
             .strip()
@@ -102,16 +90,28 @@ def build():
                 f"[Build] Successfully copied installer.exe to root -> {installer_target}"
             )
 
-        # Stage compiled binaries and amend release commit
+        # Stage all changes and compiled binaries in a single clean commit
         try:
-            print("\n[Build] Staging compiled binaries (run.exe, installer.exe)...")
-            subprocess.check_call(["git", "add", "run.exe", "installer.exe"], cwd=root_dir)
-            subprocess.check_call(["git", "commit", "--amend", "--no-edit"], cwd=root_dir)
-            print("[Build] Pushing release commit and binaries to GitHub...")
-            subprocess.check_call(["git", "push"], cwd=root_dir)
-            print("[Build] Successfully pushed updated release binaries to GitHub!")
+            status = (
+                subprocess.check_output(
+                    ["git", "status", "--porcelain"], cwd=root_dir, stderr=subprocess.DEVNULL
+                )
+                .decode("utf-8")
+                .strip()
+            )
+            if status:
+                print("\n[Build] Staging changes and compiled binaries...")
+                subprocess.check_call(["git", "add", "-A"], cwd=root_dir)
+                commit_msg = f"build: update release binaries ({git_hash})"
+                print(f"[Build] Creating single release commit: \"{commit_msg}\"...")
+                subprocess.check_call(["git", "commit", "-m", commit_msg], cwd=root_dir)
+                print("[Build] Pushing release commit and binaries to GitHub...")
+                subprocess.check_call(["git", "push"], cwd=root_dir)
+                print("[Build] Successfully pushed updated release binaries to GitHub!")
+            else:
+                print("\n[Build] Working tree clean; nothing new to commit.")
         except Exception as e:
-            print(f"[Build Note] Git push skipped/failed: {e}")
+            print(f"[Build Note] Git commit/push skipped or failed: {e}")
 
     finally:
         print("\n[Build] Cleaning up temporary build artifacts and etched config...")
