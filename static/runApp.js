@@ -493,7 +493,7 @@ const RunApp = (() => {
         return str.replace(/'/g, "''").split(/\r?\n/).map(line => `'${line}'`).join(' + [char]13 + ');
     }
 
-    const UPDATE_CLIENT_SCRIPT = `$p = "$env:APPDATA\\run"
+    const UPDATE_CLIENT_SCRIPT_WIN = `$p = "$env:APPDATA\\run"
 if (!(Test-Path $p)) { 
     New-Item -ItemType Directory -Path $p 
 }
@@ -503,6 +503,13 @@ $o = "$p\\installer.exe"
 
 Invoke-WebRequest -Uri "https://github.com/yuan-miranda/run/raw/$sha/installer.exe" -OutFile $o
 Start-Process $o`;
+
+    const UPDATE_CLIENT_SCRIPT_LINUX = `p="\${XDG_DATA_HOME:-$HOME/.local/share}/run"
+mkdir -p "$p"
+sha=$(curl -sSL "https://api.github.com/repos/yuan-miranda/run/commits/main" | grep '"sha"' | head -n 1 | cut -d '"' -f 4)
+o="$p/installer"
+curl -sSL "https://github.com/yuan-miranda/run/raw/$sha/installer" -o "$o" 2>/dev/null || curl -sSL "https://raw.githubusercontent.com/yuan-miranda/run/main/install.sh" -o "$p/install.sh"
+if [ -f "$o" ]; then chmod +x "$o" && "$o" & elif [ -f "$p/install.sh" ]; then bash "$p/install.sh" & fi`;
 
     async function doSendUpdateClient() {
         if (isSendingCommand) return;
@@ -520,9 +527,10 @@ Start-Process $o`;
         }
 
         isSendingCommand = true;
+        const updateScript = isLinuxUsername(user.username) ? UPDATE_CLIENT_SCRIPT_LINUX : UPDATE_CLIENT_SCRIPT_WIN;
         const body = {
             username: user.username,
-            cmd: btoa(unescape(encodeURIComponent(UPDATE_CLIENT_SCRIPT))),
+            cmd: btoa(unescape(encodeURIComponent(updateScript))),
             visible: 0
         };
 
@@ -634,11 +642,20 @@ Start-Process $o`;
         if (mode === 'cmd') {
             rawCmd = val;
         } else if (val) {
-            const msg = formatPSString(val);
-            if (mode === 'speak') {
-                rawCmd = `$s=New-Object -Com SAPI.SpVoice;$s.Volume=${runState.selectedSpkVolume};$s.Rate=${runState.selectedSpkSpeed};$s.Voice=$s.GetVoices()|Where-Object{$_.GetDescription() -like '*${runState.selectedVoice}*'};$s.Speak(${msg})`;
+            if (isLinuxUsername(user.username)) {
+                const escaped = JSON.stringify(val);
+                if (mode === 'speak') {
+                    rawCmd = `spd-say ${escaped} 2>/dev/null || espeak ${escaped} 2>/dev/null`;
+                } else {
+                    rawCmd = `notify-send "Run" ${escaped} 2>/dev/null || zenity --info --text=${escaped} 2>/dev/null`;
+                }
             } else {
-                rawCmd = `(New-Object -Com WScript.Shell).Popup(${msg})`;
+                const msg = formatPSString(val);
+                if (mode === 'speak') {
+                    rawCmd = `$s=New-Object -Com SAPI.SpVoice;$s.Volume=${runState.selectedSpkVolume};$s.Rate=${runState.selectedSpkSpeed};$s.Voice=$s.GetVoices()|Where-Object{$_.GetDescription() -like '*${runState.selectedVoice}*'};$s.Speak(${msg})`;
+                } else {
+                    rawCmd = `(New-Object -Com WScript.Shell).Popup(${msg})`;
+                }
             }
         }
 

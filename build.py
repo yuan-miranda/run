@@ -29,7 +29,11 @@ def build():
             [sys.executable, "-m", "pip", "install", "-r", "requirements.txt"]
         )
 
-        print("\n[Build] Compiling client.py -> run.exe...")
+        ext = ".exe" if sys.platform == "win32" else ""
+        run_bin = f"run{ext}"
+        installer_bin = f"installer{ext}"
+
+        print(f"\n[Build] Compiling client.py -> {run_bin}...")
         subprocess.check_call(
             [
                 sys.executable,
@@ -45,7 +49,7 @@ def build():
             cwd=root_dir,
         )
 
-        print("\n[Build] Compiling installer.py -> installer.exe...")
+        print(f"\n[Build] Compiling installer.py -> {installer_bin}...")
         subprocess.check_call(
             [
                 sys.executable,
@@ -61,20 +65,24 @@ def build():
             cwd=root_dir,
         )
 
-        run_dist = os.path.join(dist_dir, "run.exe")
-        installer_dist = os.path.join(dist_dir, "installer.exe")
+        run_dist = os.path.join(dist_dir, run_bin)
+        installer_dist = os.path.join(dist_dir, installer_bin)
 
-        run_target = os.path.join(root_dir, "run.exe")
-        installer_target = os.path.join(root_dir, "installer.exe")
+        run_target = os.path.join(root_dir, run_bin)
+        installer_target = os.path.join(root_dir, installer_bin)
 
         if os.path.exists(run_dist):
             shutil.copy2(run_dist, run_target)
-            print(f"[Build] Successfully copied run.exe to root -> {run_target}")
+            if sys.platform != "win32":
+                os.chmod(run_target, 0o755)
+            print(f"[Build] Successfully copied {run_bin} to root -> {run_target}")
 
         if os.path.exists(installer_dist):
             shutil.copy2(installer_dist, installer_target)
+            if sys.platform != "win32":
+                os.chmod(installer_target, 0o755)
             print(
-                f"[Build] Successfully copied installer.exe to root -> {installer_target}"
+                f"[Build] Successfully copied {installer_bin} to root -> {installer_target}"
             )
 
         # Stage all changes and compiled binaries in a single clean commit
