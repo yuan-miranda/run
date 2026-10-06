@@ -894,14 +894,27 @@ body.kb-mode .user-card.selected {
 }
 
 .os-logo {
-    display: inline-block;
-    color: var(--run-text-soft, var(--muted));
-    margin-right: 6px;
+    color: var(--run-text, var(--text));
+    font-size: 1.45rem;
+    line-height: 1;
+    opacity: 0.35;
+    flex-shrink: 0;
+    transition: opacity 240ms ease;
+    margin-top: 2px;
+}
+
+body:not(.kb-mode) .user-card:hover .os-logo {
+    opacity: 0.65;
+}
+
+.user-card.offline .os-logo {
+    opacity: 0.18;
 }
 
 .card-header {
-    align-items: center;
+    align-items: flex-start;
     display: flex;
+    justify-content: space-between;
     gap: 12px;
 }
 
@@ -1945,6 +1958,10 @@ body.view-action .sidebar-run-section {
     .card-username {
         font-size: 12px;
         line-height: 1.3;
+    }
+
+    .os-logo {
+        font-size: 1.15rem;
     }
 
     .card-ts {

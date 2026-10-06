@@ -234,12 +234,10 @@ const RunApp = (() => {
         return `
                 <div class="card-header">
                     <div style="flex:1;min-width:0;">
-                        <div style="display:flex;align-items:center;gap:8px;">
-                            ${showWin ? WIN_LOGO_HTML : ''}${showLinux ? LINUX_LOGO_HTML : ''}
-                            <span class="card-username ${alive ? '' : 'offline'}"${versionAttr}>${displayUsername}</span>
-                        </div>
+                        <span class="card-username ${alive ? '' : 'offline'}"${versionAttr}>${displayUsername}</span>
                         <div class="card-ts">${tsText}</div>
                     </div>
+                    ${showWin ? WIN_LOGO_HTML : ''}${showLinux ? LINUX_LOGO_HTML : ''}
                 </div>
                 <div class="card-actions">
                     <button class="card-btn primary ${alive && canInteract ? '' : 'disabled'}" data-action="ps" ${alive && canInteract ? '' : disabledAttrs}>
