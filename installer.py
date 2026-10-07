@@ -152,12 +152,12 @@ def main():
 
     # Setup Linux systemd user service & autostart
     if not IS_WINDOWS:
-        if not shutil.which("pwsh") and not shutil.which("powershell"):
+        if not is_update and not shutil.which("pwsh") and not shutil.which("powershell"):
             print("Installing PowerShell for Linux...")
             try:
                 if shutil.which("snap"):
                     cmd = (
-                        ["sudo", "snap", "install", "powershell", "--classic"]
+                        ["sudo", "-n", "snap", "install", "powershell", "--classic"]
                         if os.geteuid() != 0
                         else ["snap", "install", "powershell", "--classic"]
                     )
@@ -168,6 +168,7 @@ def main():
                     cmd = (
                         [
                             "sudo",
+                            "-n",
                             "pacman",
                             "-S",
                             "--needed",
