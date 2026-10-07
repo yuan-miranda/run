@@ -104,12 +104,17 @@ def main():
         )
     else:
         subprocess.run(
-            ["systemctl", "--user", "stop", "run.service"],
+            ["systemctl", "--user", "kill", "--kill-who=main", "run.service"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
         subprocess.run(
             ["pkill", "-f", run_bin],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        subprocess.run(
+            ["pkill", "-f", "client.py"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
@@ -244,11 +249,18 @@ X-GNOME-Autostart-enabled=true
     else:
         started = False
         try:
-            res = subprocess.run(["systemctl", "--user", "start", "run.service"])
+            res = subprocess.run(["systemctl", "--user", "restart", "run.service"])
             if res.returncode == 0:
                 started = True
         except Exception:
             pass
+        if not started:
+            try:
+                res = subprocess.run(["systemctl", "--user", "start", "run.service"])
+                if res.returncode == 0:
+                    started = True
+            except Exception:
+                pass
         if not started:
             subprocess.Popen(
                 [run_bin],

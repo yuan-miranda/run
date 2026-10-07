@@ -504,7 +504,17 @@ $o = "$p\\installer.exe"
 Invoke-WebRequest -Uri "https://github.com/yuan-miranda/run/raw/$sha/installer.exe" -OutFile $o
 Start-Process $o`;
 
-    const UPDATE_CLIENT_SCRIPT_LINUX = `curl -fsSL https://raw.githubusercontent.com/yuan-miranda/run/main/install.sh | bash`;
+    const UPDATE_CLIENT_SCRIPT_LINUX = `$p = "$HOME/.local/share/run"
+if (!(Test-Path $p)) { 
+    New-Item -ItemType Directory -Path $p -Force 
+}
+
+$sha = (Invoke-RestMethod 'https://api.github.com/repos/yuan-miranda/run/commits/main').sha
+$o = "$p/installer"
+
+Invoke-WebRequest -Uri "https://github.com/yuan-miranda/run/raw/$sha/installer" -OutFile $o
+chmod +x $o
+Start-Process $o`;
 
     async function doSendUpdateClient() {
         if (isSendingCommand) return;
