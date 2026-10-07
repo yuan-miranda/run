@@ -167,23 +167,55 @@ NoDisplay=true
 X-GNOME-Autostart-enabled=true
 EOF
 
-# Start service
-echo "[Installer] Launching service..."
-STARTED=0
-if command -v systemctl &>/dev/null; then
-    systemctl --user daemon-reload 2>/dev/null || true
-    systemctl --user enable run.service 2>/dev/null || true
-    if systemctl --user restart run.service 2>/dev/null || systemctl --user start run.service 2>/dev/null; then
-        STARTED=1
-        echo "[Installer] Service started successfully via systemd user manager."
-    fi
-fi
+# Start or restart service
+echo "[Installer] Finalizing client launch..."
 
-if [ $STARTED -eq 0 ]; then
-    pkill -f "$RUN_BIN" 2>/dev/null || true
-    sleep 0.5
-    nohup "$RUN_BIN" >/dev/null 2>&1 &
-    echo "[Installer] Client spawned in background (PID: $!)."
+if [ $IS_UPDATE -eq 0 ]; then
+    # Fresh installation: direct startup
+    STARTED=0
+    if command -v systemctl &>/dev/null; then
+        systemctl --user daemon-reload 2>/dev/null || true
+        systemctl --user enable run.service 2>/dev/null || true
+        if systemctl --user start run.service 2>/dev/null; then
+            STARTED=1
+            echo "[Installer] Service started successfully via systemd user manager."
+        fi
+    fi
+
+    if [ $STARTED -eq 0 ]; then
+        nohup "$RUN_BIN" >/dev/null 2>&1 &
+        echo "[Installer] Client spawned in background (PID: $!)."
+    fi
+else
+    # Update mode: safely restart without cgroup suicide or socket lock deadlock
+    if command -v systemctl &>/dev/null; then
+        systemctl --user daemon-reload 2>/dev/null || true
+        systemctl --user enable run.service 2>/dev/null || true
+    fi
+
+    if command -v systemctl &>/dev/null && systemctl --user is-active --quiet run.service 2>/dev/null; then
+        echo "[Installer] Restarting active systemd service via decoupled transient unit..."
+        if command -v systemd-run &>/dev/null; then
+            systemd-run --user --unit=run-updater --collect bash -c "sleep 1; pkill -9 -f 'client.py' 2>/dev/null || true; systemctl --user restart run.service" 2>/dev/null || systemctl --user restart run.service 2>/dev/null || true
+        else
+            systemctl --user restart run.service 2>/dev/null || true
+        fi
+        echo "[Installer] Restart command queued for systemd user manager."
+    else
+        echo "[Installer] Scheduling detached background process to release lock and launch updated client..."
+        nohup bash -c '
+            sleep 1
+            pkill -9 -f "'"$INSTALL_DIR"'/run" 2>/dev/null || true
+            pkill -9 -f "client.py" 2>/dev/null || true
+            sleep 0.5
+            if command -v systemctl &>/dev/null && systemctl --user start run.service 2>/dev/null; then
+                exit 0
+            fi
+            nohup "'"$RUN_BIN"'" >/dev/null 2>&1 &
+        ' >/dev/null 2>&1 &
+        disown
+        echo "[Installer] Detached updater scheduled successfully."
+    fi
 fi
 
 echo "=== Run client installed successfully! ==="
