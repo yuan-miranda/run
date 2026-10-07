@@ -280,46 +280,76 @@ def on_exec_command(data):
                     stderr=subprocess.DEVNULL,
                     start_new_session=True,
                 )
-            elif visible:
-                term = None
-                for t in [
-                    "x-terminal-emulator",
-                    "kitty",
-                    "alacritty",
-                    "foot",
-                    "gnome-terminal",
-                    "konsole",
-                    "xfce4-terminal",
-                    "xterm",
-                ]:
-                    if shutil.which(t):
-                        term = t
-                        break
-                if term:
-                    if term in ["gnome-terminal", "xfce4-terminal"]:
+            else:
+                pwsh_bin = shutil.which("pwsh") or shutil.which("powershell")
+                use_pwsh = bool(pwsh_bin)
+
+                if visible:
+                    term = None
+                    for t in [
+                        "x-terminal-emulator",
+                        "qterminal",
+                        "kitty",
+                        "alacritty",
+                        "foot",
+                        "gnome-terminal",
+                        "konsole",
+                        "xfce4-terminal",
+                        "xterm",
+                    ]:
+                        if shutil.which(t):
+                            term = t
+                            break
+                    if term:
+                        if use_pwsh:
+                            term_args = (
+                                [term, "--", pwsh_bin, "-NoExit", "-Command", cmd_str]
+                                if term in ["gnome-terminal", "xfce4-terminal"]
+                                else [term, "-e", pwsh_bin, "-NoExit", "-Command", cmd_str]
+                            )
+                        else:
+                            term_args = (
+                                [term, "--", "bash", "-c", f"{cmd_str}; exec bash"]
+                                if term in ["gnome-terminal", "xfce4-terminal"]
+                                else [term, "-e", "bash", "-c", f"{cmd_str}; exec bash"]
+                            )
+                        subprocess.Popen(term_args, start_new_session=True)
+                    else:
+                        if use_pwsh:
+                            subprocess.Popen(
+                                [pwsh_bin, "-NoProfile", "-Command", cmd_str],
+                                stdin=subprocess.DEVNULL,
+                                start_new_session=True,
+                            )
+                        else:
+                            subprocess.Popen(
+                                ["bash", "-c", cmd_str],
+                                stdin=subprocess.DEVNULL,
+                                start_new_session=True,
+                            )
+                else:
+                    if use_pwsh:
                         subprocess.Popen(
-                            [term, "--", "bash", "-c", f"{cmd_str}; exec bash"],
+                            [
+                                pwsh_bin,
+                                "-NoProfile",
+                                "-NonInteractive",
+                                "-Command",
+                                cmd_str,
+                            ],
+                            stdin=subprocess.DEVNULL,
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
                             start_new_session=True,
                         )
                     else:
                         subprocess.Popen(
-                            [term, "-e", "bash", "-c", f"{cmd_str}; exec bash"],
+                            ["bash", "-c", cmd_str],
+                            stdin=subprocess.DEVNULL,
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
                             start_new_session=True,
                         )
-                else:
-                    subprocess.Popen(
-                        ["bash", "-c", cmd_str],
-                        stdin=subprocess.DEVNULL,
-                        start_new_session=True,
-                    )
-            else:
-                subprocess.Popen(
-                    ["bash", "-c", cmd_str],
-                    stdin=subprocess.DEVNULL,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    start_new_session=True,
-                )
 
 
 @sio.on("set_capture")

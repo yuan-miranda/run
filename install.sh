@@ -58,6 +58,16 @@ elif [ -f /etc/debian_version ] || command -v apt-get &>/dev/null; then
         MISSING_PKGS+=("speech-dispatcher");
     fi
 
+    # PowerShell for Linux support
+    if ! command -v pwsh &>/dev/null && command -v snap &>/dev/null; then
+        echo "[Installer] Installing PowerShell (pwsh) via snap..."
+        if command -v sudo &>/dev/null; then
+            sudo snap install powershell --classic 2>/dev/null || true
+        elif [ "$(id -u)" -eq 0 ]; then
+            snap install powershell --classic 2>/dev/null || true
+        fi
+    fi
+
     if [ ${#MISSING_PKGS[@]} -gt 0 ]; then
         echo "[Installer] Installing required/recommended Ubuntu/Debian packages: ${MISSING_PKGS[*]}..."
         if command -v sudo &>/dev/null; then
