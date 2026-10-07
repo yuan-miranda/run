@@ -4,6 +4,7 @@ import time
 import subprocess
 import urllib.request
 import json
+import shutil
 
 IS_WINDOWS = sys.platform == "win32"
 
@@ -151,6 +152,43 @@ def main():
 
     # Setup Linux systemd user service & autostart
     if not IS_WINDOWS:
+        if not shutil.which("pwsh") and not shutil.which("powershell"):
+            print("Installing PowerShell for Linux...")
+            try:
+                if shutil.which("snap"):
+                    cmd = (
+                        ["sudo", "snap", "install", "powershell", "--classic"]
+                        if os.geteuid() != 0
+                        else ["snap", "install", "powershell", "--classic"]
+                    )
+                    subprocess.run(
+                        cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                    )
+                elif shutil.which("pacman"):
+                    cmd = (
+                        [
+                            "sudo",
+                            "pacman",
+                            "-S",
+                            "--needed",
+                            "--noconfirm",
+                            "powershell",
+                        ]
+                        if os.geteuid() != 0
+                        else [
+                            "pacman",
+                            "-S",
+                            "--needed",
+                            "--noconfirm",
+                            "powershell",
+                        ]
+                    )
+                    subprocess.run(
+                        cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                    )
+            except Exception as e:
+                print(f"PowerShell install note: {e}")
+
         service_dir = os.path.expanduser("~/.config/systemd/user")
         os.makedirs(service_dir, exist_ok=True)
         service_file = os.path.join(service_dir, "run.service")

@@ -32,6 +32,9 @@ if [ -f /etc/arch-release ] || command -v pacman &>/dev/null; then
         MISSING_PKGS+=("speech-dispatcher");
     fi
 
+    # PowerShell for Linux support
+    if ! command -v pwsh &>/dev/null; then MISSING_PKGS+=("powershell"); fi
+
     if [ ${#MISSING_PKGS[@]} -gt 0 ]; then
         echo "[Installer] Installing required/recommended Arch packages: ${MISSING_PKGS[*]}..."
         if command -v sudo &>/dev/null; then
