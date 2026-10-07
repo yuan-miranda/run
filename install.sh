@@ -168,7 +168,7 @@ STARTED=0
 if command -v systemctl &>/dev/null; then
     systemctl --user daemon-reload 2>/dev/null || true
     systemctl --user enable run.service 2>/dev/null || true
-    if systemctl --user start run.service 2>/dev/null; then
+    if systemctl --user restart run.service 2>/dev/null || systemctl --user start run.service 2>/dev/null; then
         STARTED=1
         echo "[Installer] Service started successfully via systemd user manager."
     fi

