@@ -281,8 +281,17 @@ def on_exec_command(data):
                     start_new_session=True,
                 )
             else:
+                import re
+
                 pwsh_bin = shutil.which("pwsh") or shutil.which("powershell")
-                use_pwsh = bool(pwsh_bin)
+                is_ps_cmd = bool(
+                    re.search(
+                        r"^\s*(powershell|pwsh)|(Read-Host|Write-Host|Get-|Set-|New-|Start-|Stop-|Invoke-|\$env:)",
+                        cmd_str,
+                        re.IGNORECASE,
+                    )
+                )
+                use_pwsh = bool(pwsh_bin and is_ps_cmd)
 
                 if visible:
                     term = None
