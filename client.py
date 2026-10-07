@@ -99,7 +99,7 @@ def grab_screen():
     except Exception:
         pass
 
-    # 2. Linux Wayland / X11 fallbacks (Arch Linux)
+    # 2. Linux Wayland / X11 fallbacks (Arch Linux / Ubuntu / Debian)
     if not IS_WINDOWS:
         if os.getenv("WAYLAND_DISPLAY"):
             try:
@@ -128,6 +128,27 @@ def grab_screen():
                 )
                 if proc.returncode == 0 and proc.stdout:
                     return Image.open(io.BytesIO(proc.stdout))
+            except Exception:
+                pass
+
+        # GNOME Wayland / X11 fallback (standard on Ubuntu desktop)
+        if shutil.which("gnome-screenshot"):
+            tmp_path = "/tmp/_run_screen.png"
+            try:
+                proc = subprocess.run(
+                    ["gnome-screenshot", "-f", tmp_path],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=3,
+                )
+                if proc.returncode == 0 and os.path.exists(tmp_path):
+                    with open(tmp_path, "rb") as f:
+                        data = f.read()
+                    try:
+                        os.remove(tmp_path)
+                    except Exception:
+                        pass
+                    return Image.open(io.BytesIO(data))
             except Exception:
                 pass
 

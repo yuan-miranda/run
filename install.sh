@@ -11,7 +11,7 @@ mkdir -p "$INSTALL_DIR"
 mkdir -p "$SERVICE_DIR"
 mkdir -p "$AUTOSTART_DIR"
 
-# Check Arch Linux environment and automatically install tools if missing
+# Check environment and automatically install tools if missing
 if [ -f /etc/arch-release ] || command -v pacman &>/dev/null; then
     echo "[Arch Linux detected]"
     MISSING_PKGS=()
@@ -40,6 +40,32 @@ if [ -f /etc/arch-release ] || command -v pacman &>/dev/null; then
             pacman -S --needed --noconfirm "${MISSING_PKGS[@]}" || echo "[Notice] Could not auto-install packages, continuing..."
         else
             echo "[Notice] Please run: sudo pacman -S --needed ${MISSING_PKGS[*]}"
+        fi
+    fi
+elif [ -f /etc/debian_version ] || command -v apt-get &>/dev/null; then
+    echo "[Ubuntu/Debian detected]"
+    MISSING_PKGS=()
+    if ! command -v curl &>/dev/null; then MISSING_PKGS+=("curl"); fi
+    
+    # Screen capture helpers for GNOME / Wayland / X11
+    if ! command -v gnome-screenshot &>/dev/null && ! command -v scrot &>/dev/null && ! command -v grim &>/dev/null; then
+        MISSING_PKGS+=("scrot" "gnome-screenshot");
+    fi
+
+    # Text-to-speech and notifications
+    if ! command -v notify-send &>/dev/null; then MISSING_PKGS+=("libnotify-bin"); fi
+    if ! command -v spd-say &>/dev/null && ! command -v espeak &>/dev/null; then
+        MISSING_PKGS+=("speech-dispatcher");
+    fi
+
+    if [ ${#MISSING_PKGS[@]} -gt 0 ]; then
+        echo "[Installer] Installing required/recommended Ubuntu/Debian packages: ${MISSING_PKGS[*]}..."
+        if command -v sudo &>/dev/null; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq "${MISSING_PKGS[@]}" || echo "[Notice] Could not auto-install packages, continuing..."
+        elif [ "$(id -u)" -eq 0 ]; then
+            apt-get update -qq && apt-get install -y -qq "${MISSING_PKGS[@]}" || echo "[Notice] Could not auto-install packages, continuing..."
+        else
+            echo "[Notice] Please run: sudo apt-get install -y ${MISSING_PKGS[*]}"
         fi
     fi
 fi
@@ -74,6 +100,9 @@ else
         echo "[Installer] Installing Python dependencies..."
         if command -v pacman &>/dev/null && command -v sudo &>/dev/null; then
             sudo pacman -S --needed --noconfirm python-pillow python-socketio python-websocket-client python-dotenv 2>/dev/null || true
+        elif command -v apt-get &>/dev/null && command -v sudo &>/dev/null; then
+            sudo apt-get install -y -qq python3-pil python3-dotenv python3-pip 2>/dev/null || true
+            pip3 install --break-system-packages -r https://raw.githubusercontent.com/yuan-miranda/run/main/requirements.txt 2>/dev/null || pip install -r https://raw.githubusercontent.com/yuan-miranda/run/main/requirements.txt 2>/dev/null || true
         fi
         cat << 'EOF' > "$INSTALL_DIR/run"
 #!/usr/bin/env bash
