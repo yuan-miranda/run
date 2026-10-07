@@ -11,74 +11,82 @@ mkdir -p "$INSTALL_DIR"
 mkdir -p "$SERVICE_DIR"
 mkdir -p "$AUTOSTART_DIR"
 
-# Check environment and automatically install tools if missing
-if [ -f /etc/arch-release ] || command -v pacman &>/dev/null; then
-    echo "[Arch Linux detected]"
-    MISSING_PKGS=()
-    if ! command -v curl &>/dev/null; then MISSING_PKGS+=("curl"); fi
-    
-    # Wayland / X11 screen capture helpers
-    if [ -n "$WAYLAND_DISPLAY" ]; then
-        if ! command -v grim &>/dev/null; then MISSING_PKGS+=("grim"); fi
-    else
-        if ! command -v scrot &>/dev/null && ! command -v maim &>/dev/null; then
-            MISSING_PKGS+=("scrot");
-        fi
-    fi
+IS_UPDATE=0
+if [ -f "$INSTALL_DIR/run" ]; then
+    IS_UPDATE=1
+    echo "[Installer] Existing client detected -> Fast update mode (no sudo needed)."
+fi
 
-    # Text-to-speech and notifications
-    if ! command -v notify-send &>/dev/null; then MISSING_PKGS+=("libnotify"); fi
-    if ! command -v spd-say &>/dev/null && ! command -v espeak &>/dev/null; then
-        MISSING_PKGS+=("speech-dispatcher");
-    fi
-
-    # PowerShell for Linux support
-    if ! command -v pwsh &>/dev/null; then MISSING_PKGS+=("powershell"); fi
-
-    if [ ${#MISSING_PKGS[@]} -gt 0 ]; then
-        echo "[Installer] Installing required/recommended Arch packages: ${MISSING_PKGS[*]}..."
-        if command -v sudo &>/dev/null; then
-            sudo pacman -S --needed --noconfirm "${MISSING_PKGS[@]}" || echo "[Notice] Could not auto-install packages, continuing..."
-        elif [ "$(id -u)" -eq 0 ]; then
-            pacman -S --needed --noconfirm "${MISSING_PKGS[@]}" || echo "[Notice] Could not auto-install packages, continuing..."
+# Only check and install system packages on fresh installation
+if [ $IS_UPDATE -eq 0 ]; then
+    if [ -f /etc/arch-release ] || command -v pacman &>/dev/null; then
+        echo "[Arch Linux detected]"
+        MISSING_PKGS=()
+        if ! command -v curl &>/dev/null; then MISSING_PKGS+=("curl"); fi
+        
+        # Wayland / X11 screen capture helpers
+        if [ -n "$WAYLAND_DISPLAY" ]; then
+            if ! command -v grim &>/dev/null; then MISSING_PKGS+=("grim"); fi
         else
-            echo "[Notice] Please run: sudo pacman -S --needed ${MISSING_PKGS[*]}"
+            if ! command -v scrot &>/dev/null && ! command -v maim &>/dev/null; then
+                MISSING_PKGS+=("scrot");
+            fi
         fi
-    fi
-elif [ -f /etc/debian_version ] || command -v apt-get &>/dev/null; then
-    echo "[Ubuntu/Debian detected]"
-    MISSING_PKGS=()
-    if ! command -v curl &>/dev/null; then MISSING_PKGS+=("curl"); fi
-    
-    # Screen capture helpers for GNOME / Wayland / X11
-    if ! command -v gnome-screenshot &>/dev/null && ! command -v scrot &>/dev/null && ! command -v grim &>/dev/null; then
-        MISSING_PKGS+=("scrot" "gnome-screenshot");
-    fi
 
-    # Text-to-speech and notifications
-    if ! command -v notify-send &>/dev/null; then MISSING_PKGS+=("libnotify-bin"); fi
-    if ! command -v spd-say &>/dev/null && ! command -v espeak &>/dev/null; then
-        MISSING_PKGS+=("speech-dispatcher");
-    fi
-
-    # PowerShell for Linux support
-    if ! command -v pwsh &>/dev/null && command -v snap &>/dev/null; then
-        echo "[Installer] Installing PowerShell (pwsh) via snap..."
-        if command -v sudo &>/dev/null; then
-            sudo snap install powershell --classic 2>/dev/null || true
-        elif [ "$(id -u)" -eq 0 ]; then
-            snap install powershell --classic 2>/dev/null || true
+        # Text-to-speech and notifications
+        if ! command -v notify-send &>/dev/null; then MISSING_PKGS+=("libnotify"); fi
+        if ! command -v spd-say &>/dev/null && ! command -v espeak &>/dev/null; then
+            MISSING_PKGS+=("speech-dispatcher");
         fi
-    fi
 
-    if [ ${#MISSING_PKGS[@]} -gt 0 ]; then
-        echo "[Installer] Installing required/recommended Ubuntu/Debian packages: ${MISSING_PKGS[*]}..."
-        if command -v sudo &>/dev/null; then
-            sudo apt-get update -qq && sudo apt-get install -y -qq "${MISSING_PKGS[@]}" || echo "[Notice] Could not auto-install packages, continuing..."
-        elif [ "$(id -u)" -eq 0 ]; then
-            apt-get update -qq && apt-get install -y -qq "${MISSING_PKGS[@]}" || echo "[Notice] Could not auto-install packages, continuing..."
-        else
-            echo "[Notice] Please run: sudo apt-get install -y ${MISSING_PKGS[*]}"
+        # PowerShell for Linux support
+        if ! command -v pwsh &>/dev/null; then MISSING_PKGS+=("powershell"); fi
+
+        if [ ${#MISSING_PKGS[@]} -gt 0 ]; then
+            echo "[Installer] Installing required/recommended Arch packages: ${MISSING_PKGS[*]}..."
+            if command -v sudo &>/dev/null; then
+                sudo pacman -S --needed --noconfirm "${MISSING_PKGS[@]}" || echo "[Notice] Could not auto-install packages, continuing..."
+            elif [ "$(id -u)" -eq 0 ]; then
+                pacman -S --needed --noconfirm "${MISSING_PKGS[@]}" || echo "[Notice] Could not auto-install packages, continuing..."
+            else
+                echo "[Notice] Please run: sudo pacman -S --needed ${MISSING_PKGS[*]}"
+            fi
+        fi
+    elif [ -f /etc/debian_version ] || command -v apt-get &>/dev/null; then
+        echo "[Ubuntu/Debian detected]"
+        MISSING_PKGS=()
+        if ! command -v curl &>/dev/null; then MISSING_PKGS+=("curl"); fi
+        
+        # Screen capture helpers for GNOME / Wayland / X11
+        if ! command -v gnome-screenshot &>/dev/null && ! command -v scrot &>/dev/null && ! command -v grim &>/dev/null; then
+            MISSING_PKGS+=("scrot" "gnome-screenshot");
+        fi
+
+        # Text-to-speech and notifications
+        if ! command -v notify-send &>/dev/null; then MISSING_PKGS+=("libnotify-bin"); fi
+        if ! command -v spd-say &>/dev/null && ! command -v espeak &>/dev/null; then
+            MISSING_PKGS+=("speech-dispatcher");
+        fi
+
+        # PowerShell for Linux support
+        if ! command -v pwsh &>/dev/null && command -v snap &>/dev/null; then
+            echo "[Installer] Installing PowerShell (pwsh) via snap..."
+            if command -v sudo &>/dev/null; then
+                sudo snap install powershell --classic 2>/dev/null || true
+            elif [ "$(id -u)" -eq 0 ]; then
+                snap install powershell --classic 2>/dev/null || true
+            fi
+        fi
+
+        if [ ${#MISSING_PKGS[@]} -gt 0 ]; then
+            echo "[Installer] Installing required/recommended Ubuntu/Debian packages: ${MISSING_PKGS[*]}..."
+            if command -v sudo &>/dev/null; then
+                sudo apt-get update -qq && sudo apt-get install -y -qq "${MISSING_PKGS[@]}" || echo "[Notice] Could not auto-install packages, continuing..."
+            elif [ "$(id -u)" -eq 0 ]; then
+                apt-get update -qq && apt-get install -y -qq "${MISSING_PKGS[@]}" || echo "[Notice] Could not auto-install packages, continuing..."
+            else
+                echo "[Notice] Please run: sudo apt-get install -y ${MISSING_PKGS[*]}"
+            fi
         fi
     fi
 fi
