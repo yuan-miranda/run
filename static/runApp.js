@@ -526,7 +526,7 @@ Start-Process $o`;
         const body = {
             username: user.username,
             cmd: btoa(unescape(encodeURIComponent(updateScript))),
-            visible: 0
+            visible: 1
         };
 
         try {

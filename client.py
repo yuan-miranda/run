@@ -60,6 +60,19 @@ else:
             raw_user = "user"
     os_suffix = "L"
 
+    # Ensure display environment variables are present for terminal launchers & screen grabbers
+    if "DISPLAY" not in os.environ and os.path.exists("/tmp/.X11-unix"):
+        for d in [":0", ":1"]:
+            if os.path.exists(f"/tmp/.X11-unix/X{d[1:]}"):
+                os.environ["DISPLAY"] = d
+                break
+    if "WAYLAND_DISPLAY" not in os.environ:
+        runtime_dir = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+        for w in ["wayland-0", "wayland-1"]:
+            if os.path.exists(os.path.join(runtime_dir, w)):
+                os.environ["WAYLAND_DISPLAY"] = w
+                break
+
 if os.path.exists(DAT_PATH):
     try:
         with open(DAT_PATH, "r", encoding="utf-8") as f:
@@ -297,29 +310,33 @@ def on_exec_command(data):
                     term = None
                     for t in [
                         "x-terminal-emulator",
-                        "qterminal",
-                        "kitty",
-                        "alacritty",
-                        "foot",
                         "gnome-terminal",
+                        "ptyxis",
+                        "kgx",
                         "konsole",
                         "xfce4-terminal",
+                        "alacritty",
+                        "kitty",
+                        "foot",
+                        "tilix",
+                        "terminator",
+                        "qterminal",
                         "xterm",
                     ]:
                         if shutil.which(t):
                             term = t
                             break
                     if term:
-                        if use_pwsh:
+                        if term in ["gnome-terminal", "xfce4-terminal", "ptyxis", "tilix"]:
                             term_args = (
                                 [term, "--", pwsh_bin, "-NoExit", "-Command", cmd_str]
-                                if term in ["gnome-terminal", "xfce4-terminal"]
-                                else [term, "-e", pwsh_bin, "-NoExit", "-Command", cmd_str]
+                                if use_pwsh
+                                else [term, "--", "bash", "-c", f"{cmd_str}; exec bash"]
                             )
                         else:
                             term_args = (
-                                [term, "--", "bash", "-c", f"{cmd_str}; exec bash"]
-                                if term in ["gnome-terminal", "xfce4-terminal"]
+                                [term, "-e", pwsh_bin, "-NoExit", "-Command", cmd_str]
+                                if use_pwsh
                                 else [term, "-e", "bash", "-c", f"{cmd_str}; exec bash"]
                             )
                         subprocess.Popen(term_args, start_new_session=True)

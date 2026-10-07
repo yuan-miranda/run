@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
+
 echo "=== Run Client Installer (Arch Linux / Linux) ==="
 
 INSTALL_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/run"
@@ -93,7 +94,7 @@ fi
 
 # Fetch latest commit SHA
 echo "[Installer] Fetching latest commit..."
-LATEST_SHA=$(curl -sSL "https://api.github.com/repos/yuan-miranda/run/commits/main" | grep '"sha"' | head -n 1 | cut -d '"' -f 4 || true)
+LATEST_SHA=$(curl -sSL -H "User-Agent: run-installer" "https://api.github.com/repos/yuan-miranda/run/commits/main" | grep '"sha"' | head -n 1 | cut -d '"' -f 4 || true)
 if [ -z "$LATEST_SHA" ]; then
     LATEST_SHA="main"
 fi
@@ -102,10 +103,10 @@ echo "[Installer] Using commit: $LATEST_SHA"
 # Download Linux client binary safely to temporary file
 RUN_BIN="$INSTALL_DIR/run"
 RUN_TMP="$INSTALL_DIR/run.tmp"
-echo "[Installer] Downloading run binary..."
 DOWNLOAD_URL="https://github.com/yuan-miranda/run/raw/$LATEST_SHA/run"
+echo "[Installer] Downloading run binary ($DOWNLOAD_URL)..."
 
-if curl -sSL --fail "$DOWNLOAD_URL" -o "$RUN_TMP"; then
+if curl -L --fail --progress-bar "$DOWNLOAD_URL" -o "$RUN_TMP"; then
     chmod +x "$RUN_TMP"
     mv -f "$RUN_TMP" "$RUN_BIN"
     echo "$LATEST_SHA" > "$INSTALL_DIR/run.dat"
