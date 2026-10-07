@@ -6,14 +6,23 @@ other/
 
 # Python & PyInstaller
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
 build/
 dist/
 *.spec
 
 # Database & Uploads
 *.db
+*.db-wal
+*.db-shm
 uploaded_frames/
 
 # Build configuration secrets
 client_config.py
+
+# Editor & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
