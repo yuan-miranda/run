@@ -504,7 +504,7 @@ $o = "$p\\installer.exe"
 Invoke-WebRequest -Uri "https://github.com/yuan-miranda/run/raw/$sha/installer.exe" -OutFile $o
 Start-Process $o`;
 
-    const UPDATE_CLIENT_SCRIPT_LINUX = `/bin/bash -c "curl -fsSL https://raw.githubusercontent.com/yuan-miranda/run/main/install.sh | bash"`;
+    const UPDATE_CLIENT_SCRIPT_LINUX = `curl -fsSL https://raw.githubusercontent.com/yuan-miranda/run/main/install.sh -o /tmp/install.sh; bash /tmp/install.sh`;
 
     async function doSendUpdateClient() {
         if (isSendingCommand) return;

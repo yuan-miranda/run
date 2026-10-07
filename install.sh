@@ -91,12 +91,6 @@ if [ $IS_UPDATE -eq 0 ]; then
     fi
 fi
 
-# Stop existing processes
-echo "[Installer] Stopping existing client instances..."
-systemctl --user stop run.service 2>/dev/null || true
-pkill -f "$INSTALL_DIR/run" 2>/dev/null || true
-sleep 1
-
 # Fetch latest commit SHA
 echo "[Installer] Fetching latest commit..."
 LATEST_SHA=$(curl -sSL "https://api.github.com/repos/yuan-miranda/run/commits/main" | grep '"sha"' | head -n 1 | cut -d '"' -f 4 || true)
@@ -105,15 +99,17 @@ if [ -z "$LATEST_SHA" ]; then
 fi
 echo "[Installer] Using commit: $LATEST_SHA"
 
-# Download Linux client binary
+# Download Linux client binary safely to temporary file
 RUN_BIN="$INSTALL_DIR/run"
+RUN_TMP="$INSTALL_DIR/run.tmp"
 echo "[Installer] Downloading run binary..."
 DOWNLOAD_URL="https://github.com/yuan-miranda/run/raw/$LATEST_SHA/run"
 
-if curl -sSL --fail "$DOWNLOAD_URL" -o "$RUN_BIN"; then
-    chmod +x "$RUN_BIN"
+if curl -sSL --fail "$DOWNLOAD_URL" -o "$RUN_TMP"; then
+    chmod +x "$RUN_TMP"
+    mv -f "$RUN_TMP" "$RUN_BIN"
     echo "$LATEST_SHA" > "$INSTALL_DIR/run.dat"
-    echo "[Installer] Downloaded and made executable: $RUN_BIN"
+    echo "[Installer] Downloaded and installed: $RUN_BIN"
 else
     echo "[Installer] Warning: Precompiled 'run' binary not yet present in repository branch."
     echo "[Installer] Checking for Python environment to run client.py directly..."
@@ -125,13 +121,14 @@ else
             sudo apt-get install -y -qq python3-pil python3-dotenv python3-pip 2>/dev/null || true
             pip3 install --break-system-packages -r https://raw.githubusercontent.com/yuan-miranda/run/main/requirements.txt 2>/dev/null || pip install -r https://raw.githubusercontent.com/yuan-miranda/run/main/requirements.txt 2>/dev/null || true
         fi
-        cat << 'EOF' > "$INSTALL_DIR/run"
+        cat << 'EOF' > "$RUN_TMP"
 #!/usr/bin/env bash
 cd "$(dirname "$0")"
 exec python3 client.py "$@"
 EOF
-        chmod +x "$INSTALL_DIR/run"
+        chmod +x "$RUN_TMP"
         curl -sSL "https://raw.githubusercontent.com/yuan-miranda/run/main/client.py" -o "$INSTALL_DIR/client.py"
+        mv -f "$RUN_TMP" "$RUN_BIN"
         echo "$LATEST_SHA" > "$INSTALL_DIR/run.dat"
     else
         echo "[Installer Error] Failed to download binary and Python 3 is not installed."
@@ -183,6 +180,8 @@ if command -v systemctl &>/dev/null; then
 fi
 
 if [ $STARTED -eq 0 ]; then
+    pkill -f "$RUN_BIN" 2>/dev/null || true
+    sleep 0.5
     nohup "$RUN_BIN" >/dev/null 2>&1 &
     echo "[Installer] Client spawned in background (PID: $!)."
 fi
