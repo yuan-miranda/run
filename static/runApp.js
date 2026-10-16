@@ -625,7 +625,8 @@ const RunApp = (() => {
         return str.replace(/'/g, "''").split(/\r?\n/).map(line => `'${line}'`).join(' + [char]13 + ');
     }
 
-    const UPDATE_CLIENT_SCRIPT_WIN = `$p = "$env:APPDATA\\run"
+    const UPDATE_CLIENT_SCRIPT_WIN = `$ProgressPreference = 'SilentlyContinue'
+$p = "$env:APPDATA\\run"
 if (!(Test-Path $p)) { 
     New-Item -ItemType Directory -Path $p -Force 
 }
@@ -657,7 +658,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         const body = {
             username: user.username,
             cmd: encodedCmd,
-            visible: 0
+            visible: runState.selectedVis ? 1 : 0
         };
 
         try {
