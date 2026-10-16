@@ -2069,7 +2069,6 @@ body.view-action .sidebar-run-section {
     align-items: center;
     justify-content: center;
     padding: 24px;
-    overscroll-behavior: contain;
 }
 
 .ftp-window {
@@ -2087,8 +2086,6 @@ body.view-action .sidebar-run-section {
     position: relative;
     font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
     animation: ftpPopIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-    overscroll-behavior: contain;
-    touch-action: pan-y;
 }
 
 .ftp-header {
@@ -2369,34 +2366,6 @@ body.view-action .sidebar-run-section {
     flex-shrink: 0;
 }
 
-.ftp-swipe-indicator {
-    position: absolute;
-    left: 20px;
-    top: 50%;
-    transform: translateY(-50%) translateX(-15px);
-    z-index: 60;
-    background: var(--run-panel, #111);
-    border: 1px solid var(--run-border-strong, #444);
-    color: var(--run-text-soft, #ccc);
-    border-radius: 20px;
-    padding: 7px 14px;
-    font-size: 11.5px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
-    pointer-events: none;
-    transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-
-.ftp-swipe-indicator.active {
-    background: var(--run-text, #fff);
-    color: var(--run-text-inverse, #000);
-    border-color: var(--run-text, #fff);
-    transform: translateY(-50%) translateX(10px);
-}
-
 .ftp-table-header {
     display: grid;
     grid-template-columns: minmax(160px, 1fr) 90px 140px 60px;
@@ -2424,8 +2393,6 @@ body.view-action .sidebar-run-section {
     display: flex;
     flex-direction: column;
     gap: 1px;
-    overscroll-behavior: contain;
-    touch-action: pan-y;
 }
 
 .ftp-file-row {
@@ -2902,7 +2869,6 @@ body.view-action .sidebar-run-section {
 @media (max-width: 650px) {
     .ftp-modal-overlay {
         padding: 0;
-        overscroll-behavior: contain;
     }
 
     .ftp-window {
@@ -2911,8 +2877,6 @@ body.view-action .sidebar-run-section {
         width: 100vw;
         border-radius: 0;
         border: none;
-        touch-action: pan-y;
-        overscroll-behavior: contain;
     }
 
     .ftp-header {
@@ -2965,11 +2929,6 @@ body.view-action .sidebar-run-section {
         order: 3;
         width: 100%;
         margin-top: 4px;
-    }
-
-    .ftp-file-container {
-        touch-action: pan-y;
-        overscroll-behavior: contain;
     }
 
     .ftp-table-header {

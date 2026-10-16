@@ -825,6 +825,8 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             .replace(/'/g, '&#39;');
     }
 
+    let ftpHistoryDepth = 0;
+
     function openFtpBrowser() {
         const user = runState.popupUser;
         if (!user) return;
@@ -843,29 +845,45 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         const clearBtn = $('ftp-filter-clear');
         if (clearBtn) clearBtn.style.display = 'none';
 
-        closeFtpPreview();
+        closeFtpPreview(false);
 
         const modal = $('ftp-modal');
         if (modal) modal.style.display = 'flex';
 
-        loadFtpPath('drives');
+        ftpHistoryDepth = 1;
+        window.history.pushState({ ftp: true, path: 'drives' }, '');
+        loadFtpPath('drives', false);
     }
 
-    function closeFtpBrowser() {
+    function closeFtpBrowser(fromUserAction = false) {
+        if (!ftpState.isOpen) return;
         ftpState.isOpen = false;
         ftpState.user = null;
-        closeFtpPreview();
+        closeFtpPreview(false);
         const modal = $('ftp-modal');
         if (modal) modal.style.display = 'none';
+
+        if (fromUserAction && ftpHistoryDepth > 0) {
+            const steps = ftpHistoryDepth;
+            ftpHistoryDepth = 0;
+            window.history.go(-steps);
+        } else {
+            ftpHistoryDepth = 0;
+        }
     }
 
-    function closeFtpPreview() {
+    function closeFtpPreview(fromUserAction = false) {
         toggleFtpEditMode(false);
         ftpState.previewData = null;
         ftpState.selectedItem = null;
         const drawer = $('ftp-preview-drawer');
         if (drawer) drawer.style.display = 'none';
         document.querySelectorAll('.ftp-file-row.selected').forEach(r => r.classList.remove('selected'));
+
+        if (fromUserAction && window.history.state && window.history.state.preview) {
+            ftpHistoryDepth = Math.max(1, ftpHistoryDepth - 1);
+            window.history.back();
+        }
     }
 
     function getDemoFsData(path) {
@@ -904,10 +922,10 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         };
     }
 
-    async function loadFtpPath(path) {
+    async function loadFtpPath(path, pushHistory = true) {
         if (ftpState.isLoading) return;
         ftpState.isLoading = true;
-        closeFtpPreview();
+        closeFtpPreview(false);
 
         const listContainer = $('ftp-file-list');
         if (listContainer) {
@@ -955,6 +973,11 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         ftpState.parentPath = data.parent || (ftpState.currentPath === 'Drives' || ftpState.currentPath === 'drives' ? null : 'drives');
         if (data.drives) ftpState.drives = data.drives;
         ftpState.items = data.items || [];
+
+        if (pushHistory) {
+            ftpHistoryDepth++;
+            window.history.pushState({ ftp: true, path: ftpState.currentPath }, '');
+        }
 
         renderFtpDrivesBar();
         renderFtpBreadcrumbs();
@@ -1289,6 +1312,8 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         }
 
         ftpState.previewData = data;
+        ftpHistoryDepth++;
+        window.history.pushState({ ftp: true, path: ftpState.currentPath, preview: true }, '');
 
         if (data.type === 'text') {
             if (codeContent) codeContent.textContent = data.content;
@@ -1500,7 +1525,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok || data.error) throw new Error(data.error || 'Failed to create folder');
-            loadFtpPath(ftpState.currentPath);
+            loadFtpPath(ftpState.currentPath, false);
         } catch (err) {
             alert(err.message || 'Error creating folder');
         }
@@ -1536,7 +1561,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok || data.error) throw new Error(data.error || 'Failed to create file');
-            loadFtpPath(ftpState.currentPath);
+            loadFtpPath(ftpState.currentPath, false);
         } catch (err) {
             alert(err.message || 'Error creating file');
         }
@@ -1582,7 +1607,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
                     });
                     const data = await res.json().catch(() => ({}));
                     if (!res.ok || data.error) throw new Error(data.error || 'Upload failed');
-                    loadFtpPath(ftpState.currentPath);
+                    loadFtpPath(ftpState.currentPath, false);
                 } catch (err) {
                     alert(err.message || `Error uploading ${file.name}`);
                 }
@@ -1621,7 +1646,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             const data = await res.json().catch(() => ({}));
             if (!res.ok || data.error) throw new Error(data.error || 'Failed to delete');
             if (ftpState.previewData?.path === fullPath) closeFtpPreview();
-            loadFtpPath(ftpState.currentPath);
+            loadFtpPath(ftpState.currentPath, false);
         } catch (err) {
             alert(err.message || 'Error deleting item');
         }
@@ -1657,88 +1682,31 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok || data.error) throw new Error(data.error || 'Failed to rename');
-            loadFtpPath(ftpState.currentPath);
+            loadFtpPath(ftpState.currentPath, false);
         } catch (err) {
             alert(err.message || 'Error renaming item');
         }
     }
 
-    function initFtpSwipeGesture() {
-        const windowEl = document.querySelector('.ftp-window') || $('ftp-modal');
-        if (!windowEl) return;
+    function setupFtpHistoryListener() {
+        window.addEventListener('popstate', e => {
+            if (!ftpState.isOpen) return;
 
-        let startX = 0;
-        let startY = 0;
-        let isMoving = false;
-        let diffX = 0;
-        const indicator = $('ftp-swipe-indicator');
+            ftpHistoryDepth = Math.max(0, ftpHistoryDepth - 1);
 
-        windowEl.addEventListener('touchstart', e => {
-            if (e.touches.length !== 1) return;
-            // Don't intercept if touching code editor or dialog input
-            const tag = e.target?.tagName;
-            if (tag === 'TEXTAREA' || tag === 'INPUT') return;
-
-            startX = e.touches[0].clientX;
-            startY = e.touches[0].clientY;
-            isMoving = false;
-            diffX = 0;
-        }, { passive: true });
-
-        windowEl.addEventListener('touchmove', e => {
-            if (e.touches.length !== 1) return;
-            const tag = e.target?.tagName;
-            if (tag === 'TEXTAREA' || tag === 'INPUT') return;
-
-            const curX = e.touches[0].clientX;
-            const curY = e.touches[0].clientY;
-            diffX = curX - startX;
-            const diffY = curY - startY;
-
-            // Detect horizontal swipe to right
-            if (diffX > 15 && Math.abs(diffX) > Math.abs(diffY) * 1.2) {
-                isMoving = true;
-                // CRITICAL: Prevent native browser back navigation!
-                if (e.cancelable) e.preventDefault();
-
-                if (indicator) {
-                    indicator.style.display = 'flex';
-                    const isPreviewOpen = $('ftp-preview-drawer')?.style.display !== 'none';
-                    const canGoBack = isPreviewOpen || !!ftpState.parentPath;
-                    const span = indicator.querySelector('span');
-
-                    if (diffX > 65) {
-                        indicator.classList.add('active');
-                        if (span) span.textContent = isPreviewOpen ? 'Release to close preview' : (canGoBack ? 'Release for parent' : 'At root drives');
-                    } else {
-                        indicator.classList.remove('active');
-                        if (span) span.textContent = isPreviewOpen ? 'Close preview' : (canGoBack ? 'Back to parent' : 'At root drives');
-                    }
-                }
+            const isPreviewOpen = $('ftp-preview-drawer')?.style.display !== 'none';
+            if (isPreviewOpen && (!e.state || !e.state.preview)) {
+                closeFtpPreview(false);
+                return;
             }
-        }, { passive: false });
 
-        const onTouchEnd = () => {
-            if (indicator) {
-                indicator.style.display = 'none';
-                indicator.classList.remove('active');
+            const targetPath = (e.state && e.state.path !== undefined) ? e.state.path : null;
+            if (e.state && e.state.ftp && targetPath !== null) {
+                loadFtpPath(targetPath, false);
+            } else {
+                closeFtpBrowser(false);
             }
-            if (isMoving && diffX > 65) {
-                const isPreviewOpen = $('ftp-preview-drawer')?.style.display !== 'none';
-                if (isPreviewOpen) {
-                    closeFtpPreview();
-                    if (typeof navigator.vibrate === 'function') navigator.vibrate(15);
-                } else if (ftpState.parentPath) {
-                    loadFtpPath(ftpState.parentPath);
-                    if (typeof navigator.vibrate === 'function') navigator.vibrate(25);
-                }
-            }
-            isMoving = false;
-            diffX = 0;
-        };
-
-        windowEl.addEventListener('touchend', onTouchEnd, { passive: true });
-        windowEl.addEventListener('touchcancel', onTouchEnd, { passive: true });
+        });
     }
 
     function copyFtpPreviewContent() {
@@ -1800,14 +1768,14 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
     }
 
     function initFtpBrowser() {
-        $('ftp-close-btn')?.addEventListener('click', closeFtpBrowser);
-        $('ftp-refresh-btn')?.addEventListener('click', () => loadFtpPath(ftpState.currentPath));
+        $('ftp-close-btn')?.addEventListener('click', () => closeFtpBrowser(true));
+        $('ftp-refresh-btn')?.addEventListener('click', () => loadFtpPath(ftpState.currentPath, false));
         $('ftp-parent-btn')?.addEventListener('click', () => {
-            if (ftpState.parentPath) loadFtpPath(ftpState.parentPath);
+            if (ftpState.parentPath) loadFtpPath(ftpState.parentPath, true);
         });
 
         // Preview actions
-        $('ftp-preview-close')?.addEventListener('click', closeFtpPreview);
+        $('ftp-preview-close')?.addEventListener('click', () => closeFtpPreview(true));
         $('ftp-preview-edit')?.addEventListener('click', () => toggleFtpEditMode(true));
         $('ftp-preview-save')?.addEventListener('click', doFtpSaveFile);
         $('ftp-preview-copy')?.addEventListener('click', copyFtpPreviewContent);
@@ -1848,11 +1816,11 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         });
 
         $('ftp-modal')?.addEventListener('click', e => {
-            if (e.target === $('ftp-modal')) closeFtpBrowser();
+            if (e.target === $('ftp-modal')) closeFtpBrowser(true);
         });
 
-        // Initialize mobile swipe-back gesture
-        initFtpSwipeGesture();
+        // Browser back/forward & mobile native swipe back support (like usbftp)
+        setupFtpHistoryListener();
     }
 
     // ── Send Command / Fetch Data ──
@@ -2179,9 +2147,9 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
                         return;
                     }
                     if ($('ftp-preview-drawer')?.style.display !== 'none') {
-                        closeFtpPreview();
+                        closeFtpPreview(true);
                     } else {
-                        closeFtpBrowser();
+                        closeFtpBrowser(true);
                     }
                     return;
                 }
@@ -2190,12 +2158,12 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
 
                 if (e.key === 'Backspace' && ftpState.parentPath) {
                     e.preventDefault();
-                    loadFtpPath(ftpState.parentPath);
+                    loadFtpPath(ftpState.parentPath, true);
                     return;
                 }
                 if (e.key === 'r' || e.key === 'R') {
                     e.preventDefault();
-                    loadFtpPath(ftpState.currentPath);
+                    loadFtpPath(ftpState.currentPath, false);
                     return;
                 }
                 return;
