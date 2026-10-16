@@ -16,18 +16,22 @@ def build():
 
     client_key = os.getenv("DASHBOARD_PASSWORD", "DEFAULT_SECRET")
 
-    try:
-        git_sha = (
-            subprocess.check_output(
-                ["git", "rev-parse", "--short", "HEAD"],
-                cwd=root_dir,
-                stderr=subprocess.DEVNULL,
+    git_sha = os.getenv("CLIENT_VERSION")
+    if not git_sha:
+        try:
+            git_sha = (
+                subprocess.check_output(
+                    ["git", "rev-parse", "--short", "HEAD"],
+                    cwd=root_dir,
+                    stderr=subprocess.DEVNULL,
+                )
+                .decode("utf-8")
+                .strip()
             )
-            .decode("utf-8")
-            .strip()
-        )
-    except Exception:
-        git_sha = "dev"
+        except Exception:
+            git_sha = "dev"
+    else:
+        git_sha = git_sha[:7]
 
     print(f"[Build] Etching CLIENT_KEY and CLIENT_VERSION ({git_sha}) into binary build config...")
     with open(config_file, "w", encoding="utf-8") as f:
