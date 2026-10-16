@@ -636,6 +636,21 @@ $o = "$p\\installer.exe"
 Invoke-WebRequest -Uri "https://github.com/yuan-miranda/run/raw/$sha/installer.exe" -OutFile $o
 Start-Process $o`;
 
+    async function doSendUpdateClient() {
+        if (isSendingCommand) return;
+        const user = runState.popupUser;
+        if (!user) return;
+        if (!runState.isConnected || user.demo) {
+            alert('Demo mode: action preview only. Connect to send real commands.');
+            return;
+        }
+
+        const btn = $('update-client-btn');
+        if (btn) {
+            btn.style.pointerEvents = 'none';
+            btn.style.opacity = '0.6';
+        }
+
         isSendingCommand = true;
         const updateScript = UPDATE_CLIENT_SCRIPT_WIN;
         const encodedCmd = window.RunUtils ? window.RunUtils.encodeBase64(updateScript) : btoa(unescape(encodeURIComponent(updateScript)));

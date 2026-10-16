@@ -74,7 +74,12 @@ def get_latest_commit_sha() -> str:
 def download_binary(download_url: str, dest_path: str):
     """Download binary with progress feedback."""
     print(f"[Installer] Downloading binary from {download_url}...")
-    urllib.request.urlretrieve(download_url, dest_path)
+    req = urllib.request.Request(
+        download_url,
+        headers={"User-Agent": "Run-Installer/1.0"},
+    )
+    with urllib.request.urlopen(req) as resp, open(dest_path, "wb") as out:
+        out.write(resp.read())
     print(f"[Installer] Download completed: {dest_path}")
 
 

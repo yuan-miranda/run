@@ -2,7 +2,21 @@ import os
 import shutil
 import subprocess
 import sys
-from dotenv import load_dotenv
+
+
+def load_env(file_path):
+    """Load key-value pairs from .env without external dependencies."""
+    if not os.path.exists(file_path):
+        return
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    os.environ.setdefault(k.strip(), v.strip().strip("'\""))
+    except Exception:
+        pass
 
 
 def build():
@@ -11,8 +25,8 @@ def build():
     build_dir = os.path.join(root_dir, "build")
     config_file = os.path.join(root_dir, "client_config.py")
 
-    # Load secrets from .env if available
-    load_dotenv(os.path.join(root_dir, ".env"))
+    # Load secrets from .env if available without external dependency
+    load_env(os.path.join(root_dir, ".env"))
 
     client_key = os.getenv("DASHBOARD_PASSWORD", "DEFAULT_SECRET")
 
