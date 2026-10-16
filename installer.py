@@ -33,7 +33,7 @@ def elevate_if_needed():
             sys.executable,
             target_file,
             None,
-            1,
+            0,
         )
         sys.exit(0)
 
