@@ -860,6 +860,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
     }
 
     function closeFtpPreview() {
+        toggleFtpEditMode(false);
         ftpState.previewData = null;
         ftpState.selectedItem = null;
         const drawer = $('ftp-preview-drawer');
@@ -1165,6 +1166,14 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
                 </div>
                 <div class="ftp-row-size">${sizeStr}</div>
                 <div class="ftp-row-date">${dateStr}</div>
+                <div class="ftp-row-actions">
+                    <button type="button" class="ftp-row-action-btn" title="Rename" data-action="rename">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button type="button" class="ftp-row-action-btn danger" title="Delete" data-action="delete">
+                        <i class="bi bi-trash3"></i>
+                    </button>
+                </div>
             `;
 
             row.onclick = () => onFtpRowClick(item, row);
@@ -1184,6 +1193,22 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
                     }
                 }
             };
+
+            const renameBtn = row.querySelector('[data-action="rename"]');
+            if (renameBtn) {
+                renameBtn.onclick = e => {
+                    e.stopPropagation();
+                    doFtpRename(item);
+                };
+            }
+
+            const delBtn = row.querySelector('[data-action="delete"]');
+            if (delBtn) {
+                delBtn.onclick = e => {
+                    e.stopPropagation();
+                    doFtpDelete(item);
+                };
+            }
 
             listContainer.appendChild(row);
         });
@@ -1209,6 +1234,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         const drawer = $('ftp-preview-drawer');
         if (!drawer) return;
         drawer.style.display = 'flex';
+        toggleFtpEditMode(false);
 
         $('ftp-preview-name').textContent = item.name;
         $('ftp-preview-size').textContent = formatFileSize(item.size);
@@ -1217,15 +1243,15 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         const iconEl = $('ftp-preview-icon');
         if (iconEl) iconEl.className = `bi ${icon} ftp-preview-icon`;
 
-        const body = $('ftp-preview-body');
-        if (body) {
-            body.innerHTML = `
-                <div class="ftp-loading-state" style="padding: 24px;">
-                    <div class="ftp-spinner"></div>
-                    <span>Reading file contents...</span>
-                </div>
-            `;
-        }
+        const codeContent = $('ftp-preview-code-content');
+        const editor = $('ftp-preview-editor');
+        const editBtn = $('ftp-preview-edit');
+        const saveBtn = $('ftp-preview-save');
+
+        if (codeContent) codeContent.textContent = 'Loading file contents...';
+        if (editor) editor.value = '';
+        if (editBtn) editBtn.style.display = 'none';
+        if (saveBtn) saveBtn.style.display = 'none';
 
         const isDemo = !runState.isConnected || ftpState.user?.demo;
         let data = null;
@@ -1252,55 +1278,467 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
                 }
                 data = await res.json();
             } catch (err) {
-                if (body) {
-                    body.innerHTML = `
-                        <div class="ftp-error-state" style="padding: 20px;">
-                            <i class="bi bi-exclamation-triangle"></i>
-                            <div>Failed to read file preview</div>
-                            <div style="font-size: 11px; opacity: 0.8;">${escapeHtml(err.message)}</div>
-                        </div>
-                    `;
-                }
+                if (codeContent) codeContent.textContent = `Failed to read file: ${err.message}`;
                 return;
             }
         }
 
         if (data.error) {
-            if (body) {
-                body.innerHTML = `
-                    <div class="ftp-error-state" style="padding: 20px;">
-                        <i class="bi bi-shield-exclamation"></i>
-                        <div>${escapeHtml(data.error)}</div>
-                    </div>
-                `;
-            }
+            if (codeContent) codeContent.textContent = `Access error: ${data.error}`;
             return;
         }
 
         ftpState.previewData = data;
 
         if (data.type === 'text') {
-            body.innerHTML = `<pre class="ftp-preview-code"><code>${escapeHtml(data.content)}</code></pre>`;
+            if (codeContent) codeContent.textContent = data.content;
+            if (editor) editor.value = data.content;
+            if (editBtn) editBtn.style.display = 'inline-flex';
         } else if (data.type === 'binary') {
             const ext = (item.ext || '').toLowerCase();
             if (['.png', '.jpg', '.jpeg', '.gif', '.ico', '.webp'].includes(ext)) {
                 const mime = ext === '.png' ? 'image/png' : ext === '.gif' ? 'image/gif' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
-                body.innerHTML = `
-                    <div class="ftp-preview-img-wrap">
-                        <img src="data:${mime};base64,${data.content}" class="ftp-preview-img" alt="${escapeHtml(item.name)}">
-                    </div>
-                `;
+                const body = $('ftp-preview-body');
+                if (body) {
+                    body.innerHTML = `
+                        <div class="ftp-preview-img-wrap">
+                            <img src="data:${mime};base64,${data.content}" class="ftp-preview-img" alt="${escapeHtml(item.name)}">
+                        </div>
+                    `;
+                }
             } else {
-                body.innerHTML = `
-                    <div class="ftp-empty-state" style="padding: 24px;">
-                        <i class="bi bi-file-earmark-binary ftp-empty-icon"></i>
-                        <div style="font-size: 12px; font-weight: 600;">Binary File</div>
-                        <div style="font-size: 11px;">Size: ${formatFileSize(data.size)}</div>
-                        <div style="font-size: 10.5px; opacity: 0.7;">Click download button to export this file.</div>
-                    </div>
-                `;
+                if (codeContent) codeContent.textContent = `[Binary File - ${formatFileSize(data.size)}]\nUse the download button above to export this file.`;
             }
         }
+    }
+
+    function toggleFtpEditMode(editing) {
+        ftpState.isEditing = editing;
+        const pre = $('ftp-preview-code-content')?.parentElement;
+        const editor = $('ftp-preview-editor');
+        const editBtn = $('ftp-preview-edit');
+        const saveBtn = $('ftp-preview-save');
+
+        if (pre) pre.style.display = editing ? 'none' : 'block';
+        if (editor) {
+            editor.style.display = editing ? 'block' : 'none';
+            if (editing && ftpState.previewData?.type === 'text') {
+                editor.value = ftpState.previewData.content || '';
+                editor.focus();
+            }
+        }
+        if (editBtn) editBtn.style.display = editing ? 'none' : (ftpState.previewData?.type === 'text' ? 'inline-flex' : 'none');
+        if (saveBtn) saveBtn.style.display = editing ? 'inline-flex' : 'none';
+    }
+
+    async function doFtpSaveFile() {
+        if (!ftpState.previewData) return;
+        const editor = $('ftp-preview-editor');
+        if (!editor) return;
+
+        const newContent = editor.value;
+        const filePath = ftpState.previewData.path;
+        const saveBtn = $('ftp-preview-save');
+
+        if (saveBtn) {
+            saveBtn.style.pointerEvents = 'none';
+            saveBtn.style.opacity = '0.6';
+        }
+
+        const isDemo = !runState.isConnected || ftpState.user?.demo;
+
+        if (isDemo) {
+            ftpState.previewData.content = newContent;
+            const codeEl = $('ftp-preview-code-content');
+            if (codeEl) codeEl.textContent = newContent;
+            toggleFtpEditMode(false);
+            if (saveBtn) {
+                saveBtn.style.pointerEvents = '';
+                saveBtn.style.opacity = '';
+                saveBtn.innerHTML = '<i class="bi bi-check2"></i>';
+                setTimeout(() => { saveBtn.innerHTML = '<i class="bi bi-floppy"></i>'; }, 1400);
+            }
+            return;
+        }
+
+        try {
+            const res = await fetch(`${VPS_URL}/api/fs/write`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-password': runState.password },
+                body: JSON.stringify({
+                    username: ftpState.user.username,
+                    path: filePath,
+                    content: newContent
+                })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || data.error) throw new Error(data.error || 'Failed to save file');
+
+            ftpState.previewData.content = newContent;
+            const codeEl = $('ftp-preview-code-content');
+            if (codeEl) codeEl.textContent = newContent;
+            toggleFtpEditMode(false);
+
+            if (saveBtn) {
+                saveBtn.innerHTML = '<i class="bi bi-check2"></i>';
+                setTimeout(() => { saveBtn.innerHTML = '<i class="bi bi-floppy"></i>'; }, 1400);
+            }
+        } catch (err) {
+            alert(err.message || 'Error saving file');
+        } finally {
+            if (saveBtn) {
+                saveBtn.style.pointerEvents = '';
+                saveBtn.style.opacity = '';
+            }
+        }
+    }
+
+    function showFtpDialog({ title, msg = '', value = '', isConfirm = false, isDanger = false }) {
+        return new Promise(resolve => {
+            const overlay = $('ftp-dialog-overlay');
+            const titleEl = $('ftp-dialog-title');
+            const msgEl = $('ftp-dialog-msg');
+            const bodyEl = $('ftp-dialog-body');
+            const inputEl = $('ftp-dialog-input');
+            const cancelBtn = $('ftp-dialog-cancel');
+            const confirmBtn = $('ftp-dialog-confirm');
+
+            if (!overlay || !inputEl || !confirmBtn) {
+                const res = isConfirm ? confirm(title + (msg ? '\n' + msg : '')) : prompt(title, value);
+                resolve({ confirmed: !!res, value: res || '' });
+                return;
+            }
+
+            titleEl.textContent = title;
+            if (msg) {
+                msgEl.textContent = msg;
+                msgEl.style.display = 'block';
+            } else {
+                msgEl.style.display = 'none';
+            }
+
+            if (isConfirm) {
+                bodyEl.style.display = 'none';
+            } else {
+                bodyEl.style.display = 'block';
+                inputEl.value = value;
+            }
+
+            confirmBtn.className = 'ftp-dialog-btn ' + (isDanger ? 'danger' : 'primary');
+            overlay.style.display = 'flex';
+
+            const cleanup = () => {
+                overlay.style.display = 'none';
+                cancelBtn.onclick = null;
+                confirmBtn.onclick = null;
+                inputEl.onkeydown = null;
+                overlay.onclick = null;
+            };
+
+            cancelBtn.onclick = () => {
+                cleanup();
+                resolve({ confirmed: false, value: '' });
+            };
+
+            const doConfirm = () => {
+                const val = inputEl.value.trim();
+                cleanup();
+                resolve({ confirmed: true, value: val });
+            };
+
+            confirmBtn.onclick = doConfirm;
+            inputEl.onkeydown = e => {
+                if (e.key === 'Enter') doConfirm();
+                if (e.key === 'Escape') {
+                    cleanup();
+                    resolve({ confirmed: false, value: '' });
+                }
+            };
+
+            overlay.onclick = e => {
+                if (e.target === overlay) {
+                    cleanup();
+                    resolve({ confirmed: false, value: '' });
+                }
+            };
+
+            if (!isConfirm) {
+                setTimeout(() => {
+                    inputEl.focus();
+                    inputEl.select();
+                }, 50);
+            }
+        });
+    }
+
+    async function doFtpMkdir() {
+        if (ftpState.currentPath === 'drives' || ftpState.currentPath === 'Drives') {
+            alert('Please select a drive first before creating folders.');
+            return;
+        }
+        const { confirmed, value: name } = await showFtpDialog({
+            title: 'New Folder',
+            value: 'New folder'
+        });
+        if (!confirmed || !name) return;
+
+        const sep = ftpState.currentPath.endsWith('\\') ? '' : '\\';
+        const dirPath = ftpState.currentPath + sep + name;
+
+        if (!runState.isConnected || ftpState.user?.demo) {
+            ftpState.items.unshift({ name, is_dir: true, size: 0, mtime: Math.floor(Date.now() / 1000) });
+            renderFtpItemsList();
+            updateFtpStatusBar();
+            return;
+        }
+
+        try {
+            const res = await fetch(`${VPS_URL}/api/fs/mkdir`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-password': runState.password },
+                body: JSON.stringify({ username: ftpState.user.username, path: dirPath })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || data.error) throw new Error(data.error || 'Failed to create folder');
+            loadFtpPath(ftpState.currentPath);
+        } catch (err) {
+            alert(err.message || 'Error creating folder');
+        }
+    }
+
+    async function doFtpNewFile() {
+        if (ftpState.currentPath === 'drives' || ftpState.currentPath === 'Drives') {
+            alert('Please select a drive first before creating files.');
+            return;
+        }
+        const { confirmed, value: name } = await showFtpDialog({
+            title: 'New File',
+            value: 'new_file.txt'
+        });
+        if (!confirmed || !name) return;
+
+        const sep = ftpState.currentPath.endsWith('\\') ? '' : '\\';
+        const filePath = ftpState.currentPath + sep + name;
+
+        if (!runState.isConnected || ftpState.user?.demo) {
+            const ext = name.includes('.') ? name.substring(name.lastIndexOf('.')) : '';
+            ftpState.items.unshift({ name, is_dir: false, size: 0, mtime: Math.floor(Date.now() / 1000), ext });
+            renderFtpItemsList();
+            updateFtpStatusBar();
+            return;
+        }
+
+        try {
+            const res = await fetch(`${VPS_URL}/api/fs/write`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-password': runState.password },
+                body: JSON.stringify({ username: ftpState.user.username, path: filePath, content: '' })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || data.error) throw new Error(data.error || 'Failed to create file');
+            loadFtpPath(ftpState.currentPath);
+        } catch (err) {
+            alert(err.message || 'Error creating file');
+        }
+    }
+
+    function handleFtpFileUpload(files) {
+        if (!files || !files.length) return;
+        if (ftpState.currentPath === 'drives' || ftpState.currentPath === 'Drives') {
+            alert('Please select a drive and folder before uploading files.');
+            return;
+        }
+
+        Array.from(files).forEach(file => {
+            const sep = ftpState.currentPath.endsWith('\\') ? '' : '\\';
+            const targetPath = ftpState.currentPath + sep + file.name;
+
+            const reader = new FileReader();
+            reader.onload = async ev => {
+                const b64 = ev.target.result.split(',')[1] || '';
+                if (!runState.isConnected || ftpState.user?.demo) {
+                    ftpState.items.unshift({
+                        name: file.name,
+                        is_dir: false,
+                        size: file.size,
+                        mtime: Math.floor(Date.now() / 1000),
+                        ext: file.name.substring(file.name.lastIndexOf('.'))
+                    });
+                    renderFtpItemsList();
+                    updateFtpStatusBar();
+                    return;
+                }
+
+                try {
+                    const res = await fetch(`${VPS_URL}/api/fs/write`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'x-password': runState.password },
+                        body: JSON.stringify({
+                            username: ftpState.user.username,
+                            path: targetPath,
+                            content: b64,
+                            is_base64: true
+                        })
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok || data.error) throw new Error(data.error || 'Upload failed');
+                    loadFtpPath(ftpState.currentPath);
+                } catch (err) {
+                    alert(err.message || `Error uploading ${file.name}`);
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    async function doFtpDelete(item) {
+        const isDir = item.is_dir;
+        const { confirmed } = await showFtpDialog({
+            title: `Delete ${isDir ? 'Folder' : 'File'}`,
+            msg: `Are you sure you want to delete "${item.name}"? This cannot be undone.`,
+            isConfirm: true,
+            isDanger: true
+        });
+        if (!confirmed) return;
+
+        const sep = ftpState.currentPath.endsWith('\\') ? '' : '\\';
+        const fullPath = ftpState.currentPath + sep + item.name;
+
+        if (!runState.isConnected || ftpState.user?.demo) {
+            ftpState.items = ftpState.items.filter(i => i.name !== item.name);
+            renderFtpItemsList();
+            updateFtpStatusBar();
+            if (ftpState.previewData?.path === fullPath) closeFtpPreview();
+            return;
+        }
+
+        try {
+            const res = await fetch(`${VPS_URL}/api/fs/delete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-password': runState.password },
+                body: JSON.stringify({ username: ftpState.user.username, path: fullPath })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || data.error) throw new Error(data.error || 'Failed to delete');
+            if (ftpState.previewData?.path === fullPath) closeFtpPreview();
+            loadFtpPath(ftpState.currentPath);
+        } catch (err) {
+            alert(err.message || 'Error deleting item');
+        }
+    }
+
+    async function doFtpRename(item) {
+        const isDir = item.is_dir;
+        const { confirmed, value: newName } = await showFtpDialog({
+            title: `Rename ${isDir ? 'Folder' : 'File'}`,
+            value: item.name
+        });
+        if (!confirmed || !newName || newName === item.name) return;
+
+        const sep = ftpState.currentPath.endsWith('\\') ? '' : '\\';
+        const oldPath = ftpState.currentPath + sep + item.name;
+        const newPath = ftpState.currentPath + sep + newName;
+
+        if (!runState.isConnected || ftpState.user?.demo) {
+            item.name = newName;
+            renderFtpItemsList();
+            return;
+        }
+
+        try {
+            const res = await fetch(`${VPS_URL}/api/fs/rename`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-password': runState.password },
+                body: JSON.stringify({
+                    username: ftpState.user.username,
+                    old_path: oldPath,
+                    new_path: newPath
+                })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || data.error) throw new Error(data.error || 'Failed to rename');
+            loadFtpPath(ftpState.currentPath);
+        } catch (err) {
+            alert(err.message || 'Error renaming item');
+        }
+    }
+
+    function initFtpSwipeGesture() {
+        const windowEl = document.querySelector('.ftp-window') || $('ftp-modal');
+        if (!windowEl) return;
+
+        let startX = 0;
+        let startY = 0;
+        let isMoving = false;
+        let diffX = 0;
+        const indicator = $('ftp-swipe-indicator');
+
+        windowEl.addEventListener('touchstart', e => {
+            if (e.touches.length !== 1) return;
+            // Don't intercept if touching code editor or dialog input
+            const tag = e.target?.tagName;
+            if (tag === 'TEXTAREA' || tag === 'INPUT') return;
+
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+            isMoving = false;
+            diffX = 0;
+        }, { passive: true });
+
+        windowEl.addEventListener('touchmove', e => {
+            if (e.touches.length !== 1) return;
+            const tag = e.target?.tagName;
+            if (tag === 'TEXTAREA' || tag === 'INPUT') return;
+
+            const curX = e.touches[0].clientX;
+            const curY = e.touches[0].clientY;
+            diffX = curX - startX;
+            const diffY = curY - startY;
+
+            // Detect horizontal swipe to right
+            if (diffX > 15 && Math.abs(diffX) > Math.abs(diffY) * 1.2) {
+                isMoving = true;
+                // CRITICAL: Prevent native browser back navigation!
+                if (e.cancelable) e.preventDefault();
+
+                if (indicator) {
+                    indicator.style.display = 'flex';
+                    const isPreviewOpen = $('ftp-preview-drawer')?.style.display !== 'none';
+                    const canGoBack = isPreviewOpen || !!ftpState.parentPath;
+                    const span = indicator.querySelector('span');
+
+                    if (diffX > 65) {
+                        indicator.classList.add('active');
+                        if (span) span.textContent = isPreviewOpen ? 'Release to close preview' : (canGoBack ? 'Release for parent' : 'At root drives');
+                    } else {
+                        indicator.classList.remove('active');
+                        if (span) span.textContent = isPreviewOpen ? 'Close preview' : (canGoBack ? 'Back to parent' : 'At root drives');
+                    }
+                }
+            }
+        }, { passive: false });
+
+        const onTouchEnd = () => {
+            if (indicator) {
+                indicator.style.display = 'none';
+                indicator.classList.remove('active');
+            }
+            if (isMoving && diffX > 65) {
+                const isPreviewOpen = $('ftp-preview-drawer')?.style.display !== 'none';
+                if (isPreviewOpen) {
+                    closeFtpPreview();
+                    if (typeof navigator.vibrate === 'function') navigator.vibrate(15);
+                } else if (ftpState.parentPath) {
+                    loadFtpPath(ftpState.parentPath);
+                    if (typeof navigator.vibrate === 'function') navigator.vibrate(25);
+                }
+            }
+            isMoving = false;
+            diffX = 0;
+        };
+
+        windowEl.addEventListener('touchend', onTouchEnd, { passive: true });
+        windowEl.addEventListener('touchcancel', onTouchEnd, { passive: true });
     }
 
     function copyFtpPreviewContent() {
@@ -1367,10 +1805,28 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         $('ftp-parent-btn')?.addEventListener('click', () => {
             if (ftpState.parentPath) loadFtpPath(ftpState.parentPath);
         });
+
+        // Preview actions
         $('ftp-preview-close')?.addEventListener('click', closeFtpPreview);
+        $('ftp-preview-edit')?.addEventListener('click', () => toggleFtpEditMode(true));
+        $('ftp-preview-save')?.addEventListener('click', doFtpSaveFile);
         $('ftp-preview-copy')?.addEventListener('click', copyFtpPreviewContent);
         $('ftp-preview-download')?.addEventListener('click', downloadFtpPreviewFile);
 
+        // CRUD Toolbar actions
+        $('ftp-mkdir-btn')?.addEventListener('click', doFtpMkdir);
+        $('ftp-newfile-btn')?.addEventListener('click', doFtpNewFile);
+        $('ftp-upload-btn')?.addEventListener('click', () => $('ftp-file-input')?.click());
+
+        const fileInput = $('ftp-file-input');
+        if (fileInput) {
+            fileInput.addEventListener('change', e => {
+                handleFtpFileUpload(e.target.files);
+                e.target.value = '';
+            });
+        }
+
+        // Search / Filter
         const filterInput = $('ftp-filter-input');
         if (filterInput) {
             filterInput.addEventListener('input', e => {
@@ -1394,6 +1850,9 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         $('ftp-modal')?.addEventListener('click', e => {
             if (e.target === $('ftp-modal')) closeFtpBrowser();
         });
+
+        // Initialize mobile swipe-back gesture
+        initFtpSwipeGesture();
     }
 
     // ── Send Command / Fetch Data ──
@@ -1709,7 +2168,16 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         // Global keyboard shortcuts
         document.addEventListener('keydown', e => {
             if (ftpState.isOpen) {
+                if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+                    e.preventDefault();
+                    if (ftpState.isEditing) doFtpSaveFile();
+                    return;
+                }
                 if (e.key === 'Escape') {
+                    if ($('ftp-dialog-overlay')?.style.display !== 'none') {
+                        $('ftp-dialog-cancel')?.click();
+                        return;
+                    }
                     if ($('ftp-preview-drawer')?.style.display !== 'none') {
                         closeFtpPreview();
                     } else {

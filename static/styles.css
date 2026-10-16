@@ -2069,6 +2069,7 @@ body.view-action .sidebar-run-section {
     align-items: center;
     justify-content: center;
     padding: 24px;
+    overscroll-behavior: contain;
 }
 
 .ftp-window {
@@ -2083,8 +2084,11 @@ body.view-action .sidebar-run-section {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    position: relative;
     font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
     animation: ftpPopIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    overscroll-behavior: contain;
+    touch-action: pan-y;
 }
 
 .ftp-header {
@@ -2358,9 +2362,44 @@ body.view-action .sidebar-run-section {
     height: 100%;
 }
 
+.ftp-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+}
+
+.ftp-swipe-indicator {
+    position: absolute;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%) translateX(-15px);
+    z-index: 60;
+    background: var(--run-panel, #111);
+    border: 1px solid var(--run-border-strong, #444);
+    color: var(--run-text-soft, #ccc);
+    border-radius: 20px;
+    padding: 7px 14px;
+    font-size: 11.5px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+    pointer-events: none;
+    transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.ftp-swipe-indicator.active {
+    background: var(--run-text, #fff);
+    color: var(--run-text-inverse, #000);
+    border-color: var(--run-text, #fff);
+    transform: translateY(-50%) translateX(10px);
+}
+
 .ftp-table-header {
     display: grid;
-    grid-template-columns: minmax(180px, 1fr) 110px 160px;
+    grid-template-columns: minmax(160px, 1fr) 90px 140px 60px;
     padding: 7px 18px;
     font-size: 10.5px;
     font-weight: 700;
@@ -2373,6 +2412,11 @@ body.view-action .sidebar-run-section {
     flex-shrink: 0;
 }
 
+.ftp-col-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
 .ftp-file-list {
     flex: 1;
     overflow-y: auto;
@@ -2380,11 +2424,13 @@ body.view-action .sidebar-run-section {
     display: flex;
     flex-direction: column;
     gap: 1px;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
 }
 
 .ftp-file-row {
     display: grid;
-    grid-template-columns: minmax(180px, 1fr) 110px 160px;
+    grid-template-columns: minmax(160px, 1fr) 90px 140px 60px;
     padding: 6px 8px;
     border-radius: 4px;
     align-items: center;
@@ -2432,6 +2478,40 @@ body.view-action .sidebar-run-section {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.ftp-row-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 2px;
+}
+
+.ftp-row-action-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--run-text-soft, #777);
+    border-radius: 3px;
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.12s;
+    font-size: 12px;
+}
+
+.ftp-row-action-btn:hover {
+    background: var(--run-hover, #222);
+    border-color: var(--run-border-hover, #555);
+    color: var(--run-text, #fff);
+}
+
+.ftp-row-action-btn.danger:hover {
+    border-color: rgba(229, 115, 115, 0.5);
+    color: #e57373;
+    background: rgba(229, 115, 115, 0.1);
 }
 
 .ftp-row-icon {
@@ -2530,8 +2610,8 @@ body.view-action .sidebar-run-section {
 }
 
 .ftp-preview-drawer {
-    width: 380px;
-    max-width: 48%;
+    width: 400px;
+    max-width: 50%;
     border-left: 1px solid var(--run-border-subtle, #252525);
     background: var(--run-surface-alt, #0c0c0c);
     display: flex;
@@ -2588,11 +2668,23 @@ body.view-action .sidebar-run-section {
     gap: 4px;
 }
 
+.ftp-save-btn {
+    color: #81c784 !important;
+    border-color: rgba(129, 199, 132, 0.4) !important;
+}
+
+.ftp-save-btn:hover {
+    background: rgba(129, 199, 132, 0.15) !important;
+    border-color: #81c784 !important;
+}
+
 .ftp-preview-body {
     flex: 1;
     overflow: auto;
     padding: 12px;
     background: var(--run-bg, #000);
+    display: flex;
+    flex-direction: column;
 }
 
 .ftp-preview-code {
@@ -2603,6 +2695,27 @@ body.view-action .sidebar-run-section {
     color: var(--run-text-muted, #ccc);
     white-space: pre-wrap;
     word-break: break-all;
+}
+
+.ftp-preview-editor {
+    width: 100%;
+    flex: 1;
+    min-height: 250px;
+    background: transparent;
+    color: var(--run-text, #fff);
+    font-family: 'Consolas', 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 12px;
+    line-height: 1.55;
+    border: 1px solid var(--run-border-quiet, #222);
+    border-radius: 4px;
+    padding: 10px;
+    outline: none;
+    resize: none;
+    tab-size: 4;
+}
+
+.ftp-preview-editor:focus {
+    border-color: var(--run-border-hover, #666);
 }
 
 .ftp-preview-img-wrap {
@@ -2631,6 +2744,106 @@ body.view-action .sidebar-run-section {
     font-size: 11px;
     color: var(--run-text-soft, #777);
     flex-shrink: 0;
+}
+
+/* ── Inline Dialog Overlay ── */
+.ftp-dialog-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    animation: ftpPopIn 0.15s ease;
+}
+
+.ftp-dialog {
+    background: var(--run-panel, #0c0c0c);
+    border: 1px solid var(--run-border-strong, #333);
+    border-radius: 6px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85);
+    width: 100%;
+    max-width: 380px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.ftp-dialog-title {
+    font-size: 12.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--run-text, #fff);
+}
+
+.ftp-dialog-msg {
+    font-size: 12px;
+    color: var(--run-text-soft, #aaa);
+    line-height: 1.45;
+}
+
+.ftp-dialog-input {
+    width: 100%;
+    background: var(--run-elevated, #161616);
+    border: 1px solid var(--run-border-subtle, #333);
+    border-radius: 4px;
+    padding: 7px 10px;
+    color: var(--run-text, #fff);
+    font-size: 12.5px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.ftp-dialog-input:focus {
+    border-color: var(--run-text, #fff);
+}
+
+.ftp-dialog-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.ftp-dialog-btn {
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 4px;
+    cursor: pointer;
+    background: transparent;
+    border: 1px solid var(--run-border-subtle, #333);
+    color: var(--run-text-soft, #ccc);
+    font-family: inherit;
+    transition: all 0.12s;
+}
+
+.ftp-dialog-btn:hover {
+    background: var(--run-hover, #222);
+    color: var(--run-text, #fff);
+}
+
+.ftp-dialog-btn.primary {
+    background: var(--run-text, #fff);
+    color: var(--run-text-inverse, #000);
+    border-color: var(--run-text, #fff);
+}
+
+.ftp-dialog-btn.primary:hover {
+    opacity: 0.9;
+}
+
+.ftp-dialog-btn.danger {
+    background: #e57373;
+    color: #fff;
+    border-color: #e57373;
 }
 
 .ftp-empty-state {
@@ -2682,28 +2895,121 @@ body.view-action .sidebar-run-section {
     animation: ftpSpin 0.7s linear infinite;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE & TOUCH HANDLING
+   ═══════════════════════════════════════════════════════════════ */
+
 @media (max-width: 650px) {
     .ftp-modal-overlay {
-        padding: 8px;
+        padding: 0;
+        overscroll-behavior: contain;
     }
+
     .ftp-window {
-        height: 94vh;
-        max-height: none;
+        height: 100dvh;
+        max-height: 100dvh;
+        width: 100vw;
+        border-radius: 0;
+        border: none;
+        touch-action: pan-y;
+        overscroll-behavior: contain;
     }
+
+    .ftp-header {
+        padding: 8px 12px;
+    }
+
+    .ftp-brand-icon {
+        width: 28px;
+        height: 28px;
+        font-size: 14px;
+    }
+
+    .ftp-title {
+        font-size: 12px;
+    }
+
+    .ftp-subtitle {
+        font-size: 10px;
+    }
+
+    .ftp-drives-bar {
+        padding: 6px 12px;
+        gap: 6px;
+    }
+
+    .ftp-drive-chip {
+        padding: 3px 8px;
+        font-size: 11px;
+    }
+
+    .ftp-nav-toolbar {
+        padding: 6px 12px;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .ftp-breadcrumb-trail {
+        order: 1;
+        flex: 1 1 auto;
+        min-width: 0;
+        max-width: calc(100% - 130px);
+    }
+
+    .ftp-toolbar-actions {
+        order: 2;
+        margin-left: auto;
+    }
+
+    .ftp-search-wrap {
+        order: 3;
+        width: 100%;
+        margin-top: 4px;
+    }
+
+    .ftp-file-container {
+        touch-action: pan-y;
+        overscroll-behavior: contain;
+    }
+
     .ftp-table-header {
-        grid-template-columns: minmax(140px, 1fr) 70px;
+        grid-template-columns: minmax(130px, 1fr) 60px 60px;
+        padding: 6px 10px;
+        font-size: 10px;
     }
-    .ftp-col-date, .ftp-row-date {
+
+    .ftp-col-date,
+    .ftp-row-date {
         display: none;
     }
+
     .ftp-file-row {
-        grid-template-columns: minmax(140px, 1fr) 70px;
+        grid-template-columns: minmax(130px, 1fr) 60px 60px;
+        min-height: 44px;
+        padding: 8px 10px;
     }
+
+    .ftp-row-actions {
+        opacity: 1;
+    }
+
+    .ftp-row-action-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 13px;
+    }
+
     .ftp-preview-drawer {
         position: absolute;
         inset: 0;
         width: 100%;
         max-width: 100%;
-        z-index: 10;
+        z-index: 30;
+    }
+
+    .ftp-drives-grid {
+        grid-template-columns: 1fr;
+        padding: 12px;
+        gap: 10px;
     }
 }

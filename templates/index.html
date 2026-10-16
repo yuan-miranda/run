@@ -311,9 +311,21 @@
                 <div class="ftp-breadcrumb-trail" id="ftp-breadcrumbs">
                     <span class="ftp-crumb-item active" data-path="drives">Drives</span>
                 </div>
+                <div class="ftp-toolbar-actions">
+                    <button type="button" class="ftp-icon-btn" id="ftp-mkdir-btn" title="New Folder">
+                        <i class="bi bi-folder-plus"></i>
+                    </button>
+                    <button type="button" class="ftp-icon-btn" id="ftp-newfile-btn" title="New File">
+                        <i class="bi bi-file-earmark-plus"></i>
+                    </button>
+                    <button type="button" class="ftp-icon-btn" id="ftp-upload-btn" title="Upload File">
+                        <i class="bi bi-cloud-arrow-up"></i>
+                    </button>
+                    <input type="file" id="ftp-file-input" style="display:none;" multiple>
+                </div>
                 <div class="ftp-search-wrap">
                     <i class="bi bi-search ftp-search-icon"></i>
-                    <input type="text" id="ftp-filter-input" class="ftp-filter-input" placeholder="Filter current folder..." autocomplete="off" spellcheck="false">
+                    <input type="text" id="ftp-filter-input" class="ftp-filter-input" placeholder="Filter..." autocomplete="off" spellcheck="false">
                     <button type="button" class="ftp-filter-clear" id="ftp-filter-clear" style="display:none;" title="Clear filter">
                         <i class="bi bi-x"></i>
                     </button>
@@ -322,11 +334,18 @@
 
             <!-- Main File List & Preview Area -->
             <div class="ftp-main-layout">
+                <!-- Swipe-back visual indicator for mobile -->
+                <div class="ftp-swipe-indicator" id="ftp-swipe-indicator" style="display:none;">
+                    <i class="bi bi-arrow-left"></i>
+                    <span>Back</span>
+                </div>
+
                 <div class="ftp-file-container" id="ftp-file-container">
                     <div class="ftp-table-header">
                         <div class="ftp-col-name">Name</div>
                         <div class="ftp-col-size">Size</div>
                         <div class="ftp-col-date">Date Modified</div>
+                        <div class="ftp-col-actions"></div>
                     </div>
                     <div class="ftp-file-list" id="ftp-file-list">
                         <!-- Populated dynamically -->
@@ -344,6 +363,12 @@
                             </div>
                         </div>
                         <div class="ftp-preview-actions">
+                            <button type="button" class="ftp-icon-btn" id="ftp-preview-edit" title="Edit File">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button type="button" class="ftp-icon-btn ftp-save-btn" id="ftp-preview-save" title="Save Changes (Ctrl+S)" style="display:none;">
+                                <i class="bi bi-floppy"></i>
+                            </button>
                             <button type="button" class="ftp-icon-btn" id="ftp-preview-copy" title="Copy Content">
                                 <i class="bi bi-clipboard"></i>
                             </button>
@@ -357,6 +382,7 @@
                     </div>
                     <div class="ftp-preview-body" id="ftp-preview-body">
                         <pre class="ftp-preview-code"><code id="ftp-preview-code-content"></code></pre>
+                        <textarea id="ftp-preview-editor" class="ftp-preview-editor" style="display:none;" spellcheck="false" wrap="off"></textarea>
                     </div>
                 </div>
             </div>
@@ -365,6 +391,21 @@
             <div class="ftp-status-bar">
                 <span id="ftp-status-left">0 items</span>
                 <span id="ftp-status-path">—</span>
+            </div>
+
+            <!-- Inline Dialog for Prompt & Confirmations -->
+            <div id="ftp-dialog-overlay" class="ftp-dialog-overlay" style="display:none;">
+                <div class="ftp-dialog" role="dialog" aria-modal="true">
+                    <div class="ftp-dialog-title" id="ftp-dialog-title">Dialog Title</div>
+                    <div class="ftp-dialog-msg" id="ftp-dialog-msg" style="display:none;"></div>
+                    <div class="ftp-dialog-body" id="ftp-dialog-body">
+                        <input type="text" id="ftp-dialog-input" class="ftp-dialog-input" autocomplete="off" spellcheck="false">
+                    </div>
+                    <div class="ftp-dialog-actions">
+                        <button type="button" class="ftp-dialog-btn" id="ftp-dialog-cancel">Cancel</button>
+                        <button type="button" class="ftp-dialog-btn primary" id="ftp-dialog-confirm">Confirm</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

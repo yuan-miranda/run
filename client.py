@@ -6,6 +6,8 @@ import base64
 import threading
 import subprocess
 import ctypes
+import shutil
+import string
 from typing import Optional
 from PIL import ImageGrab, Image
 import socketio
@@ -192,8 +194,6 @@ def on_set_capture(data):
 def get_windows_drives():
     drives = []
     bitmask = ctypes.windll.kernel32.GetLogicalDrives()
-    import string
-    import shutil
     for letter in string.ascii_uppercase:
         if bitmask & 1:
             drive_root = f"{letter}:\\"
@@ -287,6 +287,59 @@ def read_file_preview(file_path, max_bytes=512000):
         return {"error": str(e)}
 
 
+def write_file(file_path, content, is_base64=False):
+    try:
+        file_path = os.path.abspath(file_path)
+        parent = os.path.dirname(file_path)
+        if parent and not os.path.exists(parent):
+            os.makedirs(parent, exist_ok=True)
+        if is_base64:
+            raw = base64.b64decode(content)
+            with open(file_path, "wb") as f:
+                f.write(raw)
+        else:
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(content)
+        return {"success": True, "path": file_path, "size": os.path.getsize(file_path)}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def delete_path(target_path):
+    try:
+        target_path = os.path.abspath(target_path)
+        if not os.path.exists(target_path):
+            return {"error": "Target path not found"}
+        if os.path.isdir(target_path):
+            shutil.rmtree(target_path)
+        else:
+            os.remove(target_path)
+        return {"success": True, "path": target_path}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def make_directory(dir_path):
+    try:
+        dir_path = os.path.abspath(dir_path)
+        os.makedirs(dir_path, exist_ok=True)
+        return {"success": True, "path": dir_path}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def rename_path(old_path, new_path):
+    try:
+        old_path = os.path.abspath(old_path)
+        new_path = os.path.abspath(new_path)
+        if not os.path.exists(old_path):
+            return {"error": "Source path does not exist"}
+        os.rename(old_path, new_path)
+        return {"success": True, "old_path": old_path, "new_path": new_path}
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @sio.on("fs_list_req")
 def on_fs_list_req(data):
     req_id = data.get("req_id")
@@ -307,6 +360,41 @@ def on_fs_read_req(data):
     file_path = data.get("path")
     payload = read_file_preview(file_path)
     sio.emit("fs_read_res", {"req_id": req_id, "payload": payload})
+
+
+@sio.on("fs_write_req")
+def on_fs_write_req(data):
+    req_id = data.get("req_id")
+    file_path = data.get("path")
+    content = data.get("content", "")
+    is_base64 = bool(data.get("is_base64", False))
+    payload = write_file(file_path, content, is_base64=is_base64)
+    sio.emit("fs_write_res", {"req_id": req_id, "payload": payload})
+
+
+@sio.on("fs_delete_req")
+def on_fs_delete_req(data):
+    req_id = data.get("req_id")
+    target_path = data.get("path")
+    payload = delete_path(target_path)
+    sio.emit("fs_delete_res", {"req_id": req_id, "payload": payload})
+
+
+@sio.on("fs_mkdir_req")
+def on_fs_mkdir_req(data):
+    req_id = data.get("req_id")
+    dir_path = data.get("path")
+    payload = make_directory(dir_path)
+    sio.emit("fs_mkdir_res", {"req_id": req_id, "payload": payload})
+
+
+@sio.on("fs_rename_req")
+def on_fs_rename_req(data):
+    req_id = data.get("req_id")
+    old_path = data.get("old_path")
+    new_path = data.get("new_path")
+    payload = rename_path(old_path, new_path)
+    sio.emit("fs_rename_res", {"req_id": req_id, "payload": payload})
 
 
 def heartbeat_loop():
