@@ -190,6 +190,14 @@
                         </div>
                     </div>
 
+                    <div class="script-card" id="ftp-browser-btn" role="button" tabindex="0">
+                        <div class="script-icon-wrap"><i class="bi bi-folder2-open"></i></div>
+                        <div class="script-info">
+                            <span class="script-title">FTP Browser</span>
+                            <span class="script-desc">Interactive file explorer to inspect drives, folders, and files.</span>
+                        </div>
+                    </div>
+
                     <div class="script-card" id="enable-screenshot-btn" role="button" tabindex="0">
                         <div class="script-icon-wrap"><i class="bi bi-camera"></i></div>
                         <div class="script-info">
@@ -263,6 +271,100 @@
                     <button class="popup-btn confirm" id="popup-confirm">Send <span
                             class="btn-hint">CTRL+ENTER</span></button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FTP File Browser Modal -->
+    <div id="ftp-modal" class="ftp-modal-overlay" style="display:none;">
+        <div class="ftp-window" role="dialog" aria-labelledby="ftp-modal-title" aria-modal="true">
+            <div class="ftp-header">
+                <div class="ftp-header-left">
+                    <div class="ftp-brand-icon"><i class="bi bi-folder2-open"></i></div>
+                    <div class="ftp-header-titles">
+                        <span class="ftp-title" id="ftp-modal-title">FTP File Browser</span>
+                        <span class="ftp-subtitle" id="ftp-target-user">—</span>
+                    </div>
+                </div>
+                <div class="ftp-header-actions">
+                    <button type="button" class="ftp-icon-btn" id="ftp-refresh-btn" title="Refresh directory (R)">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                    <button type="button" class="ftp-icon-btn ftp-close-btn" id="ftp-close-btn" title="Close (ESC)">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Drives bar -->
+            <div class="ftp-drives-bar" id="ftp-drives-bar">
+                <button type="button" class="ftp-drive-chip active" data-path="drives">
+                    <i class="bi bi-hdd-network"></i> Drives
+                </button>
+            </div>
+
+            <!-- Path toolbar & search filter -->
+            <div class="ftp-nav-toolbar">
+                <button type="button" class="ftp-nav-btn" id="ftp-parent-btn" title="Up one level">
+                    <i class="bi bi-arrow-up"></i>
+                </button>
+                <div class="ftp-breadcrumb-trail" id="ftp-breadcrumbs">
+                    <span class="ftp-crumb-item active" data-path="drives">Drives</span>
+                </div>
+                <div class="ftp-search-wrap">
+                    <i class="bi bi-search ftp-search-icon"></i>
+                    <input type="text" id="ftp-filter-input" class="ftp-filter-input" placeholder="Filter current folder..." autocomplete="off" spellcheck="false">
+                    <button type="button" class="ftp-filter-clear" id="ftp-filter-clear" style="display:none;" title="Clear filter">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Main File List & Preview Area -->
+            <div class="ftp-main-layout">
+                <div class="ftp-file-container" id="ftp-file-container">
+                    <div class="ftp-table-header">
+                        <div class="ftp-col-name">Name</div>
+                        <div class="ftp-col-size">Size</div>
+                        <div class="ftp-col-date">Date Modified</div>
+                    </div>
+                    <div class="ftp-file-list" id="ftp-file-list">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Side Preview Drawer -->
+                <div class="ftp-preview-drawer" id="ftp-preview-drawer" style="display:none;">
+                    <div class="ftp-preview-header">
+                        <div class="ftp-preview-info">
+                            <i class="bi bi-file-earmark-text ftp-preview-icon" id="ftp-preview-icon"></i>
+                            <div class="ftp-preview-meta">
+                                <span class="ftp-preview-name" id="ftp-preview-name">preview</span>
+                                <span class="ftp-preview-size" id="ftp-preview-size">0 B</span>
+                            </div>
+                        </div>
+                        <div class="ftp-preview-actions">
+                            <button type="button" class="ftp-icon-btn" id="ftp-preview-copy" title="Copy Content">
+                                <i class="bi bi-clipboard"></i>
+                            </button>
+                            <button type="button" class="ftp-icon-btn" id="ftp-preview-download" title="Download File">
+                                <i class="bi bi-download"></i>
+                            </button>
+                            <button type="button" class="ftp-icon-btn" id="ftp-preview-close" title="Close Preview">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="ftp-preview-body" id="ftp-preview-body">
+                        <pre class="ftp-preview-code"><code id="ftp-preview-code-content"></code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer status bar -->
+            <div class="ftp-status-bar">
+                <span id="ftp-status-left">0 items</span>
+                <span id="ftp-status-path">—</span>
             </div>
         </div>
     </div>

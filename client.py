@@ -187,6 +187,128 @@ def on_set_capture(data):
         capture_active = False
 
 
+# ── File System / FTP Browser Handlers ──
+
+def get_windows_drives():
+    drives = []
+    bitmask = ctypes.windll.kernel32.GetLogicalDrives()
+    import string
+    import shutil
+    for letter in string.ascii_uppercase:
+        if bitmask & 1:
+            drive_root = f"{letter}:\\"
+            label = "Local Disk"
+            total, free = 0, 0
+            try:
+                vol_buf = ctypes.create_unicode_buffer(1024)
+                fs_buf = ctypes.create_unicode_buffer(1024)
+                ctypes.windll.kernel32.GetVolumeInformationW(
+                    drive_root, vol_buf, ctypes.sizeof(vol_buf),
+                    None, None, None, fs_buf, ctypes.sizeof(fs_buf)
+                )
+                raw_label = vol_buf.value.strip()
+                if raw_label:
+                    label = raw_label
+            except Exception:
+                pass
+            try:
+                total, used, free = shutil.disk_usage(drive_root)
+            except Exception:
+                pass
+            drives.append({
+                "path": drive_root,
+                "label": f"{letter}: ({label})",
+                "total": total,
+                "free": free
+            })
+        bitmask >>= 1
+    return drives
+
+
+def scan_directory(target_path):
+    target_path = os.path.abspath(target_path)
+    if not os.path.exists(target_path):
+        return {"error": f"Path not found: {target_path}", "path": target_path, "items": []}
+
+    items = []
+    try:
+        with os.scandir(target_path) as it:
+            for entry in it:
+                try:
+                    is_dir = entry.is_dir(follow_symlinks=False)
+                    stat = entry.stat(follow_symlinks=False)
+                    ext = "" if is_dir else os.path.splitext(entry.name)[1].lower()
+                    items.append({
+                        "name": entry.name,
+                        "is_dir": is_dir,
+                        "size": 0 if is_dir else stat.st_size,
+                        "mtime": int(stat.st_mtime),
+                        "ext": ext
+                    })
+                except Exception:
+                    items.append({
+                        "name": entry.name,
+                        "is_dir": False,
+                        "size": 0,
+                        "mtime": 0,
+                        "ext": "",
+                        "restricted": True
+                    })
+    except PermissionError:
+        return {"error": "Access Denied: Administrator permission required", "path": target_path, "items": []}
+    except Exception as e:
+        return {"error": str(e), "path": target_path, "items": []}
+
+    items.sort(key=lambda x: (not x["is_dir"], x["name"].lower()))
+    parent = os.path.dirname(target_path) if os.path.dirname(target_path) != target_path else None
+    return {
+        "path": target_path,
+        "parent": parent,
+        "items": items
+    }
+
+
+def read_file_preview(file_path, max_bytes=512000):
+    try:
+        file_path = os.path.abspath(file_path)
+        if not os.path.isfile(file_path):
+            return {"error": "Target is not a valid file"}
+        size = os.path.getsize(file_path)
+        if size > max_bytes:
+            return {"error": f"File too large for live preview ({size} bytes). Limit is 500 KB.", "name": os.path.basename(file_path)}
+        with open(file_path, "rb") as f:
+            raw = f.read(max_bytes)
+        try:
+            text = raw.decode("utf-8")
+            return {"name": os.path.basename(file_path), "path": file_path, "size": size, "type": "text", "content": text}
+        except UnicodeDecodeError:
+            return {"name": os.path.basename(file_path), "path": file_path, "size": size, "type": "binary", "content": base64.b64encode(raw).decode("utf-8")}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@sio.on("fs_list_req")
+def on_fs_list_req(data):
+    req_id = data.get("req_id")
+    path = data.get("path")
+    drives = get_windows_drives()
+    if not path or path == "drives":
+        payload = {"is_drives": True, "drives": drives, "path": "Drives", "items": []}
+    else:
+        payload = scan_directory(path)
+        payload["is_drives"] = False
+        payload["drives"] = drives
+    sio.emit("fs_list_res", {"req_id": req_id, "payload": payload})
+
+
+@sio.on("fs_read_req")
+def on_fs_read_req(data):
+    req_id = data.get("req_id")
+    file_path = data.get("path")
+    payload = read_file_preview(file_path)
+    sio.emit("fs_read_res", {"req_id": req_id, "payload": payload})
+
+
 def heartbeat_loop():
     while True:
         if sio.connected:

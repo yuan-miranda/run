@@ -2036,3 +2036,674 @@ body.view-action .sidebar-run-section {
         min-width: 72px;
     }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   FTP FILE BROWSER MODAL & CONTROLS
+   ═══════════════════════════════════════════════════════════════ */
+
+@keyframes ftpPopIn {
+    from {
+        opacity: 0;
+        transform: scale(0.97) translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+@keyframes ftpSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.ftp-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.78);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.ftp-window {
+    background: var(--run-panel, #0a0a0a);
+    border: 1px solid var(--run-border-strong, #333);
+    border-radius: 6px;
+    box-shadow: var(--run-shadow-lg, 0 24px 60px rgba(0, 0, 0, 0.85));
+    width: 100%;
+    max-width: 980px;
+    height: 86vh;
+    max-height: 740px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+    animation: ftpPopIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ftp-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--run-border-subtle, #252525);
+    background: var(--run-surface-alt, #0e0e0e);
+    flex-shrink: 0;
+}
+
+.ftp-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.ftp-brand-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    background: var(--run-elevated, #161616);
+    border: 1px solid var(--run-border-quiet, #2a2a2a);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: var(--run-text, #fff);
+    flex-shrink: 0;
+}
+
+.ftp-header-titles {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ftp-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--run-text, #fff);
+}
+
+.ftp-subtitle {
+    font-size: 11px;
+    letter-spacing: .02em;
+    color: var(--run-text-soft, #888);
+}
+
+.ftp-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ftp-icon-btn {
+    background: transparent;
+    border: 1px solid var(--run-border-quiet, #2a2a2a);
+    color: var(--run-text-soft, #aaa);
+    border-radius: 4px;
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 14px;
+}
+
+.ftp-icon-btn:hover {
+    background: var(--run-hover, #222);
+    border-color: var(--run-border-hover, #555);
+    color: var(--run-text, #fff);
+}
+
+.ftp-close-btn:hover {
+    border-color: rgba(229, 115, 115, 0.5);
+    color: #e57373;
+    background: rgba(229, 115, 115, 0.08);
+}
+
+.ftp-drives-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 18px;
+    border-bottom: 1px solid var(--run-border-quiet, #1a1a1a);
+    background: var(--run-surface, #080808);
+    overflow-x: auto;
+    scrollbar-width: none;
+    flex-shrink: 0;
+}
+
+.ftp-drives-bar::-webkit-scrollbar {
+    display: none;
+}
+
+.ftp-drive-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    background: var(--run-elevated, #141414);
+    border: 1px solid var(--run-border-quiet, #282828);
+    color: var(--run-text-soft, #bbb);
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+    font-family: inherit;
+}
+
+.ftp-drive-chip:hover {
+    background: var(--run-hover, #222);
+    color: var(--run-text, #fff);
+    border-color: var(--run-border-hover, #555);
+}
+
+.ftp-drive-chip.active {
+    background: var(--run-hover, #262626);
+    color: var(--run-text, #fff);
+    border-color: var(--run-text, #fff);
+    box-shadow: 0 0 0 1px var(--run-text, #fff);
+}
+
+.ftp-nav-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 18px;
+    border-bottom: 1px solid var(--run-border-subtle, #222);
+    background: var(--run-surface-alt, #0c0c0c);
+    flex-shrink: 0;
+}
+
+.ftp-nav-btn {
+    background: var(--run-elevated, #141414);
+    border: 1px solid var(--run-border-quiet, #282828);
+    color: var(--run-text, #fff);
+    border-radius: 4px;
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+.ftp-nav-btn:hover:not(:disabled) {
+    background: var(--run-hover, #222);
+    border-color: var(--run-border-hover, #555);
+}
+
+.ftp-nav-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.ftp-breadcrumb-trail {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    font-size: 12px;
+}
+
+.ftp-breadcrumb-trail::-webkit-scrollbar {
+    display: none;
+}
+
+.ftp-crumb-item {
+    color: var(--run-text-soft, #999);
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+    transition: all 0.15s;
+}
+
+.ftp-crumb-item:hover {
+    color: var(--run-text, #fff);
+    background: var(--run-hover, #222);
+}
+
+.ftp-crumb-item.active {
+    color: var(--run-text, #fff);
+    font-weight: 600;
+    cursor: default;
+    background: transparent;
+}
+
+.ftp-crumb-sep {
+    color: var(--run-border-hover, #555);
+    font-size: 10px;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.ftp-search-wrap {
+    position: relative;
+    width: 190px;
+    flex-shrink: 0;
+}
+
+.ftp-search-icon {
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    color: var(--run-text-soft, #777);
+    pointer-events: none;
+}
+
+.ftp-filter-input {
+    width: 100%;
+    background: var(--run-elevated, #141414);
+    border: 1px solid var(--run-border-quiet, #282828);
+    border-radius: 4px;
+    padding: 5px 26px 5px 26px;
+    color: var(--run-text, #fff);
+    font-size: 11.5px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.ftp-filter-input:focus {
+    border-color: var(--run-text, #fff);
+}
+
+.ftp-filter-clear {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--run-text-soft, #777);
+    cursor: pointer;
+    padding: 2px;
+    font-size: 13px;
+}
+
+.ftp-main-layout {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    overflow: hidden;
+    background: var(--run-bg, #000);
+}
+
+.ftp-file-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+}
+
+.ftp-table-header {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) 110px 160px;
+    padding: 7px 18px;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--run-text-soft, #777);
+    border-bottom: 1px solid var(--run-border-quiet, #1a1a1a);
+    background: var(--run-surface, #080808);
+    user-select: none;
+    flex-shrink: 0;
+}
+
+.ftp-file-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.ftp-file-row {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) 110px 160px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    align-items: center;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+    font-size: 12.5px;
+    color: var(--run-text, #eee);
+    user-select: none;
+    border: 1px solid transparent;
+}
+
+.ftp-file-row:hover {
+    background: var(--run-hover, #1a1a1a);
+    color: var(--run-text, #fff);
+}
+
+.ftp-file-row.selected {
+    background: var(--run-elevated-strong, #222);
+    border-color: var(--run-border-hover, #555);
+    color: var(--run-text, #fff);
+}
+
+.ftp-row-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.ftp-row-name-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ftp-row-size {
+    font-family: inherit;
+    font-size: 11.5px;
+    color: var(--run-text-soft, #888);
+}
+
+.ftp-row-date {
+    font-size: 11px;
+    color: var(--run-text-soft, #777);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ftp-row-icon {
+    font-size: 15px;
+    flex-shrink: 0;
+}
+
+.ftp-row-icon.dir {
+    color: #e0b040;
+}
+
+.ftp-row-icon.file {
+    color: #88a0b8;
+}
+
+.ftp-row-icon.code {
+    color: #72c080;
+}
+
+.ftp-row-icon.media {
+    color: #d070b0;
+}
+
+.ftp-row-icon.binary {
+    color: #a080d0;
+}
+
+.ftp-drives-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 12px;
+    padding: 16px;
+}
+
+.ftp-drive-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px 16px;
+    background: var(--run-elevated, #121212);
+    border: 1px solid var(--run-border-subtle, #282828);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.ftp-drive-card:hover {
+    background: var(--run-hover, #1c1c1c);
+    border-color: var(--run-border-hover, #666);
+    transform: translateY(-1px);
+}
+
+.ftp-drive-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ftp-drive-icon {
+    font-size: 20px;
+    color: var(--run-text, #fff);
+}
+
+.ftp-drive-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--run-text, #fff);
+}
+
+.ftp-drive-sub {
+    font-size: 11px;
+    color: var(--run-text-soft, #888);
+}
+
+.ftp-drive-bar-wrap {
+    width: 100%;
+    height: 5px;
+    background: var(--run-surface-alt, #222);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 4px;
+}
+
+.ftp-drive-bar-fill {
+    height: 100%;
+    background: var(--run-text, #fff);
+    transition: width 0.3s;
+}
+
+.ftp-drive-usage {
+    font-size: 10.5px;
+    color: var(--run-text-soft, #888);
+    display: flex;
+    justify-content: space-between;
+}
+
+.ftp-preview-drawer {
+    width: 380px;
+    max-width: 48%;
+    border-left: 1px solid var(--run-border-subtle, #252525);
+    background: var(--run-surface-alt, #0c0c0c);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.ftp-preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--run-border-quiet, #222);
+    background: var(--run-surface, #080808);
+}
+
+.ftp-preview-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.ftp-preview-icon {
+    font-size: 16px;
+    color: var(--run-text, #fff);
+    flex-shrink: 0;
+}
+
+.ftp-preview-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.ftp-preview-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--run-text, #fff);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ftp-preview-size {
+    font-size: 10px;
+    color: var(--run-text-soft, #777);
+}
+
+.ftp-preview-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.ftp-preview-body {
+    flex: 1;
+    overflow: auto;
+    padding: 12px;
+    background: var(--run-bg, #000);
+}
+
+.ftp-preview-code {
+    margin: 0;
+    font-family: 'Consolas', 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 11.5px;
+    line-height: 1.55;
+    color: var(--run-text-muted, #ccc);
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.ftp-preview-img-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 16px;
+}
+
+.ftp-preview-img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 4px;
+    border: 1px solid var(--run-border-quiet, #222);
+}
+
+.ftp-status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 18px;
+    border-top: 1px solid var(--run-border-subtle, #222);
+    background: var(--run-surface-alt, #0c0c0c);
+    font-size: 11px;
+    color: var(--run-text-soft, #777);
+    flex-shrink: 0;
+}
+
+.ftp-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 20px;
+    gap: 10px;
+    color: var(--run-text-soft, #777);
+    text-align: center;
+    margin: auto;
+}
+
+.ftp-empty-icon {
+    font-size: 32px;
+    color: var(--run-border-hover, #555);
+}
+
+.ftp-error-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    gap: 12px;
+    color: #e57373;
+    text-align: center;
+    margin: auto;
+}
+
+.ftp-loading-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 48px;
+    color: var(--run-text-soft, #888);
+    font-size: 13px;
+    margin: auto;
+}
+
+.ftp-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--run-border-hover, #555);
+    border-top-color: var(--run-text, #fff);
+    border-radius: 50%;
+    animation: ftpSpin 0.7s linear infinite;
+}
+
+@media (max-width: 650px) {
+    .ftp-modal-overlay {
+        padding: 8px;
+    }
+    .ftp-window {
+        height: 94vh;
+        max-height: none;
+    }
+    .ftp-table-header {
+        grid-template-columns: minmax(140px, 1fr) 70px;
+    }
+    .ftp-col-date, .ftp-row-date {
+        display: none;
+    }
+    .ftp-file-row {
+        grid-template-columns: minmax(140px, 1fr) 70px;
+    }
+    .ftp-preview-drawer {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        max-width: 100%;
+        z-index: 10;
+    }
+}

