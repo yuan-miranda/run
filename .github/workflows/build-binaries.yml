@@ -1,4 +1,4 @@
-name: Build Release Binaries (Windows & Linux)
+name: Build Release Binaries (Windows)
 
 on:
   workflow_dispatch:
@@ -26,6 +26,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
+        shell: cmd
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
@@ -33,7 +34,7 @@ jobs:
       - name: Create temporary client config from secret
         env:
           SECRET_PASS: ${{ secrets.DASHBOARD_PASSWORD }}
-        shell: bash
+        shell: pwsh
         run: |
           python -c "import os; f = open('client_config.py', 'w'); f.write('CLIENT_KEY = ' + repr(os.environ.get('SECRET_PASS', '')) + '\nCLIENT_VERSION = \"${{ github.sha }}\"[:7]\n'); f.close()"
 
@@ -46,79 +47,14 @@ jobs:
           copy dist\installer.exe .\installer.exe
           del client_config.py
 
-      - name: Upload Windows binaries
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-binaries
-          path: |
-            run.exe
-            installer.exe
-
-  build-linux:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Create temporary client config from secret
-        env:
-          SECRET_PASS: ${{ secrets.DASHBOARD_PASSWORD }}
-        run: |
-          python3 -c "import os; f = open('client_config.py', 'w'); f.write('CLIENT_KEY = ' + repr(os.environ.get('SECRET_PASS', '')) + '\nCLIENT_VERSION = \"${{ github.sha }}\"[:7]\n'); f.close()"
-
-      - name: Compile standalone Linux binaries
-        run: |
-          pyinstaller --noconsole --onefile --clean -n run client.py
-          pyinstaller --noconsole --onefile --clean -n installer installer.py
-          cp dist/run ./run
-          cp dist/installer ./installer
-          chmod +x run installer
-          rm -f client_config.py
-
-      - name: Upload Linux binaries
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-binaries
-          path: |
-            run
-            installer
-
-  commit-release:
-    needs: [build-windows, build-linux]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Download Windows binaries
-        uses: actions/download-artifact@v4
-        with:
-          name: windows-binaries
-          path: ./
-
-      - name: Download Linux binaries
-        uses: actions/download-artifact@v4
-        with:
-          name: linux-binaries
-          path: ./
-
-      - name: Make Linux binaries executable
-        run: |
-          chmod +x run installer
-
-      - name: Commit and push unified release binaries
+      - name: Commit and push release binaries
+        shell: pwsh
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add run.exe installer.exe run installer
-          git diff --quiet && git diff --staged --quiet || (git commit -m "build: update release binaries (windows & linux) [skip ci]" && git push)
+          git add run.exe installer.exe
+          $diff = git status --porcelain
+          if ($diff) {
+              git commit -m "build: update windows release binaries [skip ci]"
+              git push
+          }

@@ -31,17 +31,9 @@
         },
         parseUsername(username) {
             const text = String(username || '').trim();
-            const match = text.match(/^(.*?)-([^-]+)-(W|L|WIN|LINUX)$/i);
-            if (!match) return { baseName: text, id: '', os: '' };
+            const match = text.match(/^(.*?)-([^-]+)-(W|WIN)$/i);
+            if (!match) return { baseName: text, id: '', os: 'W' };
             return { baseName: match[1], id: match[2], os: match[3].toUpperCase() };
-        },
-        isWindows(username) {
-            const parsed = this.parseUsername(username);
-            return parsed.os === 'W' || parsed.os === 'WIN' || /-(?:w|win)$/i.test(String(username || '').trim());
-        },
-        isLinux(username) {
-            const parsed = this.parseUsername(username);
-            return parsed.os === 'L' || parsed.os === 'LINUX' || /-(?:l|linux)$/i.test(String(username || '').trim());
         }
     };
 

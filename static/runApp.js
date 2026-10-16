@@ -42,7 +42,6 @@ const RunApp = (() => {
     const STATUS_ORDER = { green: 0, yellow: 1, red: 2 };
 
     const WIN_LOGO_HTML = `<i class="bi bi-windows os-logo" aria-hidden="true"></i>`;
-    const LINUX_LOGO_HTML = `<i class="bi bi-ubuntu os-logo" aria-hidden="true"></i>`;
 
     const ACTION_MODE_LABELS = {
         cmd: 'Commandline',
@@ -61,22 +60,11 @@ const RunApp = (() => {
             return window.RunUtils.parseUsername(username);
         }
         const text = String(username || '').trim();
-        const match = text.match(/^(.*?)-([^-]+)-(W|L|WIN|LINUX)$/i);
-        if (!match) return { baseName: text, id: '', os: '' };
+        const match = text.match(/^(.*?)-([^-]+)-(W|WIN)$/i);
+        if (!match) return { baseName: text, id: '', os: 'W' };
         return { baseName: match[1], id: match[2], os: match[3].toUpperCase() };
     }
 
-    function isWindowsUser(username) {
-        if (window.RunUtils?.isWindows) return window.RunUtils.isWindows(username);
-        const parsed = parseModernUsername(username);
-        return parsed.os === 'W' || parsed.os === 'WIN' || /-(?:w|win)$/i.test(String(username || '').trim());
-    }
-
-    function isLinuxUser(username) {
-        if (window.RunUtils?.isLinux) return window.RunUtils.isLinux(username);
-        const parsed = parseModernUsername(username);
-        return parsed.os === 'L' || parsed.os === 'LINUX' || /-(?:l|linux)$/i.test(String(username || '').trim());
-    }
 
     function getDisplayUsername(username) {
         return runState.displayNameMap?.get(username) || parseModernUsername(username).baseName;
@@ -310,8 +298,6 @@ const RunApp = (() => {
         const showPrimary = showHint && alive && canInteract;
         const disabledAttrs = 'disabled aria-disabled="true"';
         const displayUsername = getDisplayUsername(user.username);
-        const showWin = isWindowsUser(user.username);
-        const showLinux = isLinuxUser(user.username);
         const versionAttr = user.version ? ` title="${user.version}"` : '';
 
         return `
@@ -320,7 +306,7 @@ const RunApp = (() => {
                     <span class="card-username ${alive ? '' : 'offline'}"${versionAttr}>${displayUsername}</span>
                     <div class="card-ts">${tsText}</div>
                 </div>
-                ${showWin ? WIN_LOGO_HTML : ''}${showLinux ? LINUX_LOGO_HTML : ''}
+                ${WIN_LOGO_HTML}
             </div>
             <div class="card-actions">
                 <button class="card-btn primary ${alive && canInteract ? '' : 'disabled'}" data-action="ps" ${alive && canInteract ? '' : disabledAttrs}>
@@ -379,7 +365,7 @@ const RunApp = (() => {
                 existingCards.set(user.username, card);
             }
 
-            const cn = `user-card${alive ? '' : ' offline'}${isWindowsUser(user.username) ? ' windows-user' : ''}`;
+            const cn = `user-card${alive ? '' : ' offline'} windows-user`;
             if (card.className !== cn) card.className = cn;
             if (card.dataset.renderSignature !== sig) {
                 card.innerHTML = getCardBodyHtml(user, status, alive, tsText, showHint);
@@ -650,35 +636,8 @@ $o = "$p\\installer.exe"
 Invoke-WebRequest -Uri "https://github.com/yuan-miranda/run/raw/$sha/installer.exe" -OutFile $o
 Start-Process $o`;
 
-    const UPDATE_CLIENT_SCRIPT_LINUX = `echo '=== Starting Client Update ==='
-p="\${XDG_DATA_HOME:-$HOME/.local/share}/run"
-mkdir -p "$p"
-echo '[1/3] Downloading latest Linux client binary...'
-curl -L --progress-bar "https://github.com/yuan-miranda/run/raw/main/run" -o "$p/run.tmp" && \\
-chmod +x "$p/run.tmp" && \\
-mv -f "$p/run.tmp" "$p/run" && \\
-echo '[2/3] Binary replaced successfully.' && \\
-echo '[3/3] Restarting client service...' && \\
-(systemctl --user restart run.service 2>/dev/null || (pkill -f "$p/run"; nohup "$p/run" >/dev/null 2>&1 &)) && \\
-echo '=== Update Complete! Client is active. ==='`;
-
-    async function doSendUpdateClient() {
-        if (isSendingCommand) return;
-        const user = runState.popupUser;
-        if (!user) return;
-        if (!runState.isConnected || user.demo) {
-            alert('Demo mode: action preview only. Connect to send real commands.');
-            return;
-        }
-
-        const btn = $('update-client-btn');
-        if (btn) {
-            btn.style.pointerEvents = 'none';
-            btn.style.opacity = '0.6';
-        }
-
         isSendingCommand = true;
-        const updateScript = isLinuxUser(user.username) ? UPDATE_CLIENT_SCRIPT_LINUX : UPDATE_CLIENT_SCRIPT_WIN;
+        const updateScript = UPDATE_CLIENT_SCRIPT_WIN;
         const encodedCmd = window.RunUtils ? window.RunUtils.encodeBase64(updateScript) : btoa(unescape(encodeURIComponent(updateScript)));
         const body = {
             username: user.username,
@@ -798,20 +757,11 @@ echo '=== Update Complete! Client is active. ==='`;
         if (mode === 'cmd') {
             rawCmd = val;
         } else if (val) {
-            if (isLinuxUser(user.username)) {
-                const escaped = JSON.stringify(val);
-                if (mode === 'speak') {
-                    rawCmd = `spd-say ${escaped} 2>/dev/null || espeak ${escaped} 2>/dev/null`;
-                } else {
-                    rawCmd = `notify-send "Run" ${escaped} 2>/dev/null || zenity --info --text=${escaped} 2>/dev/null`;
-                }
+            const msg = formatPSString(val);
+            if (mode === 'speak') {
+                rawCmd = `$s=New-Object -Com SAPI.SpVoice;$s.Volume=${runState.selectedSpkVolume};$s.Rate=${runState.selectedSpkSpeed};$s.Voice=$s.GetVoices()|Where-Object{$_.GetDescription() -like '*${runState.selectedVoice}*'};$s.Speak(${msg})`;
             } else {
-                const msg = formatPSString(val);
-                if (mode === 'speak') {
-                    rawCmd = `$s=New-Object -Com SAPI.SpVoice;$s.Volume=${runState.selectedSpkVolume};$s.Rate=${runState.selectedSpkSpeed};$s.Voice=$s.GetVoices()|Where-Object{$_.GetDescription() -like '*${runState.selectedVoice}*'};$s.Speak(${msg})`;
-                } else {
-                    rawCmd = `(New-Object -Com WScript.Shell).Popup(${msg})`;
-                }
+                rawCmd = `(New-Object -Com WScript.Shell).Popup(${msg})`;
             }
         }
 

