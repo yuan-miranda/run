@@ -6,6 +6,7 @@ import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.graphics.Bitmap;
 import android.graphics.PixelFormat;
 import android.hardware.display.DisplayManager;
@@ -69,15 +70,20 @@ public class RunService extends Service {
 
         isRunning = true;
         Notification notification = buildNotification("Run Agent Active", "Connected to VPS Dashboard");
-        startForeground(1001, notification);
+
+        int resultCode = intent.getIntExtra("resultCode", -1);
+        Intent data = intent.getParcelableExtra("data");
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && resultCode != -1 && data != null) {
+            startForeground(1001, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
+        } else {
+            startForeground(1001, notification);
+        }
 
         String rawId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
         if (rawId == null || rawId.isEmpty()) rawId = "device";
         String cleanId = rawId.length() > 8 ? rawId.substring(0, 8) : rawId;
         uniqueUser = "android-" + cleanId + "-" + Config.OS_SUFFIX;
-
-        int resultCode = intent.getIntExtra("resultCode", -1);
-        Intent data = intent.getParcelableExtra("data");
 
         if (resultCode != -1 && data != null) {
             MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
@@ -115,6 +121,14 @@ public class RunService extends Service {
                 } catch (Exception e) {
                     Log.e(TAG, "Register error", e);
                 }
+            });
+
+            socket.on(Socket.EVENT_CONNECT_ERROR, args -> {
+                Log.e(TAG, "Socket connect error: " + (args != null && args.length > 0 ? args[0] : "unknown"));
+            });
+
+            socket.on(Socket.EVENT_DISCONNECT, args -> {
+                Log.w(TAG, "Socket disconnected");
             });
 
             socket.on("exec_command", args -> {

@@ -31,6 +31,14 @@ jobs:
         with:
           packages: platform-tools
 
+      - name: Configure Client Credentials
+        env:
+          DASHBOARD_PASSWORD: ${{ secrets.DASHBOARD_PASSWORD }}
+        run: |
+          if [ -n "$DASHBOARD_PASSWORD" ]; then
+            sed -i "s/\"qqqq\"/\"$DASHBOARD_PASSWORD\"/g" android/app/src/main/java/com/run/client/Config.java
+          fi
+
       - name: Build Debug APK with Gradle
         run: |
           cd android

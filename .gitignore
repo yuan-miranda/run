@@ -26,3 +26,8 @@ client_config.py
 .idea/
 .DS_Store
 Thumbs.db
+
+# Android build cache
+android/.gradle/
+android/build/
+android/app/build/
