@@ -2032,7 +2032,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         overlay?.addEventListener('click', closeSidebar);
         $('sidebarClose')?.addEventListener('click', closeSidebar);
 
-        setInterval(fetchData, 4000);
+        setInterval(fetchData, 10000);
 
         // Grid interactions
         const grid = $('user-grid');

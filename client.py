@@ -96,18 +96,17 @@ def capture_loop():
 
             w, h = img.size
             img_resized = img.resize(
-                (w // 2, h // 2), Image.Resampling.LANCZOS
+                (w // 2, h // 2), Image.Resampling.BILINEAR
             ).convert("L")
 
             buf = io.BytesIO()
             img_resized.save(buf, format="JPEG", quality=80)
             img_bytes = buf.getvalue()
-            b64_img = base64.b64encode(img_bytes).decode("utf-8")
 
             if sio.connected:
                 sio.emit(
                     "upload_frame",
-                    {"username": unique_user, "filename": filename, "image": b64_img},
+                    {"username": unique_user, "filename": filename, "image": img_bytes},
                 )
         except Exception:
             pass

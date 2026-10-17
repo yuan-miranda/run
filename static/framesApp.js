@@ -786,6 +786,15 @@ const FramesApp = (() => {
                 if (els.counter) els.counter.textContent = formatCounter(state.idx + 1, state.total);
                 syncControlStates();
             }
+
+            // Cap in-memory history to 1000 to mirror server retention window and avoid memory leaks
+            if (state.imagesMeta.length > 1000) {
+                state.imagesMeta.shift();
+                state.urls.shift();
+                if (state.idx > 0) state.idx--;
+                state.total = state.urls.length;
+                if (els.slider) els.slider.max = state.total - 1;
+            }
         }
     }
 

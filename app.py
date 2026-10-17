@@ -15,7 +15,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+# Auto-detect async mode (gevent / eventlet / threading) or allow override via env
+ASYNC_MODE = os.getenv("SOCKETIO_ASYNC_MODE", None)
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode=ASYNC_MODE)
 
 DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD")
 if not DASHBOARD_PASSWORD:
@@ -23,6 +25,8 @@ if not DASHBOARD_PASSWORD:
 
 SCREENSHOT_DIR = "uploaded_frames"
 os.makedirs(SCREENSHOT_DIR, exist_ok=True)
+MAX_FRAMES_PER_USER = 1000
+upload_counters = {}
 
 SAFE_NAME_RE = re.compile(r"^[a-zA-Z0-9_\-\.]+$")
 
@@ -172,6 +176,27 @@ def handle_heartbeat(data):
         )
 
 
+def prune_old_frames(folder_path: str, max_keep: int = MAX_FRAMES_PER_USER):
+    """Prune oldest screenshot frames to keep storage clean and bounds checked."""
+    try:
+        if not os.path.exists(folder_path):
+            return
+        files = [
+            f for f in os.listdir(folder_path)
+            if f.lower().endswith((".png", ".jpg", ".jpeg"))
+        ]
+        if len(files) > max_keep:
+            files.sort(key=lambda f: int("".join(filter(str.isdigit, f)) or "0"))
+            to_remove = files[: len(files) - max_keep]
+            for f in to_remove:
+                try:
+                    os.remove(os.path.join(folder_path, f))
+                except OSError:
+                    pass
+    except Exception as e:
+        print(f"[Prune Error] {e}")
+
+
 @socketio.on("upload_frame")
 def handle_upload_frame(data):
     if request.sid not in authenticated_sids or not isinstance(data, dict):
@@ -180,9 +205,9 @@ def handle_upload_frame(data):
     if not username or active_clients.get(request.sid) != username:
         return
     filename = data.get("filename")
-    image_base64 = data.get("image")
+    raw_img = data.get("image")
 
-    if not filename or not image_base64 or not is_safe_name(username) or not is_safe_name(filename):
+    if not filename or not raw_img or not is_safe_name(username) or not is_safe_name(filename):
         return
 
     client_folder = os.path.join(SCREENSHOT_DIR, username)
@@ -190,16 +215,32 @@ def handle_upload_frame(data):
     file_path = os.path.join(client_folder, filename)
 
     try:
-        raw_b64 = image_base64
-        if "," in raw_b64:
-            raw_b64 = raw_b64.split(",", 1)[1]
-        image_bytes = base64.b64decode(raw_b64)
+        if isinstance(raw_img, bytes):
+            image_bytes = raw_img
+        elif isinstance(raw_img, str):
+            raw_b64 = raw_img
+            if "," in raw_b64:
+                raw_b64 = raw_b64.split(",", 1)[1]
+            image_bytes = base64.b64decode(raw_b64)
+        else:
+            return
+
         with open(file_path, "wb") as f:
             f.write(image_bytes)
 
         socketio.emit(
             "new_frame", {"username": username, "filename": filename}, room="dashboard"
         )
+
+        # Periodically prune old frames asynchronously (every 50 frames)
+        count = upload_counters.get(username, 0) + 1
+        upload_counters[username] = count
+        if count % 50 == 0:
+            threading.Thread(
+                target=prune_old_frames,
+                args=(client_folder, MAX_FRAMES_PER_USER),
+                daemon=True,
+            ).start()
     except Exception as e:
         print(f"[Upload Frame Error] {e}")
 
