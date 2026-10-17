@@ -15,6 +15,7 @@ const FramesApp = (() => {
         idx: 0,
         playInterval: null,
         isPlaying: false,
+        playMode: 'stop',
         currentFolder: null,
         autoRefresh: null,
         loading: true,
@@ -92,7 +93,10 @@ const FramesApp = (() => {
             folderBtn: 'folderBtn',
             folderName: 'folderName',
             dropdownMenu: 'dropdownMenu',
+            playWrap: 'playWrap',
             playBtn: 'playBtn',
+            playMenu: 'playMenu',
+            playLabel: 'playLabel',
             fpsWrap: 'fpsWrap',
             fpsBtn: 'fpsBtn',
             fpsMenu: 'fpsMenu',
@@ -155,11 +159,14 @@ const FramesApp = (() => {
 
         if (els.folderBtn) els.folderBtn.disabled = state.loading;
         if (els.fileBtn) els.fileBtn.disabled = !isReady;
-        if (els.slider) els.slider.disabled = !isReady;
         if (els.fpsBtn) els.fpsBtn.disabled = !isReady;
         if (els.playBtn) els.playBtn.disabled = !isReady;
-        if (els.prevBtn) els.prevBtn.disabled = !isReady || state.idx <= 0;
-        if (els.nextBtn) els.nextBtn.disabled = !isReady || state.idx >= state.total - 1;
+
+        const isAuto = state.playMode === 'auto';
+        if (els.slider) els.slider.disabled = !isReady || isAuto;
+        if (els.prevBtn) els.prevBtn.disabled = !isReady || isAuto || state.idx <= 0;
+        if (els.nextBtn) els.nextBtn.disabled = !isReady || isAuto || state.idx >= state.total - 1;
+        if (els.sliderWrap) els.sliderWrap.classList.toggle('auto-locked', isAuto);
     }
 
     // ── Frame display ──
@@ -222,40 +229,79 @@ const FramesApp = (() => {
     }
 
     // ── Playback ──
-    function stopPlay() {
+    function setPlayMode(mode) {
+        if (mode !== 'stop' && mode !== 'play' && mode !== 'auto') mode = 'stop';
+
         if (state.playInterval) {
             clearInterval(state.playInterval);
             state.playInterval = null;
         }
-        state.isPlaying = false;
-        if (els.playBtn) {
-            els.playBtn.textContent = 'FF play';
-            els.playBtn.classList.remove('active');
+
+        state.playMode = mode;
+        state.isPlaying = (mode === 'play');
+
+        const labels = {
+            stop: 'FF STOP',
+            play: 'FF PLAY',
+            auto: 'FF AUTO'
+        };
+
+        if (els.playLabel) {
+            els.playLabel.textContent = labels[mode] || 'FF STOP';
+        } else if (els.playBtn) {
+            els.playBtn.textContent = labels[mode] || 'FF STOP';
         }
+
+        if (els.playBtn) {
+            els.playBtn.classList.toggle('active', mode === 'play' || mode === 'auto');
+            els.playBtn.dataset.mode = mode;
+        }
+
+        if (els.playMenu) {
+            els.playMenu.querySelectorAll('.file-dropdown-item').forEach(item => {
+                item.classList.toggle('active', item.dataset.mode === mode);
+            });
+        }
+
+        document.querySelectorAll('.sidebar-play-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.playMode === mode);
+        });
+
+        if (mode === 'play') {
+            if (!state.total) return;
+            state.playInterval = setInterval(() => {
+                state.idx = (state.idx + 1) % state.total;
+                if (els.mainImage) els.mainImage.src = state.urls[state.idx];
+                if (els.counter) els.counter.textContent = formatCounter(state.idx + 1, state.total);
+                if (els.fileName) els.fileName.textContent = state.imagesMeta[state.idx]?.name || '';
+                if (els.slider) els.slider.value = state.idx;
+                syncControlStates();
+            }, Math.round(1000 / (state.fps || 12)));
+        } else if (mode === 'auto') {
+            if (state.total > 0) {
+                showFrame(state.total - 1);
+            }
+        }
+
         syncControlStates();
     }
 
-    function startPlay() {
-        if (!state.total) return;
-        state.isPlaying = true;
-        if (els.playBtn) {
-            els.playBtn.textContent = 'FF stop';
-            els.playBtn.classList.add('active');
-        }
-        syncControlStates();
+    function stopPlay() {
+        setPlayMode('stop');
+    }
 
-        state.playInterval = setInterval(() => {
-            state.idx = (state.idx + 1) % state.total;
-            if (els.mainImage) els.mainImage.src = state.urls[state.idx];
-            if (els.counter) els.counter.textContent = formatCounter(state.idx + 1, state.total);
-            if (els.fileName) els.fileName.textContent = state.imagesMeta[state.idx]?.name || '';
-            if (els.slider) els.slider.value = state.idx;
-            syncControlStates();
-        }, Math.round(1000 / (state.fps || 12)));
+    function startPlay() {
+        setPlayMode('play');
+    }
+
+    function togglePlayMode() {
+        const next = state.playMode === 'stop' ? 'play' : state.playMode === 'play' ? 'auto' : 'stop';
+        setPlayMode(next);
     }
 
     // ── Reset ──
     function resetFramesState() {
+        setPlayMode('stop');
         Object.assign(state, {
             currentFolder: null,
             urls: [],
@@ -636,7 +682,51 @@ const FramesApp = (() => {
 
     // ── Setup Listeners ──
     function setupListeners() {
-        els.playBtn?.addEventListener('click', () => (state.isPlaying ? stopPlay() : startPlay()));
+        const togglePlayMenu = () => {
+            if (els.playBtn?.disabled) return;
+            els.playBtn?.classList.toggle('open');
+            els.playMenu?.classList.toggle('open');
+        };
+
+        els.playBtn?.addEventListener('click', e => {
+            e.stopPropagation();
+            if (e.target.closest('.play-caret')) {
+                togglePlayMenu();
+                return;
+            }
+            if (els.playMenu?.classList.contains('open')) {
+                els.playBtn?.classList.remove('open');
+                els.playMenu?.classList.remove('open');
+                return;
+            }
+            togglePlayMode();
+        });
+
+        els.playMenu?.querySelectorAll('.file-dropdown-item').forEach(item => {
+            item.addEventListener('click', e => {
+                e.stopPropagation();
+                const mode = item.dataset.mode;
+                if (mode) {
+                    setPlayMode(mode);
+                    els.playBtn?.classList.remove('open');
+                    els.playMenu?.classList.remove('open');
+                }
+            });
+        });
+
+        document.querySelectorAll('.sidebar-play-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const mode = btn.dataset.playMode;
+                if (mode) setPlayMode(mode);
+            });
+        });
+
+        document.addEventListener('click', e => {
+            if (!els.playWrap?.contains(e.target)) {
+                els.playBtn?.classList.remove('open');
+                els.playMenu?.classList.remove('open');
+            }
+        });
 
         // FPS dropdown
         const toggleFpsMenu = () => {
@@ -674,25 +764,35 @@ const FramesApp = (() => {
         });
 
         els.prevBtn?.addEventListener('click', () => {
-            stopPlay();
+            if (state.playMode === 'auto') return;
+            if (state.playMode === 'play') stopPlay();
             showFrame(state.idx - 1);
         });
 
         els.nextBtn?.addEventListener('click', () => {
-            stopPlay();
+            if (state.playMode === 'auto') return;
+            if (state.playMode === 'play') stopPlay();
             showFrame(state.idx + 1);
         });
 
-        els.slider?.addEventListener('mousedown', () => { if (state.isPlaying) stopPlay(); });
-        els.slider?.addEventListener('touchstart', () => { if (state.isPlaying) stopPlay(); });
+        els.slider?.addEventListener('mousedown', () => {
+            if (state.playMode === 'auto') return;
+            if (state.playMode === 'play') stopPlay();
+        });
+        els.slider?.addEventListener('touchstart', () => {
+            if (state.playMode === 'auto') return;
+            if (state.playMode === 'play') stopPlay();
+        });
         els.slider?.addEventListener('input', e => {
+            if (state.playMode === 'auto') return;
             state.idx = parseInt(e.target.value, 10);
             showFrame(state.idx);
         });
 
         els.sliderWrap?.addEventListener('pointerdown', e => {
             if (state.loading || !state.total || e.target === els.slider) return;
-            if (state.isPlaying) stopPlay();
+            if (state.playMode === 'auto') return;
+            if (state.playMode === 'play') stopPlay();
             const seek = clientX => {
                 const rect = els.sliderWrap.getBoundingClientRect();
                 const min = parseInt(els.slider.min || '0', 10);
@@ -713,15 +813,17 @@ const FramesApp = (() => {
         window.addEventListener('keydown', ev => {
             if (window.__getCurrentMode?.() !== 'frames' || state.loading || !state.total) return;
             if (ev.key === 'ArrowLeft') {
-                stopPlay();
+                if (state.playMode === 'auto') return;
+                if (state.playMode === 'play') stopPlay();
                 showFrame(state.idx - 1);
                 ev.preventDefault();
             } else if (ev.key === 'ArrowRight') {
-                stopPlay();
+                if (state.playMode === 'auto') return;
+                if (state.playMode === 'play') stopPlay();
                 showFrame(state.idx + 1);
                 ev.preventDefault();
             } else if (ev.key === ' ') {
-                state.isPlaying ? stopPlay() : startPlay();
+                togglePlayMode();
                 ev.preventDefault();
             } else if (ev.key === '0') {
                 resetView();
@@ -780,7 +882,8 @@ const FramesApp = (() => {
             const img = new Image();
             img.src = url;
 
-            if (wasAtLastFrame) {
+            // In FF AUTO mode: automatically play the new frames and ignore the frame selector position!
+            if (state.playMode === 'auto' || wasAtLastFrame) {
                 showFrame(state.total - 1);
             } else {
                 if (els.counter) els.counter.textContent = formatCounter(state.idx + 1, state.total);
@@ -842,6 +945,8 @@ const FramesApp = (() => {
         resetFramesState,
         downloadCurrentFrame,
         sizeDropdownToContent,
-        handleNewFrame
+        handleNewFrame,
+        setPlayMode,
+        togglePlayMode
     };
 })();

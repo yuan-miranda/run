@@ -437,11 +437,50 @@ header {
     display: block;
 }
 
-#fpsWrap .file-dropdown-menu {
+#fpsWrap .file-dropdown-menu,
+#playWrap .file-dropdown-menu {
     top: auto;
     bottom: calc(100% + 2px);
     border-top: 1px solid var(--border-heavy);
     border-bottom: none;
+}
+
+#playWrap {
+    position: relative;
+    display: inline-flex;
+}
+
+#playWrap .file-dropdown-menu {
+    min-width: 100%;
+    white-space: nowrap;
+}
+
+.play-caret {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 2px 0 6px;
+    font-size: 9px;
+    opacity: .7;
+    cursor: pointer;
+    transition: opacity .15s ease, transform .15s ease;
+}
+
+.play-caret:hover {
+    opacity: 1;
+}
+
+.btn.open .play-caret {
+    transform: rotate(180deg);
+}
+
+.slider-wrap.auto-locked {
+    opacity: .55;
+    cursor: not-allowed;
+}
+
+.slider-wrap.auto-locked input[type=range] {
+    cursor: not-allowed;
 }
 
 .dropdown-item,
@@ -1753,7 +1792,8 @@ body.view-action .sidebar-run-section {
 /* ── Shared sidebar button base ── */
 .sidebar-row-btn,
 .sidebar-theme-btn,
-.sidebar-fps-btn {
+.sidebar-fps-btn,
+.sidebar-play-btn {
     font-family: inherit;
     font-size: 13px;
     background: none;
@@ -1772,7 +1812,8 @@ body.view-action .sidebar-run-section {
 }
 
 .sidebar-theme-btn,
-.sidebar-fps-btn {
+.sidebar-fps-btn,
+.sidebar-play-btn {
     border: 1px solid var(--border);
     padding: 8px 14px;
     display: block;
@@ -1780,13 +1821,15 @@ body.view-action .sidebar-run-section {
 }
 
 .sidebar-theme-btn:last-child,
-.sidebar-fps-btn:last-child {
+.sidebar-fps-btn:last-child,
+.sidebar-play-btn:last-child {
     border-bottom: 1px solid var(--border);
 }
 
 .sidebar-row-btn:hover,
 .sidebar-theme-btn:hover,
-.sidebar-fps-btn:hover {
+.sidebar-fps-btn:hover,
+.sidebar-play-btn:hover {
     background: var(--border);
 }
 
@@ -1795,7 +1838,8 @@ body.view-action .sidebar-run-section {
 }
 
 .sidebar-theme-btn.active,
-.sidebar-fps-btn.active {
+.sidebar-fps-btn.active,
+.sidebar-play-btn.active {
     background: var(--text);
     color: var(--bg);
 }
