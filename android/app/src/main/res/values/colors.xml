@@ -1,0 +1,9 @@
+<resources>
+    <color name="bg_dark">#0e1117</color>
+    <color name="surface_dark">#161b22</color>
+    <color name="border_dark">#30363d</color>
+    <color name="text_white">#f0f6fc</color>
+    <color name="text_muted">#8b949e</color>
+    <color name="accent_green">#238636</color>
+    <color name="accent_red">#da3633</color>
+</resources>

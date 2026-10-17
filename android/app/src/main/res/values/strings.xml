@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Run Client</string>
+    <string name="server_url">Server: http://runx.ddns.net</string>
+    <string name="status_stopped">Status: Disconnected</string>
+    <string name="status_running">Status: Active (Connected to VPS)</string>
+    <string name="btn_start">START AGENT</string>
+    <string name="btn_stop">STOP AGENT</string>
+</resources>

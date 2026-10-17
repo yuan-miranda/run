@@ -42,6 +42,7 @@ const RunApp = (() => {
     const STATUS_ORDER = { green: 0, yellow: 1, red: 2 };
 
     const WIN_LOGO_HTML = `<i class="bi bi-windows os-logo" aria-hidden="true"></i>`;
+    const ANDROID_LOGO_HTML = `<i class="bi bi-android2 os-logo" aria-hidden="true"></i>`;
 
     const ACTION_MODE_LABELS = {
         cmd: 'Commandline',
@@ -60,7 +61,7 @@ const RunApp = (() => {
             return window.RunUtils.parseUsername(username);
         }
         const text = String(username || '').trim();
-        const match = text.match(/^(.*?)-([^-]+)-(W|WIN)$/i);
+        const match = text.match(/^(.*?)-([^-]+)-(W|WIN|A|AND|ANDROID|L|LINUX)$/i);
         if (!match) return { baseName: text, id: '', os: 'W' };
         return { baseName: match[1], id: match[2], os: match[3].toUpperCase() };
     }
@@ -299,6 +300,9 @@ const RunApp = (() => {
         const disabledAttrs = 'disabled aria-disabled="true"';
         const displayUsername = getDisplayUsername(user.username);
         const versionAttr = user.version ? ` title="${user.version}"` : '';
+        const parsed = parseModernUsername(user.username);
+        const isAndroid = parsed.os === 'A' || parsed.os === 'AND' || parsed.os === 'ANDROID';
+        const osLogo = isAndroid ? ANDROID_LOGO_HTML : WIN_LOGO_HTML;
 
         return `
             <div class="card-header">
@@ -306,7 +310,7 @@ const RunApp = (() => {
                     <span class="card-username ${alive ? '' : 'offline'}"${versionAttr}>${displayUsername}</span>
                     <div class="card-ts">${tsText}</div>
                 </div>
-                ${WIN_LOGO_HTML}
+                ${osLogo}
             </div>
             <div class="card-actions">
                 <button class="card-btn primary ${alive && canInteract ? '' : 'disabled'}" data-action="ps" ${alive && canInteract ? '' : disabledAttrs}>
