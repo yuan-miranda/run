@@ -90,10 +90,9 @@
                 <div class="sidebar-file-name" id="sidebar-file-name">no file</div>
                 <button class="sidebar-row-btn" id="sidebar-download-btn">download frame</button>
                 <div class="sidebar-section-label">playback</div>
-                <div class="sidebar-fps-list" id="sidebar-play-list">
-                    <button class="sidebar-play-btn active" data-play-mode="stop">STOP</button>
-                    <button class="sidebar-play-btn" data-play-mode="play">PLAY</button>
-                    <button class="sidebar-play-btn" data-play-mode="auto">AUTO</button>
+                <div class="sidebar-fps-list">
+                    <button class="sidebar-fps-btn" id="sidebar-play-btn">FF play</button>
+                    <button class="sidebar-fps-btn" id="sidebar-auto-btn">AUTO</button>
                 </div>
                 <div class="sidebar-section-label">fps</div>
                 <div class="sidebar-fps-list" id="sidebar-fps-list">
@@ -160,14 +159,8 @@
                     <div class="file-dropdown-item" data-fps="30">30</div>
                 </div>
             </div>
-            <div class="file-dropdown-wrap" id="playWrap">
-                <button class="btn" id="playBtn" type="button"><span id="playLabel">FF STOP</span> <span class="play-caret" title="Select mode">▾</span></button>
-                <div class="file-dropdown-menu" id="playMenu">
-                    <div class="file-dropdown-item active" data-mode="stop">FF STOP</div>
-                    <div class="file-dropdown-item" data-mode="play">FF PLAY</div>
-                    <div class="file-dropdown-item" data-mode="auto">FF AUTO</div>
-                </div>
-            </div>
+            <button class="btn" id="playBtn">FF play</button>
+            <button class="btn" id="autoBtn">AUTO</button>
             <div class="counter" id="counter">— / —</div>
         </div>
     </div>

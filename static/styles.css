@@ -437,41 +437,11 @@ header {
     display: block;
 }
 
-#fpsWrap .file-dropdown-menu,
-#playWrap .file-dropdown-menu {
+#fpsWrap .file-dropdown-menu {
     top: auto;
     bottom: calc(100% + 2px);
     border-top: 1px solid var(--border-heavy);
     border-bottom: none;
-}
-
-#playWrap {
-    position: relative;
-    display: inline-flex;
-}
-
-#playWrap .file-dropdown-menu {
-    min-width: 100%;
-    white-space: nowrap;
-}
-
-.play-caret {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 2px 0 6px;
-    font-size: 9px;
-    opacity: .7;
-    cursor: pointer;
-    transition: opacity .15s ease, transform .15s ease;
-}
-
-.play-caret:hover {
-    opacity: 1;
-}
-
-.btn.open .play-caret {
-    transform: rotate(180deg);
 }
 
 .slider-wrap.auto-locked {
