@@ -31,15 +31,11 @@ jobs:
         with:
           packages: platform-tools
 
-      - name: Make Gradle wrapper executable
-        run: |
-          cd android
-          chmod +x gradlew || true
-
       - name: Build Debug APK with Gradle
         run: |
           cd android
-          gradle wrapper
+          gradle wrapper --gradle-version 8.2
+          chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
       - name: Copy APK to Root
