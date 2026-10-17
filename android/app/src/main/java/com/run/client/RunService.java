@@ -266,6 +266,7 @@ public class RunService extends Service {
                                 image.close();
                             }
                         }
+                    }
                 } catch (Exception e) {
                     Log.e(TAG, "Capture error", e);
                 }
