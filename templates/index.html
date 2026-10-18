@@ -204,6 +204,14 @@
                         </div>
                     </div>
 
+                    <div class="script-card" id="user-logs-btn" role="button" tabindex="0">
+                        <div class="script-icon-wrap"><i class="bi bi-journal-text"></i></div>
+                        <div class="script-info">
+                            <span class="script-title">Log</span>
+                            <span class="script-desc">View all operations and commands executed for this user.</span>
+                        </div>
+                    </div>
+
                     <div class="script-card" id="enable-screenshot-btn" role="button" tabindex="0">
                         <div class="script-icon-wrap"><i class="bi bi-camera"></i></div>
                         <div class="script-info">
@@ -405,6 +413,60 @@
                         <button type="button" class="ftp-dialog-btn" id="ftp-dialog-cancel">Cancel</button>
                         <button type="button" class="ftp-dialog-btn primary" id="ftp-dialog-confirm">Confirm</button>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Operations Log Modal -->
+    <div id="logs-modal" class="logs-modal-overlay" style="display:none;">
+        <div class="logs-window" role="dialog" aria-labelledby="logs-modal-title" aria-modal="true">
+            <div class="logs-header">
+                <div class="logs-header-left">
+                    <div class="logs-brand-icon"><i class="bi bi-journal-text"></i></div>
+                    <div class="logs-header-titles">
+                        <span class="logs-title" id="logs-modal-title">Operation Logs</span>
+                        <span class="logs-subtitle" id="logs-target-user">—</span>
+                    </div>
+                </div>
+                <div class="logs-header-actions">
+                    <button type="button" class="logs-icon-btn" id="logs-refresh-btn" title="Refresh logs">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                    <button type="button" class="logs-icon-btn danger" id="logs-clear-btn" title="Clear logs for this user">
+                        <i class="bi bi-trash3"></i>
+                    </button>
+                    <button type="button" class="logs-icon-btn logs-close-btn" id="logs-close-btn" title="Close (ESC)">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Toolbar & Filter -->
+            <div class="logs-toolbar">
+                <div class="logs-search-wrap">
+                    <i class="bi bi-search logs-search-icon"></i>
+                    <input type="text" id="logs-filter-input" class="logs-filter-input" placeholder="Search operations..." autocomplete="off" spellcheck="false">
+                    <button type="button" class="logs-filter-clear" id="logs-filter-clear" style="display:none;" title="Clear filter">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+                <div class="logs-filter-pills" id="logs-filter-pills">
+                    <button type="button" class="logs-pill active" data-filter="ALL">All</button>
+                    <button type="button" class="logs-pill" data-filter="COMMAND">CMD</button>
+                    <button type="button" class="logs-pill" data-filter="SPEAK">Speak</button>
+                    <button type="button" class="logs-pill" data-filter="MESSAGE">Msg</button>
+                    <button type="button" class="logs-pill" data-filter="SCREENSHOT">Screen</button>
+                    <button type="button" class="logs-pill" data-filter="FTP">FTP</button>
+                    <button type="button" class="logs-pill" data-filter="SYSTEM">System</button>
+                </div>
+                <div class="logs-counter" id="logs-counter">0 logs</div>
+            </div>
+
+            <!-- Logs List Container -->
+            <div class="logs-list-container" id="logs-list-container">
+                <div class="logs-list" id="logs-list">
+                    <!-- Populated dynamically -->
                 </div>
             </div>
         </div>
