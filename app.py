@@ -290,6 +290,12 @@ def handle_upload_frame(data):
             "new_frame", {"username": username, "filename": filename}, room="dashboard"
         )
 
+        # Notify any pending single-screenshot requests for this user
+        for req_id, entry in list(pending_screenshot_requests.items()):
+            if entry.get("username") == username and not entry["event"].is_set():
+                entry["result"] = {"success": True, "filename": filename}
+                entry["event"].set()
+
         # Periodically prune old frames asynchronously (every 50 frames)
         count = upload_counters.get(username, 0) + 1
         upload_counters[username] = count
@@ -301,6 +307,22 @@ def handle_upload_frame(data):
             ).start()
     except Exception as e:
         print(f"[Upload Frame Error] {e}")
+
+
+# ── Single Screenshot WebSocket Handlers ──
+
+pending_screenshot_requests = {}
+
+
+@socketio.on("capture_screenshot_res")
+def handle_screenshot_res(data):
+    if not isinstance(data, dict):
+        return
+    req_id = data.get("req_id")
+    entry = pending_screenshot_requests.get(req_id)
+    if entry:
+        entry["result"] = data
+        entry["event"].set()
 
 
 # ── FTP / File Browser WebSocket Handlers ──
@@ -435,6 +457,51 @@ def set_capture():
         f"Continuous screenshot stream toggled {'ON' if capture else 'OFF'}",
     )
     return jsonify({"status": "success"})
+
+
+@app.post("/api/screenshot/take")
+@require_password
+def take_screenshot():
+    data = request.get_json(silent=True) or {}
+    username = data.get("username")
+
+    if not username or not is_safe_name(username):
+        return jsonify({"status": "error", "message": "Missing or invalid username"}), 400
+
+    if username not in active_clients.values():
+        return jsonify({"status": "error", "message": "Client is currently offline"}), 404
+
+    req_id = str(uuid.uuid4())
+    event = threading.Event()
+    pending_screenshot_requests[req_id] = {
+        "event": event,
+        "username": username,
+        "result": None,
+    }
+
+    socketio.emit("take_screenshot", {"req_id": req_id}, room=username)
+
+    finished = event.wait(timeout=10)
+    entry = pending_screenshot_requests.pop(req_id, None)
+
+    if not finished or not entry or not entry.get("result"):
+        return jsonify({"status": "error", "message": "Screenshot capture timed out"}), 504
+
+    res = entry["result"]
+    if res.get("error"):
+        return jsonify({"status": "error", "message": res["error"]}), 500
+
+    filename = res.get("filename")
+    log_operation(username, "SCREENSHOT", f"Single screenshot captured ({filename})")
+
+    return jsonify(
+        {
+            "status": "success",
+            "filename": filename,
+            "url": f"/frames/{username}/{filename}",
+            "username": username,
+        }
+    )
 
 
 def _upsert_client_visibility(username: str, visible: int):

