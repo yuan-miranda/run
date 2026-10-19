@@ -46,9 +46,9 @@
 
     if (brandMode) brandMode.textContent = 'RUN';
 
-    brandToggle?.addEventListener('click', () => {
-        currentMode = currentMode === 'frames' ? 'run' : 'frames';
-        // Animate label: fade up, swap text, fade back
+    function switchMode(targetMode) {
+        if (targetMode === currentMode) return;
+        currentMode = targetMode;
         if (brandMode) {
             brandMode.classList.add('brand-mode-fade');
             setTimeout(() => {
@@ -69,12 +69,17 @@
         } else {
             body.classList.remove('is-loading');
         }
+    }
+
+    brandToggle?.addEventListener('click', () => {
+        switchMode(currentMode === 'frames' ? 'run' : 'frames');
     });
 
     window.__setFramesLoading = on => {
         if (currentMode === 'frames') body.classList.toggle('is-loading', on);
     };
     window.__getCurrentMode = () => currentMode;
+    window.__switchMode = switchMode;
 
     window.addEventListener('keydown', e => {
         const tag = document.activeElement?.tagName;

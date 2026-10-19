@@ -393,7 +393,7 @@ const FramesApp = (() => {
     }
 
     // ── Folder loading ──
-    async function loadFolder(folder) {
+    async function loadFolder(folder, targetFilename = null) {
         stopPlay();
         setLoading(true);
         syncControlStates();
@@ -463,8 +463,14 @@ const FramesApp = (() => {
             if (els.controlsRow) els.controlsRow.style.display = 'flex';
 
             const saved = readSavedState();
-            const savedIdx = saved.frames?.[folder];
-            const startIndex = savedIdx != null ? Math.min(Math.max(savedIdx, 0), state.total - 1) : state.total - 1;
+            let startIndex;
+            if (targetFilename) {
+                const foundIdx = images.findIndex(img => img.name === targetFilename);
+                startIndex = foundIdx >= 0 ? foundIdx : state.total - 1;
+            } else {
+                const savedIdx = saved.frames?.[folder];
+                startIndex = savedIdx != null ? Math.min(Math.max(savedIdx, 0), state.total - 1) : state.total - 1;
+            }
             state.restoreView = saved.views?.[folder] || null;
             showFrame(startIndex);
         } catch (err) {

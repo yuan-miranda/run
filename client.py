@@ -216,7 +216,18 @@ def on_set_capture(data):
 
 @sio.on("take_screenshot")
 def on_take_screenshot(data=None):
+    global capture_active
     req_id = data.get("req_id") if isinstance(data, dict) else None
+    if capture_active:
+        if req_id and sio.connected:
+            sio.emit(
+                "capture_screenshot_res",
+                {
+                    "req_id": req_id,
+                    "error": "Cannot capture screenshot while Screenshot Stream is active.",
+                },
+            )
+        return
     threading.Thread(target=take_and_upload_screenshot, args=(req_id,), daemon=True).start()
 
 

@@ -471,6 +471,21 @@ def take_screenshot():
     if username not in active_clients.values():
         return jsonify({"status": "error", "message": "Client is currently offline"}), 404
 
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT capture FROM clients WHERE username = ?", (username,)
+        ).fetchone()
+        if row and row["capture"]:
+            return (
+                jsonify(
+                    {
+                        "status": "error",
+                        "message": "Cannot capture screenshot while Screenshot Stream is active.",
+                    }
+                ),
+                400,
+            )
+
     req_id = str(uuid.uuid4())
     event = threading.Event()
     pending_screenshot_requests[req_id] = {

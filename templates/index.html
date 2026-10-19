@@ -480,49 +480,6 @@
         </div>
     </div>
 
-    <!-- Screenshot Preview Modal -->
-    <div id="screenshot-modal" class="screenshot-modal-overlay" style="display:none;">
-        <div class="screenshot-window" role="dialog" aria-labelledby="screenshot-modal-title" aria-modal="true">
-            <div class="screenshot-header">
-                <div class="screenshot-header-left">
-                    <div class="screenshot-brand-icon"><i class="bi bi-camera"></i></div>
-                    <div class="screenshot-header-titles">
-                        <span class="screenshot-title" id="screenshot-modal-title">Screenshot Capture</span>
-                        <span class="screenshot-subtitle" id="screenshot-target-user">—</span>
-                    </div>
-                </div>
-                <div class="screenshot-header-actions">
-                    <button type="button" class="screenshot-action-btn" id="screenshot-retake-btn" title="Capture fresh screenshot (R)">
-                        <i class="bi bi-arrow-clockwise"></i> <span>Retake</span>
-                    </button>
-                    <button type="button" class="screenshot-action-btn" id="screenshot-open-frames-btn" title="Open in Frames viewer">
-                        <i class="bi bi-collection-play"></i> <span>Open in Frames</span>
-                    </button>
-                    <button type="button" class="screenshot-action-btn" id="screenshot-download-btn" title="Download image">
-                        <i class="bi bi-download"></i> <span>Download</span>
-                    </button>
-                    <button type="button" class="screenshot-icon-btn screenshot-close-btn" id="screenshot-close-btn" title="Close (ESC)">
-                        <i class="bi bi-x-lg"></i>
-                    </button>
-                </div>
-            </div>
-
-            <div class="screenshot-body" id="screenshot-body">
-                <div class="screenshot-loading" id="screenshot-loading" style="display:none;">
-                    <div class="screenshot-spinner"></div>
-                    <span id="screenshot-loading-text">Capturing screen frame...</span>
-                </div>
-                <div class="screenshot-img-wrap" id="screenshot-img-wrap" style="display:none;">
-                    <img id="screenshot-preview-img" src="" alt="Screenshot">
-                </div>
-                <div class="screenshot-meta-bar" id="screenshot-meta-bar" style="display:none;">
-                    <span class="screenshot-meta-filename" id="screenshot-filename-label">—</span>
-                    <span class="screenshot-meta-time" id="screenshot-time-label">—</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="{{ url_for('static', filename='modeSwitcher.js') }}"></script>
     <script src="{{ url_for('static', filename='framesApp.js') }}"></script>
