@@ -3242,9 +3242,12 @@ body.view-action .sidebar-run-section {
     border: 1px solid var(--run-border-quiet, #1f1f1f);
     border-radius: 4px;
     padding: 10px 14px;
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
+    display: grid;
+    grid-template-columns: 140px auto 1fr auto;
+    grid-template-areas: "time tag content actions";
+    align-items: start;
+    column-gap: 12px;
+    row-gap: 6px;
     transition: border-color 0.15s, background 0.15s;
 }
 
@@ -3254,6 +3257,7 @@ body.view-action .sidebar-run-section {
 }
 
 .log-time {
+    grid-area: time;
     font-family: 'JetBrains Mono', 'Consolas', monospace;
     font-size: 11px;
     color: var(--run-text-soft, #777);
@@ -3262,6 +3266,7 @@ body.view-action .sidebar-run-section {
 }
 
 .log-type-tag {
+    grid-area: tag;
     font-family: 'Space Grotesk', -apple-system, sans-serif;
     font-size: 10px;
     font-weight: 700;
@@ -3328,7 +3333,7 @@ body.view-action .sidebar-run-section {
 }
 
 .log-content {
-    flex: 1;
+    grid-area: content;
     min-width: 0;
     display: flex;
     flex-direction: column;
@@ -3339,7 +3344,8 @@ body.view-action .sidebar-run-section {
     font-family: 'JetBrains Mono', 'Consolas', monospace;
     font-size: 12px;
     color: var(--run-text, #eee);
-    word-break: break-all;
+    word-break: break-word;
+    overflow-wrap: anywhere;
     white-space: pre-wrap;
     line-height: 1.45;
 }
@@ -3352,10 +3358,11 @@ body.view-action .sidebar-run-section {
 }
 
 .log-actions {
+    grid-area: actions;
     display: flex;
     align-items: center;
     gap: 4px;
-    margin-left: auto;
+    justify-self: end;
     flex-shrink: 0;
 }
 
@@ -3378,6 +3385,122 @@ body.view-action .sidebar-run-section {
     background: var(--run-hover, #222);
     border-color: var(--run-border-quiet, #333);
     color: var(--run-text, #fff);
+}
+
+/* ── Mobile Responsive Operations Logs ── */
+@media (max-width: 768px) {
+    .logs-modal-overlay {
+        padding: 8px 6px;
+    }
+
+    .logs-window {
+        width: 100%;
+        height: 94vh;
+        max-height: 96vh;
+        border-radius: 6px;
+    }
+
+    .logs-header {
+        padding: 10px 14px;
+    }
+
+    .logs-title {
+        font-size: 12px;
+    }
+
+    .logs-toolbar {
+        padding: 8px 12px;
+        gap: 8px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        grid-template-areas:
+            "search search"
+            "pills counter";
+        align-items: center;
+    }
+
+    .logs-search-wrap {
+        grid-area: search;
+        min-width: 100%;
+        max-width: 100%;
+    }
+
+    .logs-filter-pills {
+        grid-area: pills;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        overflow-x: auto;
+        white-space: nowrap;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        min-width: 0;
+        padding-bottom: 2px;
+    }
+
+    .logs-filter-pills::-webkit-scrollbar {
+        display: none;
+    }
+
+    .logs-pill {
+        flex-shrink: 0;
+        padding: 4px 9px;
+        font-size: 11px;
+    }
+
+    .logs-counter {
+        grid-area: counter;
+        margin-left: 8px;
+        font-size: 10.5px;
+        white-space: nowrap;
+    }
+
+    .logs-list-container {
+        padding: 8px 10px;
+    }
+
+    .log-entry {
+        padding: 10px 12px;
+        grid-template-columns: auto 1fr auto;
+        grid-template-areas:
+            "tag time actions"
+            "content content content";
+        column-gap: 8px;
+        row-gap: 7px;
+        align-items: center;
+    }
+
+    .log-time {
+        font-size: 10.5px;
+        padding-top: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .log-type-tag {
+        font-size: 9.5px;
+        padding: 2px 6px;
+    }
+
+    .log-content {
+        width: 100%;
+        padding-top: 2px;
+    }
+
+    .log-detail-text {
+        font-size: 11.5px;
+        line-height: 1.4;
+    }
+
+    .log-actions {
+        align-self: center;
+    }
+
+    .log-copy-btn {
+        width: 28px;
+        height: 28px;
+    }
 }
 
 .logs-empty-state {
