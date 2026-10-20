@@ -336,6 +336,17 @@ def _max_out_speaker():
         print(f"[Audio] Error setting master volume: {e}")
 
 
+def _get_short_path(long_path: str) -> str:
+    """Convert long path with spaces/special characters to 8.3 short path for WinMM MCI."""
+    try:
+        buf = ctypes.create_unicode_buffer(1024)
+        if kernel32.GetShortPathNameW(long_path, buf, 1024) > 0:
+            return buf.value
+    except Exception:
+        pass
+    return long_path
+
+
 def _play_audio_clip(audio_b64: str, filename: str = "", title: str = ""):
     temp_path = None
     try:
@@ -354,45 +365,59 @@ def _play_audio_clip(audio_b64: str, filename: str = "", title: str = ""):
         # 1. Max out master speaker volume immediately
         _max_out_speaker()
 
-        # 2. PowerShell script to un-mute, set volume to 100 via SendKeys and play with WMPlayer.OCX
-        escaped_path = temp_path.replace("'", "''")
-        ps_script = f"""
+        # 2. Try native WinMM MCI (plays MP3/WAV instantly in-process at full volume)
+        played = False
+        try:
+            winmm = ctypes.windll.winmm
+            short_p = _get_short_path(temp_path)
+            alias = f"run_snd_{int(time.time() * 1000)}"
+            winmm.mciSendStringW(f'close "{alias}"', None, 0, None)
+
+            # Try type mpegvideo (standard for MP3) first
+            err = winmm.mciSendStringW(f'open "{short_p}" type mpegvideo alias "{alias}"', None, 0, None)
+            if err != 0:
+                # Fallback to auto-detection (for WAV, etc.)
+                err = winmm.mciSendStringW(f'open "{short_p}" alias "{alias}"', None, 0, None)
+
+            if err == 0:
+                winmm.mciSendStringW(f'setaudio "{alias}" volume to 1000', None, 0, None)
+                err_play = winmm.mciSendStringW(f'play "{alias}" wait', None, 0, None)
+                winmm.mciSendStringW(f'close "{alias}"', None, 0, None)
+                if err_play == 0:
+                    played = True
+        except Exception as e:
+            print(f"[Audio] MCI error: {e}")
+
+        # 3. If MCI did not succeed, fallback to PowerShell PresentationCore MediaPlayer
+        if not played:
+            escaped_path = temp_path.replace("'", "''")
+            ps_script = f"""
 $wscript = New-Object -ComObject WScript.Shell
 for ($i = 0; $i -lt 50; $i++) {{ $wscript.SendKeys([char]175) }}
 
-try {{
-    $wmp = New-Object -ComObject WMPlayer.OCX
-    $wmp.settings.volume = 100
-    $wmp.URL = '{escaped_path}'
-    $wmp.controls.play()
-    Start-Sleep -Milliseconds 600
-    $start = Get-Date
-    while ($wmp.playState -eq 3 -or $wmp.playState -eq 9 -or $wmp.playState -eq 10) {{
-        if ((Get-Date) - $start -gt [TimeSpan]::FromMinutes(10)) {{ break }}
-        Start-Sleep -Milliseconds 250
-    }}
-    $wmp.close()
-}} catch {{
-    Add-Type -AssemblyName presentationCore
-    $mp = New-Object System.Windows.Media.MediaPlayer
-    $mp.Open([System.Uri]'{escaped_path}')
-    $mp.Volume = 1.0
-    $mp.Play()
-    Start-Sleep -Milliseconds 800
-    $totalSec = if ($mp.NaturalDuration.HasTimeSpan) {{ [int]$mp.NaturalDuration.TimeSpan.TotalSeconds + 1 }} else {{ 15 }}
-    Start-Sleep -Seconds $totalSec
-    $mp.Close()
+Add-Type -AssemblyName PresentationCore
+$player = New-Object System.Windows.Media.MediaPlayer
+$player.Open([System.Uri]'{escaped_path}')
+$player.Volume = 1.0
+$player.Play()
+Start-Sleep -Milliseconds 600
+$dur = 12
+if ($player.NaturalDuration.HasTimeSpan) {{
+    $dur = [Math]::Ceiling($player.NaturalDuration.TimeSpan.TotalSeconds) + 1
 }}
+Start-Sleep -Seconds $dur
+$player.Close()
 """
-        cmd = [
-            "powershell.exe",
-            "-NoProfile",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-Command",
-            ps_script,
-        ]
-        subprocess.run(cmd, creationflags=subprocess.CREATE_NO_WINDOW)
+            cmd = [
+                "powershell.exe",
+                "-NoProfile",
+                "-Sta",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                ps_script,
+            ]
+            subprocess.run(cmd, creationflags=subprocess.CREATE_NO_WINDOW)
     except Exception as e:
         print(f"[Audio] Error playing audio: {e}")
     finally:
