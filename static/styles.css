@@ -1549,6 +1549,72 @@ body:not(.kb-mode) .collapsible-summary:hover {
     border-color: var(--run-text, #fff);
 }
 
+/* ── Audio Mode Upload Section ── */
+.audio-upload-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 15px;
+    width: 100%;
+}
+
+.audio-card .audio-preview-btn {
+    margin-left: auto;
+    margin-right: 6px;
+    background: var(--run-elevated, rgba(255, 255, 255, 0.08));
+    border: 1px solid var(--run-border-strong, rgba(255, 255, 255, 0.15));
+    color: var(--run-text, #fff);
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+}
+
+.audio-card .audio-preview-btn:hover {
+    background: rgba(56, 189, 248, 0.2);
+    border-color: #38bdf8;
+    color: #38bdf8;
+    transform: scale(1.08);
+}
+
+.audio-card .audio-preview-btn.playing {
+    background: rgba(245, 158, 11, 0.25);
+    border-color: #fbbf24;
+    color: #fbbf24;
+    animation: audio-pulse 1.2s infinite alternate;
+}
+
+@keyframes audio-pulse {
+    from {
+        box-shadow: 0 0 4px rgba(245, 158, 11, 0.3);
+    }
+    to {
+        box-shadow: 0 0 12px rgba(245, 158, 11, 0.7);
+    }
+}
+
+.audio-volume-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.28);
+    border-radius: 4px;
+    font-size: 12px;
+    color: #fbbf24;
+    font-weight: 500;
+}
+
+.audio-volume-badge i {
+    font-size: 15px;
+    flex-shrink: 0;
+}
+
 /* ── View switching ── */
 body.view-frames #view-frames {
     display: flex;
@@ -3371,6 +3437,12 @@ body.view-action .sidebar-run-section {
     background: rgba(244, 63, 94, 0.15);
     color: #fb7185;
     border: 1px solid rgba(244, 63, 94, 0.35);
+}
+
+.log-type-AUDIO {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.35);
 }
 
 .log-type-SCREENSHOT {

@@ -61,6 +61,7 @@
                     <div class="file-dropdown-item" data-mode="speak">Speak</div>
                     <div class="file-dropdown-item" data-mode="popup_msg">Message</div>
                     <div class="file-dropdown-item" data-mode="imager">Imager</div>
+                    <div class="file-dropdown-item" data-mode="audio">Audio</div>
                     <div class="file-dropdown-item" data-mode="scripts">Scripts</div>
                 </div>
             </div>
@@ -113,6 +114,7 @@
                     <button class="sidebar-theme-btn" data-mode="speak">Speak</button>
                     <button class="sidebar-theme-btn" data-mode="popup_msg">Message</button>
                     <button class="sidebar-theme-btn" data-mode="imager">Imager</button>
+                    <button class="sidebar-theme-btn" data-mode="audio">Audio</button>
                     <button class="sidebar-theme-btn" data-mode="scripts">Scripts</button>
                 </div>
             </div>
@@ -207,6 +209,34 @@
 
                     <div class="imager-caption-wrap">
                         <input type="text" id="imager-caption-input" class="imager-caption-input" placeholder="Optional caption or title..." autocomplete="off">
+                    </div>
+                </div>
+                <div id="audio-section" class="audio-upload-section imager-upload-section" style="display:none;">
+                    <input type="file" id="audio-file-input" accept="audio/mp3,audio/*,.mp3,.wav,.ogg,.m4a" style="display:none;">
+
+                    <div class="script-card audio-card imager-card" id="audio-card" role="button" tabindex="0">
+                        <div class="script-icon-wrap" id="audio-card-icon">
+                            <i class="bi bi-music-note-beamed"></i>
+                        </div>
+                        <div class="script-info">
+                            <span class="script-title" id="audio-card-title">Upload MP3 Audio</span>
+                            <span class="script-desc" id="audio-card-desc">Click or drag &amp; drop MP3 file (blasts speaker at max volume)</span>
+                        </div>
+                        <button type="button" class="audio-preview-btn" id="audio-preview-btn" style="display:none;" title="Preview audio">
+                            <i class="bi bi-play-fill" id="audio-preview-icon"></i>
+                        </button>
+                        <button type="button" class="imager-remove-btn" id="audio-remove-btn" style="display:none;" title="Remove audio">
+                            <i class="bi bi-trash3"></i>
+                        </button>
+                    </div>
+
+                    <div class="audio-volume-badge">
+                        <i class="bi bi-volume-up-fill"></i>
+                        <span>Speaker volume will be unmuted and boosted to 100% max upon dispatch</span>
+                    </div>
+
+                    <div class="audio-caption-wrap imager-caption-wrap">
+                        <input type="text" id="audio-caption-input" class="imager-caption-input" placeholder="Optional title or note..." autocomplete="off">
                     </div>
                 </div>
                 <div id="placeholder-body" class="action-placeholder-body" style="display:none;">
@@ -487,6 +517,7 @@
                     <button type="button" class="logs-pill" data-filter="SPEAK">Speak</button>
                     <button type="button" class="logs-pill" data-filter="MESSAGE">Msg</button>
                     <button type="button" class="logs-pill" data-filter="IMAGER">Imager</button>
+                    <button type="button" class="logs-pill" data-filter="AUDIO">Audio</button>
                     <button type="button" class="logs-pill" data-filter="SCREENSHOT">Screen</button>
                     <button type="button" class="logs-pill" data-filter="FTP">FTP</button>
                     <button type="button" class="logs-pill" data-filter="SYSTEM">System</button>

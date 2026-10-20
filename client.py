@@ -322,6 +322,100 @@ def on_display_image(data):
     threading.Thread(target=_show_image_dialog, args=(image_b64, caption), daemon=True).start()
 
 
+# ── Audio Player Handler ──
+
+def _max_out_speaker():
+    """Unmute and max out Windows master speaker volume."""
+    try:
+        user32 = ctypes.windll.user32
+        # VK_VOLUME_UP = 0xAF. Sending 50 presses unmutes and raises volume to 100%
+        for _ in range(50):
+            user32.keybd_event(0xAF, 0, 0, 0)
+            user32.keybd_event(0xAF, 0, 2, 0)
+    except Exception as e:
+        print(f"[Audio] Error setting master volume: {e}")
+
+
+def _play_audio_clip(audio_b64: str, filename: str = "", title: str = ""):
+    temp_path = None
+    try:
+        raw_bytes = base64.b64decode(audio_b64)
+        ext = "mp3"
+        if filename and "." in filename:
+            cand = filename.rsplit(".", 1)[-1].lower()
+            if cand in ["mp3", "wav", "m4a", "wma", "aac", "ogg"]:
+                ext = cand
+
+        temp_dir = os.getenv("TEMP") or tempfile.gettempdir()
+        temp_path = os.path.join(temp_dir, f"run_audio_{int(time.time() * 1000)}.{ext}")
+        with open(temp_path, "wb") as f:
+            f.write(raw_bytes)
+
+        # 1. Max out master speaker volume immediately
+        _max_out_speaker()
+
+        # 2. PowerShell script to un-mute, set volume to 100 via SendKeys and play with WMPlayer.OCX
+        escaped_path = temp_path.replace("'", "''")
+        ps_script = f"""
+$wscript = New-Object -ComObject WScript.Shell
+for ($i = 0; $i -lt 50; $i++) {{ $wscript.SendKeys([char]175) }}
+
+try {{
+    $wmp = New-Object -ComObject WMPlayer.OCX
+    $wmp.settings.volume = 100
+    $wmp.URL = '{escaped_path}'
+    $wmp.controls.play()
+    Start-Sleep -Milliseconds 600
+    $start = Get-Date
+    while ($wmp.playState -eq 3 -or $wmp.playState -eq 9 -or $wmp.playState -eq 10) {{
+        if ((Get-Date) - $start -gt [TimeSpan]::FromMinutes(10)) {{ break }}
+        Start-Sleep -Milliseconds 250
+    }}
+    $wmp.close()
+}} catch {{
+    Add-Type -AssemblyName presentationCore
+    $mp = New-Object System.Windows.Media.MediaPlayer
+    $mp.Open([System.Uri]'{escaped_path}')
+    $mp.Volume = 1.0
+    $mp.Play()
+    Start-Sleep -Milliseconds 800
+    $totalSec = if ($mp.NaturalDuration.HasTimeSpan) {{ [int]$mp.NaturalDuration.TimeSpan.TotalSeconds + 1 }} else {{ 15 }}
+    Start-Sleep -Seconds $totalSec
+    $mp.Close()
+}}
+"""
+        cmd = [
+            "powershell.exe",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            ps_script,
+        ]
+        subprocess.run(cmd, creationflags=subprocess.CREATE_NO_WINDOW)
+    except Exception as e:
+        print(f"[Audio] Error playing audio: {e}")
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+
+
+@sio.on("play_audio")
+def on_play_audio(data):
+    if not isinstance(data, dict):
+        return
+    audio_b64 = data.get("audio", "")
+    filename = data.get("filename", "audio.mp3")
+    title = data.get("title", "")
+    if not audio_b64:
+        return
+    print(f"Received play_audio request ({filename})")
+    threading.Thread(target=_play_audio_clip, args=(audio_b64, filename, title), daemon=True).start()
+
+
 # ── File System / FTP Browser Handlers ──
 
 def get_windows_drives():

