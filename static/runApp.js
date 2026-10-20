@@ -656,24 +656,23 @@ const RunApp = (() => {
         imagerState.fileSizeText = '';
         imagerState.dimensionsText = '';
 
-        const dropzone = $('imager-dropzone');
-        const emptyView = $('imager-empty-view');
-        const previewWrap = $('imager-preview-wrap');
-        const previewImg = $('imager-preview-img');
         const fileInput = $('imager-file-input');
-        const metaSpan = $('imager-file-meta');
+        const card = $('imager-card');
+        const iconWrap = $('imager-card-icon');
+        const titleSpan = $('imager-card-title');
+        const descSpan = $('imager-card-desc');
+        const removeBtn = $('imager-remove-btn');
         const captionInput = $('imager-caption-input');
 
         if (fileInput) fileInput.value = '';
-        if (previewImg) previewImg.src = '';
-        if (metaSpan) {
-            metaSpan.textContent = '';
-            metaSpan.title = '';
-        }
         if (captionInput) captionInput.value = '';
-        if (previewWrap) previewWrap.style.display = 'none';
-        if (emptyView) emptyView.style.display = 'flex';
-        if (dropzone) dropzone.classList.remove('dragover');
+        if (card) {
+            card.classList.remove('has-file', 'dragover');
+        }
+        if (iconWrap) iconWrap.innerHTML = '<i class="bi bi-cloud-arrow-up"></i>';
+        if (titleSpan) titleSpan.textContent = 'Upload Image';
+        if (descSpan) descSpan.textContent = 'Click or drag & drop (PNG, JPG, GIF, WebP, or Ctrl+V)';
+        if (removeBtn) removeBtn.style.display = 'none';
     }
 
     function formatBytes(bytes) {
@@ -681,6 +680,25 @@ const RunApp = (() => {
         if (bytes < 1024) return bytes + ' B';
         if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
         return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function updateImagerCardUI(isGif) {
+        const card = $('imager-card');
+        const iconWrap = $('imager-card-icon');
+        const titleSpan = $('imager-card-title');
+        const descSpan = $('imager-card-desc');
+        const removeBtn = $('imager-remove-btn');
+
+        if (card) {
+            card.classList.add('has-file');
+            card.classList.remove('dragover');
+        }
+        if (iconWrap) {
+            iconWrap.innerHTML = isGif ? '<i class="bi bi-file-earmark-play"></i>' : '<i class="bi bi-file-earmark-image"></i>';
+        }
+        if (titleSpan) titleSpan.textContent = imagerState.fileName;
+        if (descSpan) descSpan.textContent = `${imagerState.fileSizeText} · ${imagerState.dimensionsText}`;
+        if (removeBtn) removeBtn.style.display = 'inline-flex';
     }
 
     function processImagerFile(file) {
@@ -709,18 +727,7 @@ const RunApp = (() => {
                     imagerState.fileSizeText = formatBytes(file.size || Math.round(b64.length * 0.75));
                     imagerState.dimensionsText = `${w}×${h} (GIF)`;
 
-                    const previewImg = $('imager-preview-img');
-                    const metaSpan = $('imager-file-meta');
-                    const emptyView = $('imager-empty-view');
-                    const previewWrap = $('imager-preview-wrap');
-
-                    if (previewImg) previewImg.src = rawDataUrl;
-                    if (metaSpan) {
-                        metaSpan.textContent = imagerState.fileName;
-                        metaSpan.title = `${imagerState.fileName} (${imagerState.dimensionsText}, ${imagerState.fileSizeText})`;
-                    }
-                    if (emptyView) emptyView.style.display = 'none';
-                    if (previewWrap) previewWrap.style.display = 'flex';
+                    updateImagerCardUI(true);
                 };
                 tempImg.src = rawDataUrl;
                 return;
@@ -764,18 +771,7 @@ const RunApp = (() => {
                 imagerState.fileSizeText = formatBytes(Math.round(b64.length * 0.75));
                 imagerState.dimensionsText = `${targetW}×${targetH}`;
 
-                const previewImg = $('imager-preview-img');
-                const metaSpan = $('imager-file-meta');
-                const emptyView = $('imager-empty-view');
-                const previewWrap = $('imager-preview-wrap');
-
-                if (previewImg) previewImg.src = dataUrl;
-                if (metaSpan) {
-                    metaSpan.textContent = imagerState.fileName;
-                    metaSpan.title = `${imagerState.fileName} (${imagerState.dimensionsText}, ${imagerState.fileSizeText})`;
-                }
-                if (emptyView) emptyView.style.display = 'none';
-                if (previewWrap) previewWrap.style.display = 'flex';
+                updateImagerCardUI(false);
             };
             tempImg.src = rawDataUrl;
         };
@@ -2855,20 +2851,21 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         if ($('popup-cancel')) $('popup-cancel').onclick = closePopup;
         if ($('popup-confirm')) $('popup-confirm').onclick = doSendPopup;
 
-        // Imager upload & dropzone listeners
-        const imagerDropzone = $('imager-dropzone');
+        // Imager upload & card listeners
+        const imagerCard = $('imager-card');
         const imagerFileInput = $('imager-file-input');
         const imagerRemoveBtn = $('imager-remove-btn');
         const imagerCaptionInput = $('imager-caption-input');
 
-        if (imagerDropzone && imagerFileInput) {
-            imagerDropzone.addEventListener('click', e => {
-                if (e.target.closest('#imager-remove-btn') || e.target.closest('.imager-top-bar')) return;
+        if (imagerCard && imagerFileInput) {
+            imagerCard.addEventListener('click', e => {
+                if (e.target.closest('#imager-remove-btn')) return;
                 imagerFileInput.click();
             });
 
-            imagerDropzone.addEventListener('keydown', e => {
+            imagerCard.addEventListener('keydown', e => {
                 if (e.key === 'Enter' || e.key === ' ') {
+                    if (e.target.closest('#imager-remove-btn')) return;
                     e.preventDefault();
                     imagerFileInput.click();
                 }
@@ -2880,23 +2877,23 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
                 }
             });
 
-            imagerDropzone.addEventListener('dragover', e => {
+            imagerCard.addEventListener('dragover', e => {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'copy';
-                imagerDropzone.classList.add('dragover');
+                imagerCard.classList.add('dragover');
             });
-            imagerDropzone.addEventListener('dragenter', e => {
+            imagerCard.addEventListener('dragenter', e => {
                 e.preventDefault();
-                imagerDropzone.classList.add('dragover');
+                imagerCard.classList.add('dragover');
             });
-            imagerDropzone.addEventListener('dragleave', e => {
-                if (!imagerDropzone.contains(e.relatedTarget)) {
-                    imagerDropzone.classList.remove('dragover');
+            imagerCard.addEventListener('dragleave', e => {
+                if (!imagerCard.contains(e.relatedTarget)) {
+                    imagerCard.classList.remove('dragover');
                 }
             });
-            imagerDropzone.addEventListener('drop', e => {
+            imagerCard.addEventListener('drop', e => {
                 e.preventDefault();
-                imagerDropzone.classList.remove('dragover');
+                imagerCard.classList.remove('dragover');
                 if (e.dataTransfer.files && e.dataTransfer.files[0]) {
                     processImagerFile(e.dataTransfer.files[0]);
                 }

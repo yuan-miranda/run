@@ -282,10 +282,6 @@ $pb = New-Object Windows.Forms.PictureBox;
 $pb.Image = $img;
 $pb.SizeMode = 'Zoom';
 $pb.Dock = [Windows.Forms.DockStyle]::Fill;
-$pb.Cursor = [Windows.Forms.Cursors]::Hand;
-$pb.Add_Click({{
-    $f.Close();
-}});
 $f.Controls.Add($pb);
 
 $f.Add_FormClosed({{

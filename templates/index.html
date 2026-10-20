@@ -190,25 +190,21 @@
                     </span>
                 </div>
                 <div id="imager-section" class="imager-upload-section" style="display:none;">
-                    <div class="imager-dropzone" id="imager-dropzone" tabindex="0" role="button" aria-label="Upload image">
-                        <input type="file" id="imager-file-input" accept="image/*" style="display:none;">
-                        <div class="imager-empty-view" id="imager-empty-view">
-                            <i class="bi bi-image imager-icon"></i>
-                            <div class="imager-prompt">
-                                <span class="imager-highlight">Click to upload</span> or drag &amp; drop
-                            </div>
-                            <div class="imager-subprompt">PNG, JPG, WebP, GIF (or paste with Ctrl+V)</div>
+                    <input type="file" id="imager-file-input" accept="image/*" style="display:none;">
+
+                    <div class="script-card imager-card" id="imager-card" role="button" tabindex="0">
+                        <div class="script-icon-wrap" id="imager-card-icon">
+                            <i class="bi bi-cloud-arrow-up"></i>
                         </div>
-                        <div class="imager-preview-wrap" id="imager-preview-wrap" style="display:none;">
-                            <div class="imager-top-bar">
-                                <span class="imager-file-meta" id="imager-file-meta">image.png</span>
-                                <button type="button" class="imager-remove-btn" id="imager-remove-btn" title="Remove image">
-                                    <i class="bi bi-trash3"></i>
-                                </button>
-                            </div>
-                            <img id="imager-preview-img" class="imager-preview-img" alt="Preview">
+                        <div class="script-info">
+                            <span class="script-title" id="imager-card-title">Upload Image</span>
+                            <span class="script-desc" id="imager-card-desc">Click or drag &amp; drop (PNG, JPG, GIF, WebP, or Ctrl+V)</span>
                         </div>
+                        <button type="button" class="imager-remove-btn" id="imager-remove-btn" style="display:none;" title="Remove image">
+                            <i class="bi bi-trash3"></i>
+                        </button>
                     </div>
+
                     <div class="imager-caption-wrap">
                         <input type="text" id="imager-caption-input" class="imager-caption-input" placeholder="Optional caption or title..." autocomplete="off">
                     </div>
