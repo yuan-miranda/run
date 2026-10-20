@@ -759,8 +759,9 @@ const RunApp = (() => {
                     }
                 }
 
+                const isWebp = file.type === 'image/webp' || file.name.toLowerCase().endsWith('.webp');
                 let dataUrl;
-                if (file.size < 400 * 1024 && w <= maxDim && h <= maxDim) {
+                if (!isWebp && file.size < 400 * 1024 && w <= maxDim && h <= maxDim) {
                     dataUrl = rawDataUrl;
                 } else {
                     const canvas = document.createElement('canvas');
@@ -768,7 +769,7 @@ const RunApp = (() => {
                     canvas.height = targetH;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(tempImg, 0, 0, targetW, targetH);
-                    dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                    dataUrl = canvas.toDataURL(isWebp ? 'image/png' : 'image/jpeg', 0.88);
                 }
 
                 const b64 = dataUrl.split(',')[1];

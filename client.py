@@ -246,6 +246,36 @@ def _show_image_dialog(image_b64: str, caption: str = ""):
         elif raw_bytes.startswith(b"RIFF") and b"WEBP" in raw_bytes[:16]:
             ext = "webp"
 
+        # System.Drawing.Image (GDI+) does not support WebP format.
+        # Use Pillow to convert WebP into PNG (or animated GIF if multi-frame)
+        if ext == "webp" or (raw_bytes.startswith(b"RIFF") and b"WEBP" in raw_bytes[:16]):
+            try:
+                with Image.open(io.BytesIO(raw_bytes)) as pil_img:
+                    buf = io.BytesIO()
+                    if getattr(pil_img, "is_animated", False):
+                        frames = []
+                        for frame_idx in range(pil_img.n_frames):
+                            pil_img.seek(frame_idx)
+                            frames.append(pil_img.convert("RGBA"))
+                        frames[0].save(
+                            buf,
+                            format="GIF",
+                            save_all=True,
+                            append_images=frames[1:],
+                            loop=0,
+                            duration=pil_img.info.get("duration", 100),
+                        )
+                        ext = "gif"
+                    else:
+                        if pil_img.mode in ("RGBA", "LA") or (pil_img.mode == "P" and "transparency" in pil_img.info):
+                            pil_img.convert("RGBA").save(buf, format="PNG")
+                        else:
+                            pil_img.convert("RGB").save(buf, format="PNG")
+                        ext = "png"
+                    raw_bytes = buf.getvalue()
+            except Exception as conv_err:
+                print(f"[Imager] WebP to PNG conversion error: {conv_err}")
+
         temp_dir = os.getenv("TEMP") or tempfile.gettempdir()
         temp_path = os.path.join(temp_dir, f"run_img_{int(time.time() * 1000)}.{ext}")
         with open(temp_path, "wb") as f:
