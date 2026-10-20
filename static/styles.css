@@ -1597,24 +1597,6 @@ body:not(.kb-mode) .collapsible-summary:hover {
     }
 }
 
-.audio-volume-badge {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    background: rgba(245, 158, 11, 0.1);
-    border: 1px solid rgba(245, 158, 11, 0.28);
-    border-radius: 4px;
-    font-size: 12px;
-    color: #fbbf24;
-    font-weight: 500;
-}
-
-.audio-volume-badge i {
-    font-size: 15px;
-    flex-shrink: 0;
-}
-
 /* ── View switching ── */
 body.view-frames #view-frames {
     display: flex;
