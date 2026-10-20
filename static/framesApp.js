@@ -311,6 +311,17 @@ const FramesApp = (() => {
         });
     }
 
+    /**
+     * Highlight the currently active folder item in the top navigation dropdown menu.
+     *
+     * @param {string} name - Selected folder username.
+     */
+    function updateDropdownFolderActive(name) {
+        els.dropdownMenu?.querySelectorAll('.dropdown-item').forEach(item => {
+            item.classList.toggle('active', item.dataset.folderName === name || item.textContent.trim() === name);
+        });
+    }
+
     // ── Video / Frame Playback & Auto-Advance Engine ───────────────────────────
 
     /**
@@ -548,6 +559,7 @@ const FramesApp = (() => {
         state.currentFolder = folder;
         if (els.folderName) els.folderName.textContent = folder;
         updateSidebarFolderActive(folder);
+        updateDropdownFolderActive(folder);
 
         els.dropdownMenu?.classList.remove('open');
         els.folderBtn?.classList.remove('open');
@@ -644,9 +656,15 @@ const FramesApp = (() => {
 
             folders.forEach(f => {
                 const item = document.createElement('div');
-                item.className = 'dropdown-item';
+                const isSelected = f.name === state.currentFolder;
+                item.className = 'dropdown-item' + (isSelected ? ' active' : '');
                 item.textContent = f.name;
-                item.addEventListener('click', () => loadFolder(f.name));
+                item.dataset.folderName = f.name;
+                item.addEventListener('click', () => {
+                    loadFolder(f.name);
+                    els.folderBtn?.classList.remove('open');
+                    els.dropdownMenu?.classList.remove('open');
+                });
                 els.dropdownMenu?.appendChild(item);
 
                 if (els.sidebarfolderlist) {
@@ -986,6 +1004,9 @@ const FramesApp = (() => {
         });
 
         els.folderBtn?.addEventListener('click', () => {
+            if (state.currentFolder) {
+                updateDropdownFolderActive(state.currentFolder);
+            }
             els.folderBtn.classList.toggle('open');
             els.dropdownMenu?.classList.toggle('open');
         });

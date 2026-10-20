@@ -816,7 +816,18 @@ const RunApp = (() => {
     }
 
     /**
-     * Populate target dropdown with available online client machines.
+     * Highlight the currently active target client in the action target dropdown menu.
+     *
+     * @param {string} username - Target client username.
+     */
+    function updateDropdownTargetActive(username) {
+        $('actionTargetMenu')?.querySelectorAll('.dropdown-item').forEach(item => {
+            item.classList.toggle('active', item.dataset.username === username || item.textContent.trim() === username);
+        });
+    }
+
+    /**
+     * Populate target dropdown with available online client machines and highlight active selection.
      */
     function renderTargetDropdown() {
         const menu = $('actionTargetMenu');
@@ -824,25 +835,32 @@ const RunApp = (() => {
         menu.innerHTML = '';
         const current = runState.popupUser;
         const allRows = getRenderableRows();
+        const rows = [...allRows];
+        if (current && !rows.some(u => u.username === current.username)) {
+            rows.unshift(current);
+        }
 
-        window.RunUtils?.sizeDropdownToContent(
-            $('popup-target-label'), menu, $('actionTargetWrap'),
-            allRows.map(u => u.username), 'folder-btn run-client-name'
-        );
-
-        const others = allRows.filter(u => u.username !== current?.username);
-        if (!others.length) {
+        if (!rows.length) {
             closeTargetDropdown();
             return;
         }
 
-        others.forEach(u => {
+        window.RunUtils?.sizeDropdownToContent(
+            $('popup-target-label'), menu, $('actionTargetWrap'),
+            rows.map(u => u.username), 'folder-btn run-client-name'
+        );
+
+        rows.forEach(u => {
             const item = document.createElement('div');
-            item.className = 'dropdown-item';
+            const isSelected = !!current && u.username === current.username;
+            item.className = 'dropdown-item' + (isSelected ? ' active' : '');
             item.textContent = u.username;
+            item.dataset.username = u.username;
             item.addEventListener('click', () => {
                 closeTargetDropdown();
-                openPopup(runState.popupMode || 'cmd', u);
+                if (current?.username !== u.username) {
+                    openPopup(runState.popupMode || 'cmd', u);
+                }
             });
             menu.appendChild(item);
         });
