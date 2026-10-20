@@ -255,60 +255,39 @@ def _show_image_dialog(image_b64: str, caption: str = ""):
         ps_script = f"""
 Add-Type -AssemblyName System.Windows.Forms,System.Drawing;
 $img = [Drawing.Image]::FromFile('{temp_path}');
-$maxW = 800; $maxH = 600;
+$maxW = 960; $maxH = 720;
 $iw = $img.Width; $ih = $img.Height;
 $scale = [Math]::Min([Math]::Min(($maxW / $iw), ($maxH / $ih)), 1.0);
-$dw = [Math]::Max([int]($iw * $scale), 320);
-$dh = [Math]::Max([int]($ih * $scale), 200);
-$formW = ($dw + 40);
-$caption = '{caption_escaped}';
-$hasCap = ($caption.Length -gt 0);
-$capH = if ($hasCap) {{ 36 }} else {{ 0 }};
-$formH = ($dh + $capH + 90);
+$dw = [Math]::Max([int]($iw * $scale), 120);
+$dh = [Math]::Max([int]($ih * $scale), 90);
+
 $f = New-Object Windows.Forms.Form;
-$f.Text = if ($hasCap) {{ $caption }} else {{ 'Image' }};
-$f.ClientSize = New-Object Drawing.Size($formW, $formH);
+$caption = '{caption_escaped}';
+$f.Text = if ($caption.Length -gt 0) {{ $caption }} else {{ 'Image' }};
+$f.ClientSize = New-Object Drawing.Size($dw, $dh);
 $f.StartPosition = 'CenterScreen';
 $f.TopMost = $true;
 $f.FormBorderStyle = 'FixedDialog';
 $f.MaximizeBox = $false;
 $f.MinimizeBox = $false;
 $f.BackColor = [Drawing.Color]::FromArgb(24, 24, 27);
-$f.ForeColor = [Drawing.Color]::FromArgb(244, 244, 245);
-$curY = 16;
-if ($hasCap) {{
-    $lbl = New-Object Windows.Forms.Label;
-    $lbl.Text = $caption;
-    $lbl.Location = New-Object Drawing.Point(20, $curY);
-    $lbl.Size = New-Object Drawing.Size($dw, 28);
-    $lbl.Font = New-Object Drawing.Font('Segoe UI', 10, [Drawing.FontStyle]::Bold);
-    $lbl.ForeColor = [Drawing.Color]::FromArgb(244, 244, 245);
-    $lbl.AutoEllipsis = $true;
-    $f.Controls.Add($lbl);
-    $curY = ($curY + 34);
-}}
+$f.KeyPreview = $true;
+$f.Add_KeyDown({{
+    if ($_.KeyCode -eq [Windows.Forms.Keys]::Escape -or $_.KeyCode -eq [Windows.Forms.Keys]::Enter) {{
+        $f.Close();
+    }}
+}});
+
 $pb = New-Object Windows.Forms.PictureBox;
 $pb.Image = $img;
 $pb.SizeMode = 'Zoom';
-$pb.Location = New-Object Drawing.Point(20, $curY);
-$pb.Size = New-Object Drawing.Size($dw, $dh);
+$pb.Dock = [Windows.Forms.DockStyle]::Fill;
+$pb.Cursor = [Windows.Forms.Cursors]::Hand;
+$pb.Add_Click({{
+    $f.Close();
+}});
 $f.Controls.Add($pb);
-$curY = ($curY + $dh + 16);
-$btn = New-Object Windows.Forms.Button;
-$btn.Text = 'OK';
-$btnW = 90; $btnH = 30;
-$btnX = [int](($formW - $btnW) / 2);
-$btn.Size = New-Object Drawing.Size($btnW, $btnH);
-$btn.Location = New-Object Drawing.Point($btnX, $curY);
-$btn.BackColor = [Drawing.Color]::FromArgb(39, 39, 42);
-$btn.ForeColor = [Drawing.Color]::White;
-$btn.FlatStyle = 'Flat';
-$btn.FlatAppearance.BorderColor = [Drawing.Color]::FromArgb(63, 63, 70);
-$btn.Cursor = [Windows.Forms.Cursors]::Hand;
-$btn.DialogResult = [Windows.Forms.DialogResult]::OK;
-$f.AcceptButton = $btn;
-$f.CancelButton = $btn;
-$f.Controls.Add($btn);
+
 $f.Add_FormClosed({{
     $pb.Image = $null;
     $img.Dispose();
