@@ -1,6 +1,21 @@
+/**
+ * FramesApp - Client Desktop Screenshot Stream & History Viewer
+ * Provides high-performance interactive frame playback, pan/zoom canvas viewport,
+ * image preloading, folder switching, and real-time WebSocket frame ingestion.
+ */
 const FramesApp = (() => {
+    'use strict';
+
+    // ── Module Constants & Configuration ───────────────────────────────────────
     const VPS_URL = 'http://runx.ddns.net';
-    const storageKey = 'framesViewerState';
+    const STORAGE_KEY = 'framesViewerState';
+
+    /**
+     * Build HTTP request headers containing authenticated dashboard password.
+     *
+     * @param {Record<string, string>} [extra={}] - Additional headers to merge.
+     * @returns {Record<string, string>} Headers object.
+     */
     const authHeaders = (extra = {}) => ({
         ...extra,
         'x-password': sessionStorage.getItem('vps_password') || ''
@@ -8,6 +23,7 @@ const FramesApp = (() => {
 
     let isInitialized = false;
 
+    // ── Application State ──────────────────────────────────────────────────────
     const state = {
         urls: [],
         imagesMeta: [],
@@ -26,34 +42,51 @@ const FramesApp = (() => {
         lastActivityAt: Date.now()
     };
 
-    // Pan / zoom state
+    // Pan & zoom transform coordinates
     const view = { scale: 1, ox: 0, oy: 0 };
     let drag = { active: false, startX: 0, startY: 0, startOx: 0, startOy: 0 };
     let zoomHideTimer = null;
     let touchMode = null;
     let pinchStartDist = 0;
     let pinchStartScale = 1;
+    let resizeRafId = null;
 
-    // Cached DOM elements
+    // Cached DOM element lookup table
     const els = {};
     const $ = id => document.getElementById(id);
 
-    // ── Persistence ──
+    // ── Storage & State Persistence ────────────────────────────────────────────
+
+    /**
+     * Read saved folder selection and zoom/pan states from localStorage.
+     *
+     * @returns {{folder: string|null, frames: Record<string, number>, views: Record<string, {scale: number, ox: number, oy: number}>}}
+     */
     function readSavedState() {
         try {
-            const r = localStorage.getItem(storageKey);
-            return r ? JSON.parse(r) : { folder: null, frames: {}, views: {} };
+            const raw = localStorage.getItem(STORAGE_KEY);
+            return raw ? JSON.parse(raw) : { folder: null, frames: {}, views: {} };
         } catch {
             return { folder: null, frames: {}, views: {} };
         }
     }
 
+    /**
+     * Write updated state object into localStorage.
+     *
+     * @param {object} next - State object to persist.
+     */
     function writeSavedState(next) {
         try {
-            localStorage.setItem(storageKey, JSON.stringify(next));
-        } catch {}
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        } catch {
+            // Silently ignore storage quota exceptions
+        }
     }
 
+    /**
+     * Persist current folder's zoom scale and pan offset into local storage.
+     */
     function saveViewState() {
         if (!state.currentFolder) return;
         const saved = readSavedState();
@@ -63,7 +96,13 @@ const FramesApp = (() => {
         writeSavedState(saved);
     }
 
-    // ── Loading state ──
+    // ── Loading & DOM Element Binding ──────────────────────────────────────────
+
+    /**
+     * Set viewer loading state and trigger appropriate UI spinners and control locks.
+     *
+     * @param {boolean} on - True if loading, False when ready.
+     */
     function setLoading(on) {
         state.loading = !!on;
         if (on) {
@@ -74,11 +113,13 @@ const FramesApp = (() => {
                 state.loading = false;
                 window.__setFramesLoading?.(false);
                 syncControlStates();
-            }, 1000);
+            }, 500);
         }
     }
 
-    // ── Element binding ──
+    /**
+     * Cache all DOM elements into the `els` map for fast reference.
+     */
     function bindElements() {
         const idMap = {
             statusmsg: 'frames-status-msg',
@@ -123,13 +164,24 @@ const FramesApp = (() => {
         updateSidebarFpsActive(state.fps);
     }
 
-    // ── FPS ──
+    // ── FPS Management ─────────────────────────────────────────────────────────
+
+    /**
+     * Sync active CSS state across sidebar FPS buttons.
+     *
+     * @param {number} next - Selected frames-per-second value.
+     */
     function updateSidebarFpsActive(next) {
         document.querySelectorAll('.sidebar-fps-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.fps === String(next));
         });
     }
 
+    /**
+     * Set playback frames-per-second and restart interval if currently playing.
+     *
+     * @param {number} next - Selected frames-per-second.
+     */
     function setFps(next) {
         if (!Number.isFinite(next)) return;
         state.fps = next;
@@ -145,12 +197,23 @@ const FramesApp = (() => {
         }
     }
 
-    // ── Control state sync ──
+    // ── Control State Synchronization ──────────────────────────────────────────
+
+    /**
+     * Format current frame index and total count into zero-padded string (e.g., '004 / 120').
+     *
+     * @param {number} current - 1-based current frame number.
+     * @param {number} total - Total number of available frames.
+     * @returns {string} Formatted counter string.
+     */
     function formatCounter(current, total) {
         const d = Math.max(1, String(total).length);
         return String(current).padStart(d, '0') + ' / ' + String(total).padStart(d, '0');
     }
 
+    /**
+     * Synchronize disabled/active UI states across slider, buttons, and menus based on current state.
+     */
     function syncControlStates() {
         const isReady = !state.loading && state.total > 0 && !state.error;
         document.body.classList.toggle('frames-dim', !isReady);
@@ -172,12 +235,24 @@ const FramesApp = (() => {
         if (els.sliderWrap) els.sliderWrap.classList.toggle('auto-locked', isAuto);
     }
 
-    // ── Frame display ──
+    // ── Frame Display & Selection ──────────────────────────────────────────────
+
+    /**
+     * Extract integer sequence number from frame filename (e.g. '20261021064846123.jpg').
+     *
+     * @param {string} name - Image filename.
+     * @returns {number|null} Extracted integer or null.
+     */
     function extractNumber(name) {
         const m = name.match(/(\d+)/);
         return m ? parseInt(m[1], 10) : null;
     }
 
+    /**
+     * Display frame at specified index and update slider, counter, and persisted index.
+     *
+     * @param {number} i - 0-based frame index to display.
+     */
     function showFrame(i) {
         i = Math.max(0, Math.min(state.total - 1, i));
         state.idx = i;
@@ -225,13 +300,22 @@ const FramesApp = (() => {
         }
     }
 
+    /**
+     * Highlight the currently active folder button in the sidebar list.
+     *
+     * @param {string} name - Selected folder username.
+     */
     function updateSidebarFolderActive(name) {
         els.sidebarfolderlist?.querySelectorAll('.sidebar-folder-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.folderName === name);
         });
     }
 
-    // ── Playback & Auto ──
+    // ── Video / Frame Playback & Auto-Advance Engine ───────────────────────────
+
+    /**
+     * Stop continuous automated frame playback interval.
+     */
     function stopPlay() {
         if (state.playInterval) {
             clearInterval(state.playInterval);
@@ -249,6 +333,9 @@ const FramesApp = (() => {
         syncControlStates();
     }
 
+    /**
+     * Start continuous automated frame playback loop at current FPS rate.
+     */
     function startPlay() {
         if (state.isAuto) setAuto(false);
         if (!state.total) return;
@@ -273,6 +360,9 @@ const FramesApp = (() => {
         }, Math.round(1000 / (state.fps || 12)));
     }
 
+    /**
+     * Toggle playback state between playing and paused.
+     */
     function togglePlay() {
         if (state.isPlaying) {
             stopPlay();
@@ -281,6 +371,11 @@ const FramesApp = (() => {
         }
     }
 
+    /**
+     * Enable or disable AUTO mode (automatically jumps to latest incoming frame).
+     *
+     * @param {boolean} enable - Auto mode state.
+     */
     function setAuto(enable) {
         state.isAuto = !!enable;
         if (state.isAuto) {
@@ -297,11 +392,18 @@ const FramesApp = (() => {
         syncControlStates();
     }
 
+    /**
+     * Toggle AUTO mode on or off.
+     */
     function toggleAuto() {
         setAuto(!state.isAuto);
     }
 
-    // ── Reset ──
+    // ── State Reset & Cleanup ──────────────────────────────────────────────────
+
+    /**
+     * Reset viewer state when disconnecting or switching folders.
+     */
     function resetFramesState() {
         stopPlay();
         setAuto(false);
@@ -336,17 +438,32 @@ const FramesApp = (() => {
         syncControlStates();
     }
 
+    /**
+     * Initial fetch of folder list from server.
+     */
     function initFolders() {
         fetchFolders().catch(() => {});
     }
 
+    /**
+     * Fetch folder list if FramesApp is initialized.
+     *
+     * @returns {boolean} True if initialized and triggered.
+     */
     function initFoldersIfReady() {
         if (!isInitialized) return false;
         initFolders();
         return true;
     }
 
-    // ── VPS API ──
+    // ── API Fetching & Image Preloading ────────────────────────────────────────
+
+    /**
+     * Fetch array of stored frame filenames for a user from the REST API.
+     *
+     * @param {string} username - Target client username.
+     * @returns {Promise<string[]>} Array of image filenames.
+     */
     async function fetchFrameFiles(username) {
         const res = await fetch(`${VPS_URL}/api/frames/${encodeURIComponent(username)}`, {
             headers: authHeaders()
@@ -355,7 +472,9 @@ const FramesApp = (() => {
         return res.json();
     }
 
-    // ── Download ──
+    /**
+     * Trigger browser download of current active frame image.
+     */
     async function downloadCurrentFrame() {
         const url = state.urls[state.idx];
         if (!url) return;
@@ -368,11 +487,22 @@ const FramesApp = (() => {
         document.body.removeChild(a);
     }
 
-    // ── Preload ──
+    /**
+     * Preload images in parallel batches of 16 to avoid network congestion.
+     *
+     * @param {string[]} urls - Array of image URLs to preload.
+     * @returns {Promise<void>} Resolves when all images complete loading.
+     */
     function preloadImages(urls) {
         return new Promise(resolve => {
             let done = 0;
             const total = urls.length;
+            if (total === 0) {
+                if (els.progressWrap) els.progressWrap.style.display = 'none';
+                if (els.statusmsg) els.statusmsg.style.display = 'none';
+                return resolve();
+            }
+
             const tick = () => {
                 if (els.progressBar) els.progressBar.style.width = Math.round((done / total) * 100) + '%';
                 if (els.statusmsg) els.statusmsg.textContent = `loading ${done} / ${total}`;
@@ -381,18 +511,34 @@ const FramesApp = (() => {
                 if (els.statusmsg) els.statusmsg.style.display = 'none';
                 resolve();
             };
-            urls.forEach(u => {
+
+            const concurrency = 16;
+            let index = 0;
+
+            const loadNext = () => {
+                if (index >= total) return;
+                const url = urls[index++];
                 const img = new Image();
                 img.onload = img.onerror = () => {
                     done++;
                     tick();
+                    loadNext();
                 };
-                img.src = u;
-            });
+                img.src = url;
+            };
+
+            for (let i = 0; i < Math.min(concurrency, total); i++) {
+                loadNext();
+            }
         });
     }
 
-    // ── Folder loading ──
+    /**
+     * Load all screenshot frames for a specified client folder.
+     *
+     * @param {string} folder - Target client username folder.
+     * @param {string|null} [targetFilename=null] - Specific frame filename to jump to upon load.
+     */
     async function loadFolder(folder, targetFilename = null) {
         stopPlay();
         setLoading(true);
@@ -483,6 +629,9 @@ const FramesApp = (() => {
         }
     }
 
+    /**
+     * Query API for registered clients and populate folder selector dropdown and sidebar.
+     */
     async function fetchFolders() {
         try {
             const res = await fetch(`${VPS_URL}/api/clients`, { headers: authHeaders() });
@@ -535,14 +684,20 @@ const FramesApp = (() => {
         }
     }
 
-    // ── Dropdown measuring helper (fallback / export) ──
+    /**
+     * Delegate dropdown sizing to shared RunUtils helper.
+     */
     function sizeDropdownToContent(btn, menu, wrap, names, btnClass = 'folder-btn') {
         if (window.RunUtils?.sizeDropdownToContent) {
             window.RunUtils.sizeDropdownToContent(btn, menu, wrap, names, btnClass);
         }
     }
 
-    // ── Pan / Zoom ──
+    // ── Pan / Zoom Canvas Viewport Engine ──────────────────────────────────────
+
+    /**
+     * Apply CSS translate and scale transformation matrix to main image.
+     */
     function applyTransform() {
         if (!els.mainImage) return;
         els.mainImage.style.transform = `translate(${view.ox}px,${view.oy}px) scale(${view.scale})`;
@@ -555,6 +710,9 @@ const FramesApp = (() => {
         saveViewState();
     }
 
+    /**
+     * Scale and center image to cleanly fit within viewport dimensions.
+     */
     function fitToArea() {
         const img = els.mainImage;
         if (!img || !img.naturalWidth) return;
@@ -567,10 +725,16 @@ const FramesApp = (() => {
         applyTransform();
     }
 
+    /**
+     * Reset zoom and pan back to default fitted dimensions.
+     */
     function resetView() {
         fitToArea();
     }
 
+    /**
+     * Constrain pan offsets so image cannot be dragged entirely off-screen.
+     */
     function clampPan() {
         const img = els.mainImage;
         const area = els.imageArea;
@@ -583,6 +747,13 @@ const FramesApp = (() => {
         view.oy = ih <= ah ? (ah - ih) / 2 : Math.min(0, Math.max(ah - ih, view.oy));
     }
 
+    /**
+     * Zoom into or out of a specific client point on the canvas.
+     *
+     * @param {number} cx - Client X coordinate of focal point.
+     * @param {number} cy - Client Y coordinate of focal point.
+     * @param {number} delta - Directional zoom delta (>0 to zoom in, <0 to zoom out).
+     */
     function zoomAt(cx, cy, delta) {
         const area = els.imageArea;
         if (!area) return;
@@ -599,6 +770,9 @@ const FramesApp = (() => {
         applyTransform();
     }
 
+    /**
+     * Attach mouse drag, scroll wheel, touch pinch/pan, and double-click handlers to canvas.
+     */
     function setupPanZoom() {
         const area = els.imageArea;
         if (!area) return;
@@ -676,12 +850,20 @@ const FramesApp = (() => {
         window.addEventListener('touchend', clearDrag);
         window.addEventListener('touchcancel', clearDrag);
         area.addEventListener('dblclick', resetView);
+
         window.addEventListener('resize', () => {
-            if (els.mainImage?.style.display !== 'none') fitToArea();
+            if (resizeRafId) cancelAnimationFrame(resizeRafId);
+            resizeRafId = requestAnimationFrame(() => {
+                if (els.mainImage?.style.display !== 'none') fitToArea();
+            });
         });
     }
 
-    // ── Activity Monitor ──
+    // ── Activity Monitor ───────────────────────────────────────────────────────
+
+    /**
+     * Track user interactions to debounce periodic background refresh intervals.
+     */
     function setupActivityMonitor() {
         const mark = () => { state.lastActivityAt = Date.now(); };
         ['pointerdown', 'pointermove', 'mousemove', 'keydown', 'wheel', 'touchstart', 'touchmove', 'click', 'scroll']
@@ -689,7 +871,11 @@ const FramesApp = (() => {
         document.addEventListener('visibilitychange', () => { if (!document.hidden) mark(); });
     }
 
-    // ── Setup Listeners ──
+    // ── UI Listeners & Dropdown Triggers ───────────────────────────────────────
+
+    /**
+     * Wire up playback buttons, slider input, dropdown menus, and hotkeys.
+     */
     function setupListeners() {
         els.playBtn?.addEventListener('click', () => togglePlay());
         els.sidebarPlayBtn?.addEventListener('click', () => togglePlay());
@@ -697,7 +883,7 @@ const FramesApp = (() => {
         els.autoBtn?.addEventListener('click', () => toggleAuto());
         els.sidebarAutoBtn?.addEventListener('click', () => toggleAuto());
 
-        // FPS dropdown
+        // FPS menu toggle
         const toggleFpsMenu = () => {
             if (els.fpsBtn?.disabled) return;
             els.fpsBtn?.classList.toggle('open');
@@ -733,35 +919,35 @@ const FramesApp = (() => {
         });
 
         els.prevBtn?.addEventListener('click', () => {
-            if (state.playMode === 'auto') return;
-            if (state.playMode === 'play') stopPlay();
+            if (state.isAuto) return;
+            if (state.isPlaying) stopPlay();
             showFrame(state.idx - 1);
         });
 
         els.nextBtn?.addEventListener('click', () => {
-            if (state.playMode === 'auto') return;
-            if (state.playMode === 'play') stopPlay();
+            if (state.isAuto) return;
+            if (state.isPlaying) stopPlay();
             showFrame(state.idx + 1);
         });
 
         els.slider?.addEventListener('mousedown', () => {
-            if (state.playMode === 'auto') return;
-            if (state.playMode === 'play') stopPlay();
+            if (state.isAuto) return;
+            if (state.isPlaying) stopPlay();
         });
         els.slider?.addEventListener('touchstart', () => {
-            if (state.playMode === 'auto') return;
-            if (state.playMode === 'play') stopPlay();
+            if (state.isAuto) return;
+            if (state.isPlaying) stopPlay();
         });
         els.slider?.addEventListener('input', e => {
-            if (state.playMode === 'auto') return;
+            if (state.isAuto) return;
             state.idx = parseInt(e.target.value, 10);
             showFrame(state.idx);
         });
 
         els.sliderWrap?.addEventListener('pointerdown', e => {
             if (state.loading || !state.total || e.target === els.slider) return;
-            if (state.playMode === 'auto') return;
-            if (state.playMode === 'play') stopPlay();
+            if (state.isAuto) return;
+            if (state.isPlaying) stopPlay();
             const seek = clientX => {
                 const rect = els.sliderWrap.getBoundingClientRect();
                 const min = parseInt(els.slider.min || '0', 10);
@@ -815,7 +1001,7 @@ const FramesApp = (() => {
             els.fileDropdownMenu?.classList.remove('open');
         });
 
-        // Close dropdowns on outside click
+        // Close open dropdowns when clicking outside
         document.addEventListener('click', e => {
             if (els.folderWrap && !els.folderWrap.contains(e.target)) {
                 els.folderBtn?.classList.remove('open');
@@ -834,7 +1020,13 @@ const FramesApp = (() => {
         setupPanZoom();
     }
 
-    // ── Real-time frame handler ──
+    // ── Real-Time Frame Ingestion ──────────────────────────────────────────────
+
+    /**
+     * Ingest new frame broadcast from WebSocket server and advance timeline if in AUTO mode.
+     *
+     * @param {{username: string, filename: string}} data - Incoming frame descriptor.
+     */
     function handleNewFrame(data) {
         if (!data || !data.username || data.username !== state.currentFolder) return;
         const filename = data.filename;
@@ -851,7 +1043,7 @@ const FramesApp = (() => {
             const img = new Image();
             img.src = url;
 
-            // In AUTO mode or if already on latest frame: automatically play new frames!
+            // In AUTO mode or if already on latest frame: automatically play new frames
             if (state.isAuto || wasAtLastFrame) {
                 showFrame(state.total - 1);
             } else {
@@ -859,7 +1051,7 @@ const FramesApp = (() => {
                 syncControlStates();
             }
 
-            // Cap in-memory history to 1000 to mirror server retention window and avoid memory leaks
+            // Cap in-memory history to 1000 items to mirror server retention window and avoid memory leaks
             if (state.imagesMeta.length > 1000) {
                 state.imagesMeta.shift();
                 state.urls.shift();
@@ -870,6 +1062,11 @@ const FramesApp = (() => {
         }
     }
 
+    // ── Public Lifecycle API ───────────────────────────────────────────────────
+
+    /**
+     * Initialize DOM bindings, event listeners, and start periodic refresh interval.
+     */
     function init() {
         if (isInitialized) return;
         bindElements();
@@ -885,6 +1082,9 @@ const FramesApp = (() => {
         }, 60000);
     }
 
+    /**
+     * Triggered when FRAMES mode is brought to view focus.
+     */
     function onShow() {
         if (!isInitialized) init();
         if (!state.currentFolder) {

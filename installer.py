@@ -171,6 +171,7 @@ def self_delete(run_bin: str):
 
 
 def main():
+    """Main installation and update sequence: elevates, stops old instances, downloads binary, configures tasks, and launches client."""
     print("=== Run Client Installer (Windows) ===")
     elevate_if_needed()
 

