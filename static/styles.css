@@ -461,8 +461,8 @@ header {
 .file-dropdown-item {
     font-family: inherit;
     font-size: 13px;
-    height: 44px;
-    min-height: 44px;
+    height: 34px;
+    min-height: 34px;
     box-sizing: border-box;
     padding: 0 14px;
     cursor: pointer;
@@ -1959,11 +1959,15 @@ body.view-action .sidebar-run-section {
 
     .brand,
     .folder-btn,
-    .file-btn,
-    .dropdown-item,
-    .file-dropdown-item {
+    .file-btn {
         height: 40px;
         min-height: 40px;
+    }
+
+    .dropdown-item,
+    .file-dropdown-item {
+        height: 34px;
+        min-height: 34px;
     }
 
     .brand {
