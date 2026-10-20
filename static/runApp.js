@@ -681,13 +681,45 @@ const RunApp = (() => {
     }
 
     function processImagerFile(file) {
-        if (!file || !file.type.startsWith('image/')) {
+        if (!file || (!file.type.startsWith('image/') && !file.name.match(/\.(png|jpe?g|gif|webp|bmp)$/i))) {
             alert('Please select a valid image file (PNG, JPG, WebP, GIF, etc.).');
             return;
         }
 
+        const isGif = file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif');
+
         const reader = new FileReader();
         reader.onload = e => {
+            const rawDataUrl = e.target.result;
+
+            if (isGif) {
+                // Keep animated GIF frames intact without canvas flattening
+                const tempImg = new Image();
+                tempImg.onload = () => {
+                    const w = tempImg.naturalWidth || tempImg.width;
+                    const h = tempImg.naturalHeight || tempImg.height;
+                    const b64 = rawDataUrl.split(',')[1];
+
+                    imagerState.file = file;
+                    imagerState.imageData = b64;
+                    imagerState.fileName = file.name || 'animation.gif';
+                    imagerState.fileSizeText = formatBytes(file.size || Math.round(b64.length * 0.75));
+                    imagerState.dimensionsText = `${w}×${h} (GIF)`;
+
+                    const previewImg = $('imager-preview-img');
+                    const metaSpan = $('imager-file-meta');
+                    const emptyView = $('imager-empty-view');
+                    const previewWrap = $('imager-preview-wrap');
+
+                    if (previewImg) previewImg.src = rawDataUrl;
+                    if (metaSpan) metaSpan.textContent = `${imagerState.fileName} (${imagerState.dimensionsText}, ${imagerState.fileSizeText})`;
+                    if (emptyView) emptyView.style.display = 'none';
+                    if (previewWrap) previewWrap.style.display = 'flex';
+                };
+                tempImg.src = rawDataUrl;
+                return;
+            }
+
             const tempImg = new Image();
             tempImg.onload = () => {
                 const maxDim = 1280;
@@ -706,13 +738,18 @@ const RunApp = (() => {
                     }
                 }
 
-                const canvas = document.createElement('canvas');
-                canvas.width = targetW;
-                canvas.height = targetH;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(tempImg, 0, 0, targetW, targetH);
+                let dataUrl;
+                if (file.size < 400 * 1024 && w <= maxDim && h <= maxDim) {
+                    dataUrl = rawDataUrl;
+                } else {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = targetW;
+                    canvas.height = targetH;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(tempImg, 0, 0, targetW, targetH);
+                    dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                }
 
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
                 const b64 = dataUrl.split(',')[1];
 
                 imagerState.file = file;
@@ -731,7 +768,7 @@ const RunApp = (() => {
                 if (emptyView) emptyView.style.display = 'none';
                 if (previewWrap) previewWrap.style.display = 'flex';
             };
-            tempImg.src = e.target.result;
+            tempImg.src = rawDataUrl;
         };
         reader.readAsDataURL(file);
     }
