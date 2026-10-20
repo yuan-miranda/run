@@ -590,6 +590,14 @@ def set_command():
         op_type = "MESSAGE"
         if decoded.startswith("msg:"):
             log_detail = decoded[4:].strip()
+    elif "$pb.Image" in decoded or "Drawing.Image]::FromStream" in decoded:
+        op_type = "IMAGER"
+        import re
+        cap_match = re.search(r"\$caption\s*=\s*'([^']*)'", decoded)
+        if cap_match and cap_match.group(1):
+            log_detail = f"Image popup sent: {cap_match.group(1)}"
+        else:
+            log_detail = "Dispatched image popup to client"
     elif "installer.exe" in decoded:
         op_type = "UPDATE"
         log_detail = "Dispatched client update to latest release binary"

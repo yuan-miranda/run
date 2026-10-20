@@ -60,6 +60,7 @@
                     <div class="file-dropdown-item active" data-mode="cmd">Commandline</div>
                     <div class="file-dropdown-item" data-mode="speak">Speak</div>
                     <div class="file-dropdown-item" data-mode="popup_msg">Message</div>
+                    <div class="file-dropdown-item" data-mode="imager">Imager</div>
                     <div class="file-dropdown-item" data-mode="scripts">Scripts</div>
                 </div>
             </div>
@@ -111,6 +112,7 @@
                     <button class="sidebar-theme-btn" data-mode="cmd">Commandline</button>
                     <button class="sidebar-theme-btn" data-mode="speak">Speak</button>
                     <button class="sidebar-theme-btn" data-mode="popup_msg">Message</button>
+                    <button class="sidebar-theme-btn" data-mode="imager">Imager</button>
                     <button class="sidebar-theme-btn" data-mode="scripts">Scripts</button>
                 </div>
             </div>
@@ -186,6 +188,30 @@
                             <span class="btn-hint">SHIFT+TAB</span> unfocus
                         </button>
                     </span>
+                </div>
+                <div id="imager-section" class="imager-upload-section" style="display:none;">
+                    <div class="imager-dropzone" id="imager-dropzone" tabindex="0" role="button" aria-label="Upload image">
+                        <input type="file" id="imager-file-input" accept="image/*" style="display:none;">
+                        <div class="imager-empty-view" id="imager-empty-view">
+                            <i class="bi bi-image imager-icon"></i>
+                            <div class="imager-prompt">
+                                <span class="imager-highlight">Click to upload</span> or drag &amp; drop
+                            </div>
+                            <div class="imager-subprompt">PNG, JPG, WebP, GIF (or paste with Ctrl+V)</div>
+                        </div>
+                        <div class="imager-preview-wrap" id="imager-preview-wrap" style="display:none;">
+                            <img id="imager-preview-img" class="imager-preview-img" alt="Preview">
+                            <div class="imager-preview-bar">
+                                <span class="imager-file-meta" id="imager-file-meta">image.png</span>
+                                <button type="button" class="imager-remove-btn" id="imager-remove-btn" title="Remove image">
+                                    <i class="bi bi-trash3"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="imager-caption-wrap">
+                        <input type="text" id="imager-caption-input" class="imager-caption-input" placeholder="Optional caption or title..." autocomplete="off">
+                    </div>
                 </div>
                 <div id="placeholder-body" class="action-placeholder-body" style="display:none;">
                     <div class="script-card" id="update-client-btn" role="button" tabindex="0">
@@ -464,6 +490,7 @@
                     <button type="button" class="logs-pill" data-filter="COMMAND">CMD</button>
                     <button type="button" class="logs-pill" data-filter="SPEAK">Speak</button>
                     <button type="button" class="logs-pill" data-filter="MESSAGE">Msg</button>
+                    <button type="button" class="logs-pill" data-filter="IMAGER">Imager</button>
                     <button type="button" class="logs-pill" data-filter="SCREENSHOT">Screen</button>
                     <button type="button" class="logs-pill" data-filter="FTP">FTP</button>
                     <button type="button" class="logs-pill" data-filter="SYSTEM">System</button>

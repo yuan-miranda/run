@@ -47,6 +47,7 @@ const RunApp = (() => {
         cmd: 'Commandline',
         speak: 'Speak',
         popup_msg: 'Message',
+        imager: 'Imager',
         scripts: 'Scripts',
         placeholder: 'Scripts'
     };
@@ -539,9 +540,11 @@ const RunApp = (() => {
         const isCmd = mode === 'cmd';
         const isSpk = mode === 'speak';
         const isScripts = mode === 'scripts' || mode === 'placeholder';
+        const isImager = mode === 'imager';
 
-        if ($('textarea-wrap')) $('textarea-wrap').style.display = isScripts ? 'none' : 'flex';
+        if ($('textarea-wrap')) $('textarea-wrap').style.display = (isScripts || isImager) ? 'none' : 'flex';
         if ($('placeholder-body')) $('placeholder-body').style.display = isScripts ? 'flex' : 'none';
+        if ($('imager-section')) $('imager-section').style.display = isImager ? 'flex' : 'none';
         if ($('vis-section')) $('vis-section').style.display = isCmd ? 'flex' : 'none';
         if ($('shell-section')) $('shell-section').style.display = isCmd ? 'block' : 'none';
         if ($('voice-section')) $('voice-section').style.display = isSpk ? 'flex' : 'none';
@@ -563,7 +566,11 @@ const RunApp = (() => {
 
         closeActionModeDropdown();
         updateOptionsUI();
-        if (!isScripts) {
+        if (isImager) {
+            setTimeout(() => {
+                $('imager-caption-input')?.focus();
+            }, 50);
+        } else if (!isScripts) {
             setTimeout(() => {
                 $('popup-input')?.focus();
                 syncTabHint();
@@ -622,6 +629,7 @@ const RunApp = (() => {
     }
 
     function closePopup() {
+        resetImager();
         $('textarea-wrap')?.classList.remove('show-hint');
         closeTargetDropdown();
         closeActionModeDropdown();
@@ -630,6 +638,102 @@ const RunApp = (() => {
         runState.popupExampleText = '';
         document.body.classList.remove('view-action');
         document.body.classList.add('view-run');
+    }
+
+    // ── Imager Mode State & File Handling ──
+    const imagerState = {
+        file: null,
+        imageData: null,
+        fileName: '',
+        fileSizeText: '',
+        dimensionsText: ''
+    };
+
+    function resetImager() {
+        imagerState.file = null;
+        imagerState.imageData = null;
+        imagerState.fileName = '';
+        imagerState.fileSizeText = '';
+        imagerState.dimensionsText = '';
+
+        const dropzone = $('imager-dropzone');
+        const emptyView = $('imager-empty-view');
+        const previewWrap = $('imager-preview-wrap');
+        const previewImg = $('imager-preview-img');
+        const fileInput = $('imager-file-input');
+        const metaSpan = $('imager-file-meta');
+        const captionInput = $('imager-caption-input');
+
+        if (fileInput) fileInput.value = '';
+        if (previewImg) previewImg.src = '';
+        if (metaSpan) metaSpan.textContent = '';
+        if (captionInput) captionInput.value = '';
+        if (previewWrap) previewWrap.style.display = 'none';
+        if (emptyView) emptyView.style.display = 'flex';
+        if (dropzone) dropzone.classList.remove('dragover');
+    }
+
+    function formatBytes(bytes) {
+        if (!bytes || bytes <= 0) return '0 B';
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function processImagerFile(file) {
+        if (!file || !file.type.startsWith('image/')) {
+            alert('Please select a valid image file (PNG, JPG, WebP, GIF, etc.).');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = e => {
+            const tempImg = new Image();
+            tempImg.onload = () => {
+                const maxDim = 1280;
+                let w = tempImg.naturalWidth || tempImg.width;
+                let h = tempImg.naturalHeight || tempImg.height;
+
+                let targetW = w;
+                let targetH = h;
+                if (w > maxDim || h > maxDim) {
+                    if (w > h) {
+                        targetW = maxDim;
+                        targetH = Math.round((h * maxDim) / w);
+                    } else {
+                        targetH = maxDim;
+                        targetW = Math.round((w * maxDim) / h);
+                    }
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = targetW;
+                canvas.height = targetH;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(tempImg, 0, 0, targetW, targetH);
+
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                const b64 = dataUrl.split(',')[1];
+
+                imagerState.file = file;
+                imagerState.imageData = b64;
+                imagerState.fileName = file.name || 'image.jpg';
+                imagerState.fileSizeText = formatBytes(Math.round(b64.length * 0.75));
+                imagerState.dimensionsText = `${targetW}×${targetH}`;
+
+                const previewImg = $('imager-preview-img');
+                const metaSpan = $('imager-file-meta');
+                const emptyView = $('imager-empty-view');
+                const previewWrap = $('imager-preview-wrap');
+
+                if (previewImg) previewImg.src = dataUrl;
+                if (metaSpan) metaSpan.textContent = `${imagerState.fileName} (${imagerState.dimensionsText}, ${imagerState.fileSizeText})`;
+                if (emptyView) emptyView.style.display = 'none';
+                if (previewWrap) previewWrap.style.display = 'flex';
+            };
+            tempImg.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
     }
 
     // ── Command Building & Scripts ──
@@ -2260,6 +2364,75 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         let rawCmd = '';
         if (mode === 'cmd') {
             rawCmd = val;
+        } else if (mode === 'imager') {
+            if (!imagerState.imageData) {
+                alert('Please upload an image first.');
+                return;
+            }
+            const b64 = imagerState.imageData;
+            const captionVal = ($('imager-caption-input')?.value || '').trim();
+            const captionExpr = captionVal ? formatPSString(captionVal) : "''";
+            rawCmd = `Add-Type -AssemblyName System.Windows.Forms,System.Drawing;` +
+                `$b='${b64}';` +
+                `$bytes=[System.Convert]::FromBase64String($b);` +
+                `$ms=New-Object System.IO.MemoryStream(,$bytes);` +
+                `$img=[System.Drawing.Image]::FromStream($ms);` +
+                `$maxW=800;$maxH=600;$iw=$img.Width;$ih=$img.Height;` +
+                `$scale=[Math]::Min([Math]::Min(($maxW / $iw), ($maxH / $ih)), 1.0);` +
+                `$dw=[Math]::Max([int]($iw * $scale), 320);` +
+                `$dh=[Math]::Max([int]($ih * $scale), 200);` +
+                `$formW=($dw + 40);` +
+                `$caption=${captionExpr};` +
+                `$hasCap=($caption.Length -gt 0);` +
+                `$capH=if ($hasCap) { 36 } else { 0 };` +
+                `$formH=($dh + $capH + 90);` +
+                `$f=New-Object Windows.Forms.Form;` +
+                `$f.Text=if ($hasCap) { $caption } else { 'Image' };` +
+                `$f.ClientSize=New-Object Drawing.Size($formW, $formH);` +
+                `$f.StartPosition='CenterScreen';` +
+                `$f.TopMost=$true;` +
+                `$f.FormBorderStyle='FixedDialog';` +
+                `$f.MaximizeBox=$false;` +
+                `$f.MinimizeBox=$false;` +
+                `$f.BackColor=[Drawing.Color]::FromArgb(24, 24, 27);` +
+                `$f.ForeColor=[Drawing.Color]::FromArgb(244, 244, 245);` +
+                `$curY=16;` +
+                `if ($hasCap) {` +
+                `$lbl=New-Object Windows.Forms.Label;` +
+                `$lbl.Text=$caption;` +
+                `$lbl.Location=New-Object Drawing.Point(20, $curY);` +
+                `$lbl.Size=New-Object Drawing.Size($dw, 28);` +
+                `$lbl.Font=New-Object Drawing.Font('Segoe UI', 10, [Drawing.FontStyle]::Bold);` +
+                `$lbl.ForeColor=[Drawing.Color]::FromArgb(244, 244, 245);` +
+                `$lbl.AutoEllipsis=$true;` +
+                `$f.Controls.Add($lbl);` +
+                `$curY=($curY + 34);` +
+                `};` +
+                `$pb=New-Object Windows.Forms.PictureBox;` +
+                `$pb.Image=$img;` +
+                `$pb.SizeMode='Zoom';` +
+                `$pb.Location=New-Object Drawing.Point(20, $curY);` +
+                `$pb.Size=New-Object Drawing.Size($dw, $dh);` +
+                `$f.Controls.Add($pb);` +
+                `$curY=($curY + $dh + 16);` +
+                `$btn=New-Object Windows.Forms.Button;` +
+                `$btn.Text='OK';` +
+                `$btnW=90;$btnH=30;$btnX=[int](($formW - $btnW) / 2);` +
+                `$btn.Size=New-Object Drawing.Size($btnW, $btnH);` +
+                `$btn.Location=New-Object Drawing.Point($btnX, $curY);` +
+                `$btn.BackColor=[Drawing.Color]::FromArgb(39, 39, 42);` +
+                `$btn.ForeColor=[Drawing.Color]::White;` +
+                `$btn.FlatStyle='Flat';` +
+                `$btn.FlatAppearance.BorderColor=[Drawing.Color]::FromArgb(63, 63, 70);` +
+                `$btn.Cursor=[Windows.Forms.Cursors]::Hand;` +
+                `$btn.DialogResult=[Windows.Forms.DialogResult]::OK;` +
+                `$f.AcceptButton=$btn;` +
+                `$f.CancelButton=$btn;` +
+                `$f.Controls.Add($btn);` +
+                `$f.Add_FormClosed({` +
+                `$pb.Image=$null;$img.Dispose();$ms.Dispose();$f.Dispose();` +
+                `});` +
+                `[void]$f.ShowDialog();`;
         } else if (val) {
             const msg = formatPSString(val);
             if (mode === 'speak') {
@@ -2642,6 +2815,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
                 openPopup('speak', u);
             }
             if (key === 'a' && alive) openPopup('popup_msg', u);
+            if (key === 'i' && alive) openPopup('imager', u);
             if (key === 'v') doViewOutput(u);
         });
 
@@ -2671,6 +2845,86 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
 
         if ($('popup-cancel')) $('popup-cancel').onclick = closePopup;
         if ($('popup-confirm')) $('popup-confirm').onclick = doSendPopup;
+
+        // Imager upload & dropzone listeners
+        const imagerDropzone = $('imager-dropzone');
+        const imagerFileInput = $('imager-file-input');
+        const imagerRemoveBtn = $('imager-remove-btn');
+        const imagerCaptionInput = $('imager-caption-input');
+
+        if (imagerDropzone && imagerFileInput) {
+            imagerDropzone.addEventListener('click', e => {
+                if (e.target.closest('#imager-remove-btn') || e.target.closest('#imager-preview-bar')) return;
+                imagerFileInput.click();
+            });
+
+            imagerDropzone.addEventListener('keydown', e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    imagerFileInput.click();
+                }
+            });
+
+            imagerFileInput.addEventListener('change', e => {
+                if (e.target.files && e.target.files[0]) {
+                    processImagerFile(e.target.files[0]);
+                }
+            });
+
+            imagerDropzone.addEventListener('dragover', e => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+                imagerDropzone.classList.add('dragover');
+            });
+            imagerDropzone.addEventListener('dragenter', e => {
+                e.preventDefault();
+                imagerDropzone.classList.add('dragover');
+            });
+            imagerDropzone.addEventListener('dragleave', e => {
+                if (!imagerDropzone.contains(e.relatedTarget)) {
+                    imagerDropzone.classList.remove('dragover');
+                }
+            });
+            imagerDropzone.addEventListener('drop', e => {
+                e.preventDefault();
+                imagerDropzone.classList.remove('dragover');
+                if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    processImagerFile(e.dataTransfer.files[0]);
+                }
+            });
+        }
+
+        if (imagerRemoveBtn) {
+            imagerRemoveBtn.addEventListener('click', e => {
+                e.stopPropagation();
+                resetImager();
+            });
+        }
+
+        if (imagerCaptionInput) {
+            imagerCaptionInput.addEventListener('keydown', e => {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    doSendPopup();
+                }
+            });
+        }
+
+        // Paste support for Imager
+        window.addEventListener('paste', e => {
+            if (runState.popupMode !== 'imager') return;
+            const items = e.clipboardData?.items;
+            if (!items) return;
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    const file = items[i].getAsFile();
+                    if (file) {
+                        processImagerFile(file);
+                        break;
+                    }
+                }
+            }
+        });
 
         // Tab hints & autofill
         const taInput = $('popup-input');
