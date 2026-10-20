@@ -1565,52 +1565,48 @@ body:not(.kb-mode) .imager-dropzone:hover,
 .imager-preview-wrap {
     position: relative;
     width: 100%;
+    min-height: 190px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 12px;
+    padding: 24px 8px 6px;
 }
 
-.imager-preview-img {
-    max-width: 100%;
-    max-height: 220px;
-    object-fit: contain;
-    border-radius: 4px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
-    background: #000;
-}
-
-.imager-preview-bar {
+.imager-top-bar {
+    position: absolute;
+    top: 4px;
+    left: 8px;
+    right: 8px;
     display: flex;
-    align-items: center;
     justify-content: space-between;
-    width: 100%;
-    padding: 8px 12px;
-    background: rgba(0, 0, 0, 0.7);
-    border: 1px solid var(--run-border-subtle, #333);
-    border-radius: 4px;
-    backdrop-filter: blur(8px);
+    align-items: center;
+    pointer-events: none;
+    z-index: 5;
 }
 
 .imager-file-meta {
-    font-size: 12px;
-    color: var(--run-text-muted, #ccc);
+    font-size: 13px;
+    color: var(--run-text-soft, #aaa);
     font-family: inherit;
+    font-weight: 500;
+    max-width: calc(100% - 40px);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: calc(100% - 40px);
+    pointer-events: auto;
+    letter-spacing: 0.01em;
 }
 
 .imager-remove-btn {
+    pointer-events: auto;
     background: none;
     border: none;
     color: #fb7185;
     cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 3px;
-    font-size: 14px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    font-size: 15px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1620,7 +1616,15 @@ body:not(.kb-mode) .imager-dropzone:hover,
 .imager-remove-btn:hover {
     background: rgba(244, 63, 94, 0.2);
     color: #fda4af;
-    transform: scale(1.1);
+    transform: scale(1.15);
+}
+
+.imager-preview-img {
+    max-width: 100%;
+    max-height: 220px;
+    object-fit: contain;
+    border-radius: 4px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
 .imager-caption-wrap {

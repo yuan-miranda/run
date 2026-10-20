@@ -666,7 +666,10 @@ const RunApp = (() => {
 
         if (fileInput) fileInput.value = '';
         if (previewImg) previewImg.src = '';
-        if (metaSpan) metaSpan.textContent = '';
+        if (metaSpan) {
+            metaSpan.textContent = '';
+            metaSpan.title = '';
+        }
         if (captionInput) captionInput.value = '';
         if (previewWrap) previewWrap.style.display = 'none';
         if (emptyView) emptyView.style.display = 'flex';
@@ -712,7 +715,10 @@ const RunApp = (() => {
                     const previewWrap = $('imager-preview-wrap');
 
                     if (previewImg) previewImg.src = rawDataUrl;
-                    if (metaSpan) metaSpan.textContent = `${imagerState.fileName} (${imagerState.dimensionsText}, ${imagerState.fileSizeText})`;
+                    if (metaSpan) {
+                        metaSpan.textContent = imagerState.fileName;
+                        metaSpan.title = `${imagerState.fileName} (${imagerState.dimensionsText}, ${imagerState.fileSizeText})`;
+                    }
                     if (emptyView) emptyView.style.display = 'none';
                     if (previewWrap) previewWrap.style.display = 'flex';
                 };
@@ -764,7 +770,10 @@ const RunApp = (() => {
                 const previewWrap = $('imager-preview-wrap');
 
                 if (previewImg) previewImg.src = dataUrl;
-                if (metaSpan) metaSpan.textContent = `${imagerState.fileName} (${imagerState.dimensionsText}, ${imagerState.fileSizeText})`;
+                if (metaSpan) {
+                    metaSpan.textContent = imagerState.fileName;
+                    metaSpan.title = `${imagerState.fileName} (${imagerState.dimensionsText}, ${imagerState.fileSizeText})`;
+                }
                 if (emptyView) emptyView.style.display = 'none';
                 if (previewWrap) previewWrap.style.display = 'flex';
             };
@@ -2854,7 +2863,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
 
         if (imagerDropzone && imagerFileInput) {
             imagerDropzone.addEventListener('click', e => {
-                if (e.target.closest('#imager-remove-btn') || e.target.closest('#imager-preview-bar')) return;
+                if (e.target.closest('#imager-remove-btn') || e.target.closest('.imager-top-bar')) return;
                 imagerFileInput.click();
             });
 
