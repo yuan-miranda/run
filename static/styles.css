@@ -3388,12 +3388,12 @@ body.view-action .sidebar-run-section {
     background: var(--run-surface, #0e0e0e);
     border: 1px solid var(--run-border-quiet, #1f1f1f);
     border-radius: 4px;
-    padding: 10px 14px;
+    padding: 8px 14px;
     display: grid;
-    grid-template-columns: 140px auto 1fr;
-    grid-template-areas: "time tag content";
-    align-items: start;
-    column-gap: 12px;
+    grid-template-columns: 140px 1fr auto;
+    grid-template-areas: "time content tag";
+    align-items: center;
+    column-gap: 14px;
     row-gap: 6px;
     transition: border-color 0.15s, background 0.15s;
 }
@@ -3409,7 +3409,6 @@ body.view-action .sidebar-run-section {
     font-size: 11px;
     color: var(--run-text-soft, #777);
     white-space: nowrap;
-    padding-top: 2px;
 }
 
 .log-type-tag {
@@ -3423,6 +3422,7 @@ body.view-action .sidebar-run-section {
     text-transform: uppercase;
     white-space: nowrap;
     flex-shrink: 0;
+    justify-self: end;
 }
 
 .log-type-COMMAND {
@@ -3496,7 +3496,6 @@ body.view-action .sidebar-run-section {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 4px;
 }
 
 .log-detail-text {
@@ -3507,13 +3506,6 @@ body.view-action .sidebar-run-section {
     overflow-wrap: anywhere;
     white-space: pre-wrap;
     line-height: 1.45;
-}
-
-.log-status-text {
-    font-size: 10px;
-    color: var(--run-text-soft, #777);
-    text-transform: uppercase;
-    letter-spacing: .04em;
 }
 
 
@@ -3592,13 +3584,13 @@ body.view-action .sidebar-run-section {
     }
 
     .log-entry {
-        padding: 10px 12px;
-        grid-template-columns: auto 1fr;
+        padding: 8px 12px;
+        grid-template-columns: 1fr auto;
         grid-template-areas:
-            "tag time"
+            "time tag"
             "content content";
         column-gap: 8px;
-        row-gap: 7px;
+        row-gap: 6px;
         align-items: center;
     }
 
@@ -3612,6 +3604,7 @@ body.view-action .sidebar-run-section {
     .log-type-tag {
         font-size: 9.5px;
         padding: 2px 6px;
+        justify-self: end;
     }
 
     .log-content {

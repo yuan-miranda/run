@@ -2902,16 +2902,14 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             const typeClass = `log-type-${escapeHtml(opType)}`;
             const timeFormatted = formatLogTime(log.created_at);
             const detailsEsc = escapeHtml(log.details || '');
-            const statusEsc = log.status ? `<div class="log-status-text">${escapeHtml(log.status)}</div>` : '';
 
             return `
                 <div class="log-entry" data-id="${log.id || ''}">
                     <div class="log-time" title="${escapeHtml(log.created_at || '')}">${timeFormatted}</div>
-                    <span class="log-type-tag ${typeClass}">${escapeHtml(opType)}</span>
                     <div class="log-content">
                         <div class="log-detail-text">${detailsEsc}</div>
-                        ${statusEsc}
                     </div>
+                    <span class="log-type-tag ${typeClass}">${escapeHtml(opType)}</span>
                 </div>
             `;
         }).join('');
