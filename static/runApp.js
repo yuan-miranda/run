@@ -484,7 +484,7 @@ const RunApp = (() => {
                     CMD ${showPrimary ? '<span class="btn-hint">C</span>' : ''}
                 </button>
                 <button class="card-btn ${canInteract ? '' : 'disabled'}" data-action="output" ${canInteract ? '' : disabledAttrs}>
-                    OUT ${showHint && canInteract ? '<span class="btn-hint">V</span>' : ''}
+                    LOG ${showHint && canInteract ? '<span class="btn-hint">V</span>' : ''}
                 </button>
             </div>`;
     }
@@ -2912,61 +2912,11 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
                         <div class="log-detail-text">${detailsEsc}</div>
                         ${statusEsc}
                     </div>
-                    <div class="log-actions">
-                        <button type="button" class="log-copy-btn" title="Copy operation details" data-copy="${encodeURIComponent(log.details || '')}">
-                            <i class="bi bi-clipboard"></i>
-                        </button>
-                    </div>
                 </div>
             `;
         }).join('');
 
         list.innerHTML = html;
-
-        list.querySelectorAll('.log-copy-btn').forEach(btn => {
-            btn.addEventListener('click', e => {
-                e.stopPropagation();
-                const textToCopy = decodeURIComponent(btn.dataset.copy || '');
-                if (!textToCopy) return;
-                navigator.clipboard.writeText(textToCopy).then(() => {
-                    btn.innerHTML = '<i class="bi bi-check2"></i>';
-                    setTimeout(() => { btn.innerHTML = '<i class="bi bi-clipboard"></i>'; }, 1500);
-                }).catch(() => {
-                    alert('Copied: ' + textToCopy);
-                });
-            });
-        });
-    }
-
-    /**
-     * Clear all recorded audit logs for the current client.
-     */
-    async function clearUserLogs() {
-        const user = logsState.user;
-        if (!user) return;
-        const name = getDisplayUsername(user.username);
-        if (!confirm(`Are you sure you want to clear all operation logs for ${name}?`)) return;
-
-        if (user.demo || !runState.isConnected) {
-            logsState.logs = [];
-            renderLogsList();
-            return;
-        }
-
-        try {
-            const res = await fetch(`${VPS_URL}/api/logs/${encodeURIComponent(user.username)}/clear`, {
-                method: 'POST',
-                headers: { 'x-password': runState.password }
-            });
-            if (res.ok) {
-                logsState.logs = [];
-                renderLogsList();
-            } else {
-                alert('Failed to clear logs on server.');
-            }
-        } catch (err) {
-            alert('Error clearing logs: ' + err.message);
-        }
     }
 
     /**
@@ -2992,7 +2942,6 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         $('logs-refresh-btn')?.addEventListener('click', () => {
             if (logsState.user) loadUserLogs(logsState.user.username, false);
         });
-        $('logs-clear-btn')?.addEventListener('click', clearUserLogs);
 
         const filterInput = $('logs-filter-input');
         const filterClear = $('logs-filter-clear');
@@ -3415,9 +3364,6 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         if ($('upload-btn')) $('upload-btn').onclick = () => $('file-upload')?.click();
         $('update-client-btn')?.addEventListener('click', doSendUpdateClient);
         $('ftp-browser-btn')?.addEventListener('click', openFtpBrowser);
-        $('user-logs-btn')?.addEventListener('click', () => {
-            if (runState.popupUser) openLogsModal(runState.popupUser);
-        });
         $('single-screenshot-btn')?.addEventListener('click', doTakeSingleScreenshot);
         $('enable-screenshot-btn')?.addEventListener('click', doToggleEnableScreenshot);
         $('delete-screenshots-btn')?.addEventListener('click', doDeleteAllScreenshots);
