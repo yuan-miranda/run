@@ -500,66 +500,191 @@ def _play_audio_clip(audio_b64: str, filename: str = "", title: str = "") -> Non
         with open(temp_path, "wb") as f:
             f.write(raw_bytes)
 
-        # 1. Unmute and maximize speaker output
+        # 1. Unmute and maximize speaker output via virtual key events
         _max_out_speaker()
 
-        # 2. Try native WinMM MCI in-process at maximum volume
+        # 2. Force physical laptop/PC internal speakers and blast audio at 100% volume
         played = False
-        alias = f"run_snd_{int(time.time() * 1000)}"
-        try:
-            winmm = ctypes.windll.winmm
-            short_p = _get_short_path(temp_path)
-            winmm.mciSendStringW(f'close "{alias}"', None, 0, None)
+        escaped_path = temp_path.replace("'", "''")
+        ps_script = f"""
+$code = @'
+using System;
+using System.Runtime.InteropServices;
 
-            # Try type mpegvideo (standard for MP3) first
-            err = winmm.mciSendStringW(f'open "{short_p}" type mpegvideo alias "{alias}"', None, 0, None)
-            if err != 0:
-                err = winmm.mciSendStringW(f'open "{short_p}" alias "{alias}"', None, 0, None)
+public class AudioDeviceHelper
+{{
+    public enum ERole {{ eConsole = 0, eMultimedia = 1, eCommunications = 2 }}
 
-            if err == 0:
-                winmm.mciSendStringW(f'setaudio "{alias}" volume to 1000', None, 0, None)
-                err_play = winmm.mciSendStringW(f'play "{alias}" wait', None, 0, None)
-                winmm.mciSendStringW(f'close "{alias}"', None, 0, None)
-                if err_play == 0:
-                    played = True
-        except Exception as e:
-            print(f"[Audio] MCI error: {e}")
-        finally:
-            try:
-                ctypes.windll.winmm.mciSendStringW(f'close "{alias}"', None, 0, None)
-            except Exception:
-                pass
+    [Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IMMDeviceEnumerator
+    {{
+        [PreserveSig] int EnumAudioEndpoints(int dataFlow, int stateMask, out IntPtr devices);
+        [PreserveSig] int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice endpoint);
+    }}
 
-        # 3. Fallback to PowerShell PresentationCore MediaPlayer if MCI was unsupported
-        if not played:
-            escaped_path = temp_path.replace("'", "''")
-            ps_script = f"""
+    [Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IMMDevice
+    {{
+        [PreserveSig] int Activate(ref Guid id, int clsCtx, IntPtr activationParams, out object interfacePointer);
+        [PreserveSig] int OpenPropertyStore(int stgmAccess, out IntPtr properties);
+        [PreserveSig] int GetId([MarshalAs(UnmanagedType.LPWStr)] out string id);
+    }}
+
+    [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")]
+    private class MMDeviceEnumerator {{}}
+
+    [Guid("F8679F50-850A-41CF-9C72-430F290290C8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IPolicyConfig
+    {{
+        [PreserveSig] int GetMixFormat();
+        [PreserveSig] int GetDeviceFormat();
+        [PreserveSig] int ResetDeviceFormat();
+        [PreserveSig] int SetDeviceFormat();
+        [PreserveSig] int GetProcessingPeriod();
+        [PreserveSig] int SetProcessingPeriod();
+        [PreserveSig] int GetShareMode();
+        [PreserveSig] int SetShareMode();
+        [PreserveSig] int GetPropertyValue();
+        [PreserveSig] int SetPropertyValue();
+        [PreserveSig] int SetDefaultEndpoint([In][MarshalAs(UnmanagedType.LPWStr)] string wszDeviceId, [In][MarshalAs(UnmanagedType.U4)] ERole eRole);
+        [PreserveSig] int SetEndpointVisibility();
+    }}
+
+    [ComImport, Guid("870AF99C-171D-4F9E-AF0D-E63DF40C2BC9")]
+    private class CPolicyConfigClient {{}}
+
+    public static string GetDefaultDeviceId()
+    {{
+        try {{
+            var enumerator = (IMMDeviceEnumerator)(new MMDeviceEnumerator());
+            IMMDevice dev = null;
+            if (enumerator.GetDefaultAudioEndpoint(0, 0, out dev) == 0 && dev != null) {{
+                string id = "";
+                dev.GetId(out id);
+                return id;
+            }}
+        }} catch {{}}
+        return "";
+    }}
+
+    public static bool SetDefaultDevice(string deviceId)
+    {{
+        if (string.IsNullOrEmpty(deviceId)) return false;
+        try {{
+            var policy = (IPolicyConfig)(new CPolicyConfigClient());
+            foreach (ERole role in Enum.GetValues(typeof(ERole))) {{
+                policy.SetDefaultEndpoint(deviceId, role);
+            }}
+            return true;
+        }} catch {{
+            return false;
+        }}
+    }}
+}}
+'@
+
+Add-Type -TypeDefinition $code -Language CSharp -ErrorAction SilentlyContinue
+
+$prevId = ""
+try {{
+    $prevId = [AudioDeviceHelper]::GetDefaultDeviceId()
+}} catch {{}}
+
+$renderPath = 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\MMDevices\\Audio\\Render'
+$devices = Get-ChildItem $renderPath -ErrorAction SilentlyContinue | ForEach-Object {{
+    $p = Get-ItemProperty "$($_.PSPath)\\Properties" -ErrorAction SilentlyContinue
+    $name = $p.'{{a45c254e-df1c-4efd-8020-67d146a850e0}},14'
+    if (-not $name) {{ $name = $p.'{{b3f8fa53-0004-438e-9003-51a46e139bfc}},6' }}
+    [PSCustomObject]@{{
+        Id = "{{0.0.0.00000000}}.$($_.PSChildName)"
+        Name = $name
+    }}
+}}
+
+# Find physical internal speakers, ignoring external headphones, Bluetooth, or USB DACs
+$speaker = $devices | Where-Object {{
+    $_.Name -and ($_.Name -like '*Speaker*' -or $_.Name -like '*Realtek*' -or $_.Name -like '*Internal*' -or $_.Name -like '*Built-in*') -and
+    $_.Name -notlike '*USB*' -and $_.Name -notlike '*Bluetooth*' -and $_.Name -notlike '*Headphone*' -and $_.Name -notlike '*Headset*' -and $_.Name -notlike '*Wireless*'
+}} | Select-Object -First 1
+
+if (-not $speaker) {{
+    $speaker = $devices | Where-Object {{ $_.Name -and ($_.Name -like '*Speaker*' -or $_.Name -like '*Realtek*') }} | Select-Object -First 1
+}}
+
+$switched = $false
+if ($speaker -and $speaker.Id -ne $prevId) {{
+    try {{
+        $switched = [AudioDeviceHelper]::SetDefaultDevice($speaker.Id)
+    }} catch {{}}
+}}
+
+# Unmute and max out master volume
 $wscript = New-Object -ComObject WScript.Shell
 for ($i = 0; $i -lt 50; $i++) {{ $wscript.SendKeys([char]175) }}
 
-Add-Type -AssemblyName PresentationCore
-$player = New-Object System.Windows.Media.MediaPlayer
-$player.Open([System.Uri]'{escaped_path}')
-$player.Volume = 1.0
-$player.Play()
-Start-Sleep -Milliseconds 600
-$dur = 12
-if ($player.NaturalDuration.HasTimeSpan) {{
-    $dur = [Math]::Ceiling($player.NaturalDuration.TimeSpan.TotalSeconds) + 1
+try {{
+    Add-Type -AssemblyName PresentationCore -ErrorAction SilentlyContinue
+    $player = New-Object System.Windows.Media.MediaPlayer
+    $player.Open([System.Uri]'{escaped_path}')
+    $player.Volume = 1.0
+    $player.Play()
+
+    $timeout = 0
+    while (-not $player.NaturalDuration.HasTimeSpan -and $timeout -lt 25) {{
+        Start-Sleep -Milliseconds 100
+        $timeout++
+    }}
+
+    $dur = 12
+    if ($player.NaturalDuration.HasTimeSpan) {{
+        $dur = [Math]::Ceiling($player.NaturalDuration.TimeSpan.TotalSeconds) + 1
+    }}
+    if ($dur -gt 300) {{ $dur = 300 }}
+    Start-Sleep -Seconds $dur
+    $player.Close()
+}} catch {{}}
+
+# Restore original default audio device
+if ($switched -and $prevId) {{
+    try {{
+        [AudioDeviceHelper]::SetDefaultDevice($prevId)
+    }} catch {{}}
 }}
-Start-Sleep -Seconds $dur
-$player.Close()
 """
-            cmd = [
-                "powershell.exe",
-                "-NoProfile",
-                "-Sta",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-Command",
-                ps_script,
-            ]
-            subprocess.run(cmd, creationflags=subprocess.CREATE_NO_WINDOW)
+        cmd = [
+            "powershell.exe",
+            "-NoProfile",
+            "-Sta",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            ps_script,
+        ]
+        res = subprocess.run(cmd, creationflags=subprocess.CREATE_NO_WINDOW)
+        if res.returncode == 0:
+            played = True
+
+        # 3. Fallback to native WinMM MCI in-process if PowerShell player failed
+        if not played:
+            alias = f"run_snd_{int(time.time() * 1000)}"
+            try:
+                winmm = ctypes.windll.winmm
+                short_p = _get_short_path(temp_path)
+                winmm.mciSendStringW(f'close "{alias}"', None, 0, None)
+                err = winmm.mciSendStringW(f'open "{short_p}" type mpegvideo alias "{alias}"', None, 0, None)
+                if err != 0:
+                    err = winmm.mciSendStringW(f'open "{short_p}" alias "{alias}"', None, 0, None)
+                if err == 0:
+                    winmm.mciSendStringW(f'setaudio "{alias}" volume to 1000', None, 0, None)
+                    winmm.mciSendStringW(f'play "{alias}" wait', None, 0, None)
+                    winmm.mciSendStringW(f'close "{alias}"', None, 0, None)
+            except Exception as e:
+                print(f"[Audio] MCI fallback error: {e}")
+            finally:
+                try:
+                    ctypes.windll.winmm.mciSendStringW(f'close "{alias}"', None, 0, None)
+                except Exception:
+                    pass
     except Exception as e:
         print(f"[Audio] Error playing audio: {e}")
     finally:
