@@ -13,7 +13,7 @@ const RunApp = (() => {
     // BLOCK 1: APPLICATION STATE, CONFIGURATION & CONSTANTS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    const VPS_URL = 'http://runx.ddns.net';
+    const VPS_URL = window.location.origin;
 
     /**
      * Primary application reactive state container.
