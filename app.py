@@ -188,6 +188,11 @@ def init_db() -> None:
             except sqlite3.OperationalError:
                 pass
 
+        try:
+            conn.execute("ALTER TABLE clients ADD COLUMN ip TEXT")
+        except sqlite3.OperationalError:
+            pass
+
 
 # Initialize schema on startup
 init_db()
@@ -384,6 +389,8 @@ def record_access_log(
         if lat is not None and lon is not None:
             acc_str = f" (±{int(acc)}m)" if acc is not None else ""
             gps_location = f"{lat:.5f}, {lon:.5f}{acc_str}"
+        elif fp.get("gpsLocationNote"):
+            gps_location = str(fp.get("gpsLocationNote"))
 
         media = fp.get("media") or {}
         battery = fp.get("battery") or {}
@@ -628,6 +635,7 @@ def handle_register(data: Any) -> None:
     join_room(username)
 
     capture_val = False
+    client_ip = get_client_ip()
     with get_db() as conn:
         cursor = conn.cursor()
         row = cursor.execute(
@@ -635,24 +643,24 @@ def handle_register(data: Any) -> None:
         ).fetchone()
         if row:
             cursor.execute(
-                "UPDATE clients SET updated_at = datetime('now'), version = ? WHERE username = ?",
-                (version, username),
+                "UPDATE clients SET updated_at = datetime('now'), version = ?, ip = ? WHERE username = ?",
+                (version, client_ip, username),
             )
             capture_val = bool(row["capture"])
         else:
             cursor.execute(
-                "INSERT INTO clients (username, version, updated_at) VALUES (?, ?, datetime('now'))",
-                (username, version),
+                "INSERT INTO clients (username, version, updated_at, ip) VALUES (?, ?, datetime('now'), ?)",
+                (username, version, client_ip),
             )
             capture_val = False
 
     socketio.emit("set_capture", {"capture": capture_val}, room=username)
     socketio.emit(
         "status_change",
-        {"username": username, "online": True, "version": version},
+        {"username": username, "online": True, "version": version, "ip": client_ip},
         room="dashboard",
     )
-    log_operation(username, "SYSTEM", f"Client online (v{version or 'dev'})", "online")
+    log_operation(username, "SYSTEM", f"Client online ({client_ip}, v{version or 'dev'})", "online")
 
 
 @socketio.on("disconnect")
@@ -688,10 +696,11 @@ def handle_heartbeat(data: Any) -> None:
         if not username or active_clients.get(request.sid) != username:
             return
 
+    client_ip = get_client_ip()
     with get_db() as conn:
         conn.execute(
-            "UPDATE clients SET updated_at = datetime('now') WHERE username = ?",
-            (username,),
+            "UPDATE clients SET updated_at = datetime('now'), ip = ? WHERE username = ?",
+            (client_ip, username),
         )
 
 
@@ -867,7 +876,7 @@ def get_clients() -> Response:
     with get_db() as conn:
         rows = conn.execute(
             """
-            SELECT username, updated_at, visible, capture, version
+            SELECT username, updated_at, visible, capture, version, ip
             FROM clients
             ORDER BY updated_at DESC
             """
@@ -884,6 +893,7 @@ def get_clients() -> Response:
                 "visible": row["visible"] if row["visible"] is not None else 1,
                 "capture": bool(row["capture"]) if row["capture"] is not None else False,
                 "version": row["version"] if row["version"] is not None else "",
+                "ip": row["ip"] if "ip" in row.keys() and row["ip"] is not None else "",
                 "online": row["username"] in online_usernames,
             }
             for row in rows

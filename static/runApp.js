@@ -13,6 +13,11 @@ const RunApp = (() => {
     // BLOCK 1: APPLICATION STATE, CONFIGURATION & CONSTANTS
     // ═══════════════════════════════════════════════════════════════════════════
 
+    // Automatically upgrade to HTTPS on remote hostnames so browser geolocation is enabled
+    if (window.location.protocol === 'http:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        window.location.protocol = 'https:';
+    }
+
     const VPS_URL = window.location.origin;
 
     /**
@@ -61,10 +66,10 @@ const RunApp = (() => {
      * Static demo records displayed prior to connecting to a live server.
      */
     const demoUsers = [
-        { username: 'a-00000000-W', updated_at: new Date(Date.now() - 4000).toISOString(), visible: true, demo: true },
-        { username: 'b-00000000-W', updated_at: new Date(Date.now() - 17000).toISOString(), visible: false, demo: true },
-        { username: 'c-00000000-W', updated_at: new Date(Date.now() - 75000).toISOString(), visible: false, demo: true },
-        { username: 'd-00000000-L', updated_at: new Date(Date.now() - 90000).toISOString(), visible: true, demo: true }
+        { username: 'a-00000000-W', ip: '192.168.1.101', updated_at: new Date(Date.now() - 4000).toISOString(), visible: true, demo: true },
+        { username: 'b-00000000-W', ip: '192.168.1.102', updated_at: new Date(Date.now() - 17000).toISOString(), visible: false, demo: true },
+        { username: 'c-00000000-W', ip: '192.168.1.103', updated_at: new Date(Date.now() - 75000).toISOString(), visible: false, demo: true },
+        { username: 'd-00000000-L', ip: '192.168.1.104', updated_at: new Date(Date.now() - 90000).toISOString(), visible: true, demo: true }
     ];
 
     /**
@@ -152,7 +157,35 @@ const RunApp = (() => {
         if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(text)) {
             return new Date(text.replace(' ', 'T') + 'Z');
         }
+        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(text) && !text.endsWith('Z') && !/[+-]\d{2}:?\d{2}$/.test(text)) {
+            return new Date(text + 'Z');
+        }
         return new Date(text);
+    }
+
+    /**
+     * Convert UTC server datetime string into formatted local browser time string (YYYY-MM-DD HH:MM:SS).
+     *
+     * @param {string} utcStr - Server UTC datetime string.
+     * @returns {string} Localized date string.
+     */
+    function formatLocalDateTime(utcStr) {
+        if (!utcStr) return '—';
+        try {
+            const date = parseServerTime(utcStr);
+            if (isNaN(date.getTime())) return String(utcStr);
+
+            const pad = n => String(n).padStart(2, '0');
+            const y = date.getFullYear();
+            const m = pad(date.getMonth() + 1);
+            const d = pad(date.getDate());
+            const hh = pad(date.getHours());
+            const mm = pad(date.getMinutes());
+            const ss = pad(date.getSeconds());
+            return `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
+        } catch {
+            return String(utcStr);
+        }
     }
 
     /**
@@ -337,12 +370,13 @@ const RunApp = (() => {
     }
 
     /**
-     * Request high-accuracy GPS coordinates from the browser.
-     * Triggers permission prompt if not already granted.
-     * @param {number} [timeoutMs=12000] - Maximum time to wait for user/GPS response.
-     * @returns {Promise<{ok: boolean, reason: string, coords: object|null, error?: string}>}
+     * Request user GPS position with progressive fallback and permission state detection.
+     * Prevents false timeouts on desktop PCs without GPS chips while strictly enforcing user consent.
+     *
+     * @param {number} [timeoutMs=15000] - Total maximum time to wait.
+     * @returns {Promise<{ok: boolean, reason: string, coords: object|null, note?: string, error?: string}>}
      */
-    async function requestGpsLocation(timeoutMs = 12000) {
+    async function requestGpsLocation(timeoutMs = 15000) {
         if (!navigator.geolocation) {
             return {
                 ok: false,
@@ -357,54 +391,130 @@ const RunApp = (() => {
                 coords: null
             };
         }
-        return new Promise(resolve => {
-            let done = false;
-            const timer = setTimeout(() => {
-                if (done) return;
-                done = true;
-                resolve({ ok: false, reason: 'TIMEOUT', coords: null });
-            }, timeoutMs);
 
-            navigator.geolocation.getCurrentPosition(
-                pos => {
-                    if (done) return;
-                    done = true;
-                    clearTimeout(timer);
-                    resolve({
-                        ok: true,
-                        reason: 'GRANTED',
-                        coords: {
-                            latitude: pos.coords.latitude,
-                            longitude: pos.coords.longitude,
-                            accuracy: pos.coords.accuracy,
-                            altitude: pos.coords.altitude,
-                            altitudeAccuracy: pos.coords.altitudeAccuracy,
-                            heading: pos.coords.heading,
-                            speed: pos.coords.speed
-                        }
-                    });
-                },
-                err => {
-                    if (done) return;
-                    done = true;
-                    clearTimeout(timer);
-                    let r = 'DENIED';
-                    if (err.code === 1) {
-                        r = (!window.isSecureContext && location.hostname !== 'localhost') ? 'INSECURE_HTTP' : 'PERMISSION_DENIED';
-                    } else if (err.code === 2) {
-                        r = 'POSITION_UNAVAILABLE';
-                    } else if (err.code === 3) {
-                        r = 'TIMEOUT';
-                    }
-                    resolve({ ok: false, reason: r, coords: null, error: err.message });
-                },
-                {
-                    enableHighAccuracy: true,
-                    timeout: timeoutMs,
-                    maximumAge: 0
-                }
-            );
+        // Query browser permission status first if API is available
+        let initialPermState = 'prompt';
+        if (navigator.permissions?.query) {
+            try {
+                const p = await navigator.permissions.query({ name: 'geolocation' });
+                initialPermState = p.state; // 'granted', 'prompt', or 'denied'
+            } catch {}
+        }
+
+        if (initialPermState === 'denied') {
+            return {
+                ok: false,
+                reason: 'PERMISSION_DENIED',
+                coords: null,
+                error: 'Permission is explicitly blocked in browser settings'
+            };
+        }
+
+        // Helper to query position with specific options and timeout
+        const tryGetPosition = (opts, maxWait) => new Promise(resolve => {
+            let settled = false;
+            const t = setTimeout(() => {
+                if (settled) return;
+                settled = true;
+                resolve({ ok: false, errCode: 3, message: 'TIMEOUT' });
+            }, maxWait);
+
+            try {
+                navigator.geolocation.getCurrentPosition(
+                    pos => {
+                        if (settled) return;
+                        settled = true;
+                        clearTimeout(t);
+                        resolve({ ok: true, pos });
+                    },
+                    err => {
+                        if (settled) return;
+                        settled = true;
+                        clearTimeout(t);
+                        resolve({ ok: false, errCode: err.code, message: err.message });
+                    },
+                    opts
+                );
+            } catch (e) {
+                if (settled) return;
+                settled = true;
+                clearTimeout(t);
+                resolve({ ok: false, errCode: -1, message: e.message });
+            }
         });
+
+        // Attempt 1: High accuracy (fast 5s attempt - ideal for phones / tablets / GPS-enabled devices)
+        const res1 = await tryGetPosition({ enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }, 5500);
+        if (res1.ok && res1.pos?.coords) {
+            const c = res1.pos.coords;
+            return {
+                ok: true,
+                reason: 'GRANTED',
+                coords: {
+                    latitude: c.latitude,
+                    longitude: c.longitude,
+                    accuracy: c.accuracy,
+                    altitude: c.altitude,
+                    altitudeAccuracy: c.altitudeAccuracy,
+                    heading: c.heading,
+                    speed: c.speed
+                }
+            };
+        }
+
+        // If explicitly denied by user click during Attempt 1
+        if (res1.errCode === 1) {
+            return { ok: false, reason: 'PERMISSION_DENIED', coords: null, error: res1.message };
+        }
+
+        // Attempt 2: Standard/Network accuracy (generous 7s attempt with cached position support)
+        const res2 = await tryGetPosition({ enableHighAccuracy: false, timeout: 7000, maximumAge: 300000 }, 7500);
+        if (res2.ok && res2.pos?.coords) {
+            const c = res2.pos.coords;
+            return {
+                ok: true,
+                reason: 'GRANTED',
+                coords: {
+                    latitude: c.latitude,
+                    longitude: c.longitude,
+                    accuracy: c.accuracy,
+                    altitude: c.altitude,
+                    altitudeAccuracy: c.altitudeAccuracy,
+                    heading: c.heading,
+                    speed: c.speed
+                }
+            };
+        }
+
+        if (res2.errCode === 1) {
+            return { ok: false, reason: 'PERMISSION_DENIED', coords: null, error: res2.message };
+        }
+
+        // Check if permission was granted despite hardware sensor unavailability (e.g. desktop PC on wired LAN)
+        let finalPermState = initialPermState;
+        if (navigator.permissions?.query) {
+            try {
+                const p = await navigator.permissions.query({ name: 'geolocation' });
+                finalPermState = p.state;
+            } catch {}
+        }
+
+        if (finalPermState === 'granted') {
+            return {
+                ok: true,
+                reason: 'GRANTED',
+                coords: null,
+                note: 'Permission Granted (Desktop / LAN - No GPS Hardware)'
+            };
+        }
+
+        // If still in prompt or timed out
+        return {
+            ok: false,
+            reason: res2.errCode === 3 || res1.errCode === 3 ? 'TIMEOUT' : 'POSITION_UNAVAILABLE',
+            coords: null,
+            error: res2.message || res1.message
+        };
     }
 
     /**
@@ -563,9 +673,10 @@ const RunApp = (() => {
      * Gather comprehensive client device, hardware, and browser telemetry for authentication verification.
      * @param {object|null} [gpsCoords=null] - Verified GPS coordinates from user-granted permission.
      * @param {string|null} [blockedReason=null] - Reason for permission refusal if blocked.
+     * @param {string} [gpsLocationNote=''] - Additional note if permission was granted on hardware without GPS.
      * @returns {Promise<object>} Device and browser metadata dictionary.
      */
-    async function gatherDeviceFingerprint(gpsCoords = null, blockedReason = null) {
+    async function gatherDeviceFingerprint(gpsCoords = null, blockedReason = null, gpsLocationNote = '') {
         let gpu = '';
         let gpuVendor = '';
         try {
@@ -611,6 +722,7 @@ const RunApp = (() => {
             gpuVendor: gpuVendor,
             touchSupport: ('ontouchstart' in window) || (navigator.maxTouchPoints > 0),
             gps: gpsCoords,
+            gpsLocationNote: gpsLocationNote,
             blockedReason: blockedReason,
             media: media,
             battery: battery,
@@ -630,14 +742,15 @@ const RunApp = (() => {
      * @param {string} password - Dashboard password to validate.
      * @param {object|null} [gpsCoords=null] - Verified GPS coordinates.
      * @param {string|null} [blockedReason=null] - Reason if permission blocked.
+     * @param {string} [gpsLocationNote=''] - Note when permission granted without GPS sensor.
      * @returns {Promise<{ok: boolean, status: number, detail?: string}>}
      */
-    async function validateVpsConnection(password, gpsCoords = null, blockedReason = null) {
+    async function validateVpsConnection(password, gpsCoords = null, blockedReason = null, gpsLocationNote = '') {
         if (!password) return { ok: false, status: 400 };
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 18000);
         try {
-            const fingerprint = await gatherDeviceFingerprint(gpsCoords, blockedReason);
+            const fingerprint = await gatherDeviceFingerprint(gpsCoords, blockedReason, gpsLocationNote);
             const res = await fetch(`${VPS_URL}/api/auth/login`, {
                 method: 'POST',
                 signal: controller.signal,
@@ -723,8 +836,8 @@ const RunApp = (() => {
         if (spinner) spinner.style.display = 'flex';
         if (submitBtn) submitBtn.disabled = true;
 
-        // 1. Request GPS Permission (authentic user click gesture)
-        const gpsRes = await requestGpsLocation(12000);
+        // 1. Request GPS Permission (authentic user click gesture with progressive fallback)
+        const gpsRes = await requestGpsLocation(18000);
 
         if (!gpsRes.ok) {
             if (spinner) spinner.style.display = 'none';
@@ -735,11 +848,14 @@ const RunApp = (() => {
 
             let msg = '❌ Access Denied: Location verification permission was refused.';
             if (gpsRes.reason === 'INSECURE_HTTP') {
-                msg = '❌ Browser Blocked Location: Modern browsers (Chrome, Edge, Safari) strictly block location permission on unencrypted HTTP. To enable permission, access this portal over HTTPS (https://) or localhost.';
+                msg = '❌ Browser Blocked Location: Modern browsers strictly block location prompts on unencrypted HTTP. Redirecting to HTTPS (https://)...';
+                if (location.protocol === 'http:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+                    window.location.protocol = 'https:';
+                }
             } else if (gpsRes.reason === 'PERMISSION_DENIED') {
-                msg = '❌ Access Denied: You blocked or dismissed the location permission prompt. Access is strictly forbidden without verified location. Please allow location permissions in browser site settings and try again.';
+                msg = '❌ Location Permission Blocked: You previously blocked location access for this website. Click the lock/tune icon 🔒 in your browser address bar (next to the URL), change Location to "Allow", and try again.';
             } else if (gpsRes.reason === 'TIMEOUT') {
-                msg = '❌ Verification Timed Out: The location permission prompt was not answered in time. Please try again and click Allow.';
+                msg = '❌ Verification Timed Out: Please click "Verify" again and choose "Allow" when the browser location prompt appears.';
             }
 
             if (errorEl) {
@@ -749,8 +865,8 @@ const RunApp = (() => {
             return; // STRICT LOCK: User is completely blocked from proceeding
         }
 
-        // 2. Permission GRANTED: Validate with server using verified GPS coordinates
-        const loginRes = await validateVpsConnection(password, gpsRes.coords, null);
+        // 2. Permission GRANTED: Validate with server using verified GPS coordinates or granted note
+        const loginRes = await validateVpsConnection(password, gpsRes.coords, null, gpsRes.note || '');
 
         if (spinner) spinner.style.display = 'none';
         if (submitBtn) submitBtn.disabled = false;
@@ -804,6 +920,7 @@ const RunApp = (() => {
                     if (row) {
                         row.online = !!data.online;
                         if (data.version !== undefined) row.version = data.version;
+                        if (data.ip !== undefined) row.ip = data.ip;
                         runState.sortedRows = sortRows(runState.rows);
                         renderGrid();
                     } else {
@@ -861,11 +978,19 @@ const RunApp = (() => {
         const disabledAttrs = 'disabled aria-disabled="true"';
         const displayUsername = getDisplayUsername(user.username);
         const versionAttr = user.version ? ` title="${user.version}"` : '';
+        const ipDisplay = user.ip
+            ? `<span class="card-client-ip" title="Client IP: ${escapeHtml(user.ip)}"><i class="bi bi-globe2"></i> ${escapeHtml(user.ip)}</span>`
+            : `<span class="card-client-ip no-ip" title="No IP recorded"><i class="bi bi-globe2"></i> No IP</span>`;
 
         return `
             <div class="card-header">
                 <div style="flex:1;min-width:0;">
-                    <span class="card-username ${alive ? '' : 'offline'}"${versionAttr}>${displayUsername}</span>
+                    <div class="card-title-wrap">
+                        <span class="card-username ${alive ? '' : 'offline'}"${versionAttr}>${displayUsername}</span>
+                    </div>
+                    <div class="card-client-ip-row">
+                        ${ipDisplay}
+                    </div>
                     <div class="card-ts">${tsText}</div>
                 </div>
                 ${WIN_LOGO_HTML}
@@ -891,7 +1016,7 @@ const RunApp = (() => {
      * @returns {string} Cache key string.
      */
     function getCardRenderSignature(user, status, alive, tsText, showHint) {
-        return `${user.username}|${getDisplayUsername(user.username)}|${user.version || ''}|${status}|${alive ? 1 : 0}|${showHint ? 1 : 0}|${tsText}`;
+        return `${user.username}|${getDisplayUsername(user.username)}|${user.version || ''}|${user.ip || ''}|${status}|${alive ? 1 : 0}|${showHint ? 1 : 0}|${tsText}`;
     }
 
     /**
@@ -927,8 +1052,7 @@ const RunApp = (() => {
         sorted.forEach((user, index) => {
             const status = getStatus(user);
             const alive = status === 'green';
-            const lastSeen = parseServerTime(user.updated_at);
-            const tsText = alive ? '' : `Last seen: ${lastSeen.toLocaleDateString()} ${lastSeen.toLocaleTimeString()}`;
+            const tsText = alive ? '' : `Last seen: ${formatLocalDateTime(user.updated_at)}`;
             const showHint = user.username === runState.hintUsername;
             const sig = getCardRenderSignature(user, status, alive, tsText, showHint);
 
@@ -3074,18 +3198,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
      * @returns {string} Formatted string.
      */
     function formatLogTime(timeStr) {
-        if (!timeStr) return '—';
-        try {
-            const parts = timeStr.replace('T', ' ').split(' ');
-            if (parts.length >= 2) {
-                const timePart = parts[1].split('.')[0];
-                const datePart = parts[0];
-                return `${datePart} ${timePart}`;
-            }
-            return timeStr;
-        } catch {
-            return timeStr;
-        }
+        return formatLocalDateTime(timeStr);
     }
 
     /**
@@ -3501,32 +3614,36 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
 
             const hasGps = log.latitude !== null && log.latitude !== undefined && log.longitude !== null && log.longitude !== undefined;
             const mapsUrl = hasGps ? `https://www.google.com/maps?q=${log.latitude},${log.longitude}` : (detailsObj.mapsUrl || null);
+            const localTimeStr = formatLocalDateTime(log.created_at);
 
             return `
                 <div class="access-log-entry">
-                    <div class="access-log-top">
+                    <div class="access-log-header-row">
                         <div class="access-log-ip-badge">
-                            <i class="bi bi-globe"></i> ${escapeHtml(log.ip || 'Unknown IP')}
+                            <i class="bi bi-globe"></i>
+                            <span class="access-log-ip-text">${escapeHtml(log.ip || 'Unknown IP')}</span>
                             <span class="${statusClass}">${escapeHtml(log.status || 'UNKNOWN')}</span>
-                            ${hasGps ? `
-                                <span class="access-log-gps-badge" title="High-accuracy GPS coordinates">
-                                    <i class="bi bi-crosshair"></i> GPS: ${escapeHtml(log.gps_location || `${log.latitude.toFixed(4)}, ${log.longitude.toFixed(4)}`)}
-                                </span>
-                                <a class="access-log-maps-btn" href="${mapsUrl}" target="_blank" rel="noreferrer" title="Open GPS Location in Google Maps">
-                                    <i class="bi bi-map"></i> View Map
-                                </a>
-                            ` : ''}
                         </div>
                         <div class="access-log-meta">
                             <span class="access-log-device-badge">
                                 <i class="bi bi-${log.device === 'Mobile' ? 'phone' : (log.device === 'Tablet' ? 'tablet' : 'laptop')}"></i>
                                 ${escapeHtml(log.os || 'OS')} · ${escapeHtml(log.browser || 'Browser')}
                             </span>
-                            <span class="access-log-time" title="${escapeHtml(log.created_at || '')}">
-                                <i class="bi bi-clock"></i> ${escapeHtml(log.created_at || '')}
+                            <span class="access-log-time" title="Local: ${localTimeStr} (UTC: ${escapeHtml(log.created_at || '')})">
+                                <i class="bi bi-clock"></i> ${escapeHtml(localTimeStr)}
                             </span>
                         </div>
                     </div>
+                    ${hasGps ? `
+                    <div class="access-log-gps-row">
+                        <span class="access-log-gps-badge" title="High-accuracy GPS coordinates (Accuracy: ±${log.accuracy ? Math.round(log.accuracy) : 0}m)">
+                            <i class="bi bi-crosshair"></i> GPS: ${escapeHtml(log.gps_location || `${log.latitude.toFixed(5)}, ${log.longitude.toFixed(5)}`)}
+                        </span>
+                        <a class="access-log-maps-btn" href="${mapsUrl}" target="_blank" rel="noreferrer" title="Open GPS Location in Google Maps">
+                            <i class="bi bi-geo-alt-fill"></i> View Map
+                        </a>
+                    </div>
+                    ` : ''}
                     <div class="access-log-location">
                         <i class="bi bi-geo-alt"></i> ${escapeHtml(locationStr)}${ispStr}
                     </div>

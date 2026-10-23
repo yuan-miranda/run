@@ -973,8 +973,66 @@ body:not(.kb-mode) .user-card:hover .os-logo {
 
 .card-ts {
     color: var(--run-text-soft, var(--muted));
-    font-size: 13px;
-    height: 18px;
+    font-size: 12px;
+    min-height: 16px;
+    margin-top: 2px;
+}
+
+.card-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.card-client-ip-row {
+    display: flex;
+    align-items: center;
+    margin: 3px 0 2px 0;
+    min-width: 0;
+}
+
+.card-client-ip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--run-border-subtle, rgba(255, 255, 255, 0.1));
+    color: var(--run-text-muted, #ccc);
+    letter-spacing: .02em;
+    user-select: all;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.card-client-ip i {
+    font-size: 11px;
+    color: var(--run-accent, #38bdf8);
+    flex-shrink: 0;
+}
+
+.card-client-ip.no-ip {
+    color: var(--run-text-soft, #666);
+    border-color: rgba(255, 255, 255, 0.04);
+}
+
+.card-client-ip.no-ip i {
+    color: var(--run-text-soft, #666);
+}
+
+.user-card.offline .card-client-ip {
+    opacity: 0.65;
+}
+
+.user-card.offline .card-client-ip i {
+    color: var(--run-text-soft, #888);
 }
 
 .card-username {
@@ -3558,12 +3616,13 @@ body.view-action .sidebar-run-section {
 .access-log-entry {
     background: var(--run-surface, #0e0e0e);
     border: 1px solid var(--run-border-quiet, #1f1f1f);
-    border-radius: 5px;
-    padding: 12px 16px;
+    border-radius: 6px;
+    padding: 12px 14px;
     display: flex;
     flex-direction: column;
     gap: 8px;
     transition: border-color 0.15s, background 0.15s;
+    min-width: 0;
 }
 
 .access-log-entry:hover {
@@ -3571,12 +3630,13 @@ body.view-action .sidebar-run-section {
     background: var(--run-surface-alt, #141414);
 }
 
-.access-log-top {
+.access-log-header-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
+    gap: 8px 12px;
     flex-wrap: wrap;
+    min-width: 0;
 }
 
 .access-log-ip-badge {
@@ -3587,22 +3647,40 @@ body.view-action .sidebar-run-section {
     font-size: 13px;
     font-weight: 700;
     color: var(--run-text, #fff);
+    min-width: 0;
+}
+
+.access-log-ip-text {
+    letter-spacing: .02em;
 }
 
 .access-log-location {
     font-size: 12px;
     color: var(--run-text-muted, #ccc);
-    display: inline-flex;
+    display: flex;
     align-items: center;
     gap: 6px;
+    flex-wrap: wrap;
+    word-break: break-word;
+    line-height: 1.4;
 }
 
 .access-log-meta {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     font-size: 11px;
     color: var(--run-text-soft, #888);
+    flex-wrap: wrap;
+}
+
+.access-log-time {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    font-size: 11px;
+    color: var(--run-text-soft, #999);
 }
 
 .access-log-status-SUCCESS {
@@ -3653,40 +3731,53 @@ body.view-action .sidebar-run-section {
     gap: 5px;
 }
 
+.access-log-gps-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 2px 0;
+}
+
 .access-log-gps-badge {
-    background: rgba(16, 185, 129, 0.15);
+    background: rgba(16, 185, 129, 0.12);
     color: #34d399;
     border: 1px solid rgba(16, 185, 129, 0.35);
-    font-size: 10px;
-    font-weight: 700;
-    padding: 2px 7px;
-    border-radius: 3px;
-    letter-spacing: .04em;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: .02em;
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
     font-family: 'JetBrains Mono', 'Consolas', monospace;
+    max-width: 100%;
+    word-break: break-all;
 }
 
 .access-log-maps-btn {
-    background: rgba(56, 189, 248, 0.15);
+    background: rgba(56, 189, 248, 0.12);
     color: #38bdf8;
     border: 1px solid rgba(56, 189, 248, 0.35);
-    font-size: 10px;
-    font-weight: 700;
-    padding: 2px 8px;
-    border-radius: 3px;
-    letter-spacing: .04em;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 4px;
+    letter-spacing: .03em;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
     text-decoration: none;
     cursor: pointer;
     transition: background 0.15s, border-color 0.15s, color 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .access-log-maps-btn:hover {
-    background: rgba(56, 189, 248, 0.28);
+    background: rgba(56, 189, 248, 0.25);
     border-color: #38bdf8;
     color: #bae6fd;
 }
@@ -3703,22 +3794,23 @@ body.view-action .sidebar-run-section {
 .access-log-spec-item {
     display: flex;
     gap: 6px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    min-width: 0;
+    line-height: 1.4;
 }
 
 .access-log-spec-label {
     color: var(--run-text-soft, #777);
     flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .access-log-spec-val {
     color: var(--run-text-muted, #ddd);
-    overflow: hidden;
-    text-overflow: ellipsis;
     font-family: 'JetBrains Mono', 'Consolas', monospace;
     font-size: 10.5px;
+    min-width: 0;
+    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 
 .access-log-empty {
@@ -3835,6 +3927,62 @@ body.view-action .sidebar-run-section {
     .log-detail-text {
         font-size: 11.5px;
         line-height: 1.4;
+    }
+
+    /* Access Logs Mobile Responsiveness */
+    .access-log-entry {
+        padding: 10px 12px;
+        gap: 7px;
+    }
+
+    .access-log-header-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+
+    .access-log-ip-badge {
+        font-size: 12.5px;
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .access-log-meta {
+        width: 100%;
+        justify-content: space-between;
+        font-size: 10.5px;
+        gap: 6px;
+    }
+
+    .access-log-gps-row {
+        width: 100%;
+        justify-content: space-between;
+        gap: 6px;
+    }
+
+    .access-log-gps-badge {
+        font-size: 10.5px;
+        padding: 3px 6px;
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .access-log-maps-btn {
+        font-size: 10.5px;
+        padding: 3px 8px;
+    }
+
+    .access-log-location {
+        font-size: 11px;
+    }
+
+    .access-log-details-grid {
+        grid-template-columns: 1fr;
+        gap: 5px;
+        font-size: 10.5px;
     }
 }
 
