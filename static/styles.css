@@ -401,6 +401,32 @@ header {
     background: var(--border);
 }
 
+/* ── Header icon button/link ── */
+.header-icon-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-left: 1px solid var(--border);
+    color: var(--text);
+    padding: 0 14px;
+    height: 44px;
+    box-sizing: border-box;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color .18s, color .18s;
+}
+
+.header-icon-link:hover {
+    background: var(--border);
+}
+
+.header-icon-link svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+    display: block;
+}
+
 .folder-btn:disabled,
 .file-btn:disabled {
     opacity: .45;
@@ -2021,6 +2047,10 @@ body.view-action .sidebar-run-section {
     /* Visibility toggles */
     .hamburger-btn {
         display: flex;
+    }
+
+    .header-github-link {
+        display: none !important;
     }
 
     body.view-run .run-connect-wrap,

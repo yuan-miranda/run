@@ -1109,4 +1109,4 @@ def clear_user_logs(username: str) -> Response:
 # ── Application Entry Point ──────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=5002, debug=False)
+    socketio.run(app, host="0.0.0.0", port=5002, debug=False, allow_unsafe_werkzeug=True)
