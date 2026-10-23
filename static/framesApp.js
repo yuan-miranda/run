@@ -6,8 +6,7 @@
 const FramesApp = (() => {
     'use strict';
 
-    // ── Module Constants & Configuration ───────────────────────────────────────
-    const VPS_URL = 'http://runx.ddns.net';
+    const VPS_URL = window.location.origin;
     const STORAGE_KEY = 'framesViewerState';
 
     /**

