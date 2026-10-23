@@ -952,19 +952,12 @@ body.kb-mode .user-card.selected {
     line-height: 1;
     opacity: 0.35;
     flex-shrink: 0;
-    transition: opacity 240ms ease, transform 180ms ease, color 180ms ease;
+    transition: opacity 240ms ease;
     margin-top: 2px;
-    cursor: help;
 }
 
 body:not(.kb-mode) .user-card:hover .os-logo {
-    opacity: 0.75;
-}
-
-.os-logo:hover {
-    opacity: 1 !important;
-    color: var(--run-accent, #38bdf8);
-    transform: scale(1.15);
+    opacity: 0.65;
 }
 
 .user-card.offline .os-logo {
@@ -3735,29 +3728,21 @@ body.view-action .sidebar-run-section {
     gap: 5px;
 }
 
-.access-log-geo-strip {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    flex-wrap: wrap;
+.access-log-location-row {
     font-size: 12px;
     color: var(--run-text-muted, #ccc);
-    line-height: 1.4;
-    padding: 2px 0;
-}
-
-.access-log-geo-left {
     display: flex;
     align-items: center;
     gap: 6px;
     flex-wrap: wrap;
-    min-width: 0;
+    line-height: 1.4;
+    padding: 1px 0;
 }
 
 .access-log-geo-icon {
     color: var(--run-accent, #38bdf8);
     font-size: 12px;
+    flex-shrink: 0;
 }
 
 .access-log-geo-location {
@@ -3776,44 +3761,51 @@ body.view-action .sidebar-run-section {
     font-size: 10.5px;
 }
 
-.access-log-geo-right {
+.access-log-gps-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 1px 0;
+}
+
+.access-log-gps-badge {
+    background: rgba(16, 185, 129, 0.12);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: .02em;
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    max-width: 100%;
+}
+
+.access-log-maps-btn {
+    background: rgba(56, 189, 248, 0.12);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 4px;
+    letter-spacing: .03em;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    white-space: nowrap;
     flex-shrink: 0;
 }
 
-.access-log-gps-mini {
-    background: rgba(16, 185, 129, 0.12);
-    color: #34d399;
-    border: 1px solid rgba(16, 185, 129, 0.3);
-    font-family: 'JetBrains Mono', 'Consolas', monospace;
-    font-size: 10.5px;
-    font-weight: 600;
-    padding: 2px 7px;
-    border-radius: 3px;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.access-log-maps-mini-btn {
-    background: rgba(56, 189, 248, 0.12);
-    color: #38bdf8;
-    border: 1px solid rgba(56, 189, 248, 0.3);
-    font-size: 10.5px;
-    font-weight: 600;
-    padding: 2px 7px;
-    border-radius: 3px;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    transition: all 0.15s;
-    white-space: nowrap;
-}
-
-.access-log-maps-mini-btn:hover {
+.access-log-maps-btn:hover {
     background: rgba(56, 189, 248, 0.25);
     border-color: #38bdf8;
     color: #bae6fd;
@@ -3824,14 +3816,14 @@ body.view-action .sidebar-run-section {
     align-items: center;
     gap: 6px;
     flex-wrap: wrap;
-    padding-top: 2px;
+    padding-top: 3px;
 }
 
 .access-log-pill {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    background: rgba(255, 255, 255, 0.035);
+    background: var(--run-surface-alt, rgba(255, 255, 255, 0.035));
     border: 1px solid var(--run-border-quiet, #222);
     padding: 3px 8px;
     border-radius: 4px;
@@ -3847,8 +3839,8 @@ body.view-action .sidebar-run-section {
 }
 
 .access-log-pill:hover {
-    background: rgba(255, 255, 255, 0.07);
-    border-color: var(--run-border-hover, #444);
+    background: var(--run-hover, rgba(255, 255, 255, 0.08));
+    border-color: var(--run-border-hover, #555);
 }
 
 .access-log-expanded-panel {
@@ -3860,18 +3852,18 @@ body.view-action .sidebar-run-section {
 
 .access-log-deep-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 12px 18px;
-    background: rgba(0, 0, 0, 0.25);
-    border: 1px solid var(--run-border-quiet, #1a1a1a);
-    border-radius: 5px;
-    padding: 10px 14px;
+    background: var(--run-surface-alt, #131313);
+    border: 1px solid var(--run-border-quiet, #222);
+    border-radius: 6px;
+    padding: 12px 14px;
 }
 
 .access-log-deep-col {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 6px;
     min-width: 0;
 }
 
@@ -3883,15 +3875,16 @@ body.view-action .sidebar-run-section {
     text-transform: uppercase;
     display: flex;
     align-items: center;
-    gap: 5px;
-    padding-bottom: 4px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    margin-bottom: 2px;
+    gap: 6px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid var(--run-border-quiet, rgba(255, 255, 255, 0.08));
+    margin-bottom: 3px;
 }
 
 .access-log-deep-row {
     display: flex;
     justify-content: space-between;
+    align-items: center;
     gap: 8px;
     font-size: 11px;
     line-height: 1.4;
@@ -3904,14 +3897,16 @@ body.view-action .sidebar-run-section {
 }
 
 .access-log-deep-row code {
-    color: var(--run-text-muted, #ddd);
+    color: var(--run-text, #f0f0f0);
     font-family: 'JetBrains Mono', 'Consolas', monospace;
     font-size: 10px;
-    background: rgba(255, 255, 255, 0.03);
-    padding: 1px 4px;
+    background: var(--run-surface, rgba(255, 255, 255, 0.04));
+    border: 1px solid var(--run-border-quiet, transparent);
+    padding: 1px 5px;
     border-radius: 3px;
     text-align: right;
-    word-break: break-all;
+    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 
 .access-log-deep-row code.truncate-code {
@@ -3932,8 +3927,8 @@ body.view-action .sidebar-run-section {
 }
 
 .access-log-copy-json-btn {
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid var(--run-border-subtle, rgba(255, 255, 255, 0.12));
+    background: var(--run-surface, rgba(255, 255, 255, 0.05));
+    border: 1px solid var(--run-border-quiet, #2a2a2a);
     color: var(--run-text-muted, #ccc);
     font-size: 11px;
     font-weight: 600;
@@ -3943,13 +3938,13 @@ body.view-action .sidebar-run-section {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    transition: all 0.15s;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
 .access-log-copy-json-btn:hover {
-    background: rgba(255, 255, 255, 0.12);
+    background: var(--run-hover, rgba(255, 255, 255, 0.1));
     border-color: var(--run-border-hover, #666);
-    color: #fff;
+    color: var(--run-text, #fff);
 }
 
 .access-log-empty {
@@ -4093,15 +4088,29 @@ body.view-action .sidebar-run-section {
         gap: 6px;
     }
 
-    .access-log-geo-strip {
-        flex-direction: column;
-        align-items: flex-start;
+    .access-log-location-row {
+        font-size: 11px;
+    }
+
+    .access-log-gps-row {
+        width: 100%;
+        justify-content: space-between;
         gap: 6px;
     }
 
-    .access-log-geo-right {
-        width: 100%;
-        justify-content: space-between;
+    .access-log-gps-badge {
+        font-size: 10.5px;
+        padding: 3px 6px;
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .access-log-maps-btn {
+        font-size: 10.5px;
+        padding: 3px 8px;
     }
 
     .access-log-deep-grid {
