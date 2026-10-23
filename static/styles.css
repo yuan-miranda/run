@@ -406,23 +406,26 @@ header {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-left: 1px solid var(--border);
+    border: none;
+    background: none;
     color: var(--text);
-    padding: 0 14px;
+    padding: 0 8px;
     height: 44px;
     box-sizing: border-box;
     text-decoration: none;
     cursor: pointer;
-    transition: background-color .18s, color .18s;
+    opacity: .7;
+    transition: opacity .15s;
 }
 
 .header-icon-link:hover {
-    background: var(--border);
+    opacity: 1;
+    background: none;
 }
 
 .header-icon-link svg {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     fill: currentColor;
     display: block;
 }
