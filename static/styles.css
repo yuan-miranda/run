@@ -952,12 +952,19 @@ body.kb-mode .user-card.selected {
     line-height: 1;
     opacity: 0.35;
     flex-shrink: 0;
-    transition: opacity 240ms ease;
+    transition: opacity 240ms ease, transform 180ms ease, color 180ms ease;
     margin-top: 2px;
+    cursor: help;
 }
 
 body:not(.kb-mode) .user-card:hover .os-logo {
-    opacity: 0.65;
+    opacity: 0.75;
+}
+
+.os-logo:hover {
+    opacity: 1 !important;
+    color: var(--run-accent, #38bdf8);
+    transform: scale(1.15);
 }
 
 .user-card.offline .os-logo {
@@ -983,56 +990,6 @@ body:not(.kb-mode) .user-card:hover .os-logo {
     align-items: center;
     gap: 8px;
     min-width: 0;
-}
-
-.card-client-ip-row {
-    display: flex;
-    align-items: center;
-    margin: 3px 0 2px 0;
-    min-width: 0;
-}
-
-.card-client-ip {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-family: 'JetBrains Mono', 'Consolas', monospace;
-    font-size: 11px;
-    font-weight: 600;
-    padding: 1px 6px;
-    border-radius: 3px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--run-border-subtle, rgba(255, 255, 255, 0.1));
-    color: var(--run-text-muted, #ccc);
-    letter-spacing: .02em;
-    user-select: all;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.card-client-ip i {
-    font-size: 11px;
-    color: var(--run-accent, #38bdf8);
-    flex-shrink: 0;
-}
-
-.card-client-ip.no-ip {
-    color: var(--run-text-soft, #666);
-    border-color: rgba(255, 255, 255, 0.04);
-}
-
-.card-client-ip.no-ip i {
-    color: var(--run-text-soft, #666);
-}
-
-.user-card.offline .card-client-ip {
-    opacity: 0.65;
-}
-
-.user-card.offline .card-client-ip i {
-    color: var(--run-text-soft, #888);
 }
 
 .card-username {
@@ -3610,7 +3567,7 @@ body.view-action .sidebar-run-section {
 .access-logs-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
 }
 
 .access-log-entry {
@@ -3621,13 +3578,13 @@ body.view-action .sidebar-run-section {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    transition: border-color 0.15s, background 0.15s;
+    transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
     min-width: 0;
 }
 
 .access-log-entry:hover {
     border-color: var(--run-border-hover, #444);
-    background: var(--run-surface-alt, #141414);
+    background: var(--run-surface-alt, #131313);
 }
 
 .access-log-header-row {
@@ -3648,21 +3605,47 @@ body.view-action .sidebar-run-section {
     font-weight: 700;
     color: var(--run-text, #fff);
     min-width: 0;
+    flex-wrap: wrap;
+}
+
+.access-log-shield-icon {
+    color: var(--run-accent, #38bdf8);
+    font-size: 13px;
 }
 
 .access-log-ip-text {
     letter-spacing: .02em;
+    user-select: all;
 }
 
-.access-log-location {
-    font-size: 12px;
-    color: var(--run-text-muted, #ccc);
-    display: flex;
+.access-log-net-tag {
+    font-size: 9.5px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 3px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-    word-break: break-word;
-    line-height: 1.4;
+    gap: 4px;
+}
+
+.access-log-net-tag.residential {
+    background: rgba(56, 189, 248, 0.12);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.access-log-net-tag.hosting {
+    background: rgba(168, 85, 247, 0.15);
+    color: #c084fc;
+    border: 1px solid rgba(168, 85, 247, 0.35);
+}
+
+.access-log-net-tag.mobile {
+    background: rgba(245, 158, 11, 0.12);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .access-log-meta {
@@ -3681,6 +3664,27 @@ body.view-action .sidebar-run-section {
     font-family: 'JetBrains Mono', 'Consolas', monospace;
     font-size: 11px;
     color: var(--run-text-soft, #999);
+}
+
+.access-log-toggle-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--run-border-subtle, rgba(255, 255, 255, 0.12));
+    color: var(--run-text-muted, #ccc);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.15s ease;
+}
+
+.access-log-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--run-text, #fff);
+    border-color: var(--run-accent, #38bdf8);
 }
 
 .access-log-status-SUCCESS {
@@ -3731,86 +3735,221 @@ body.view-action .sidebar-run-section {
     gap: 5px;
 }
 
-.access-log-gps-row {
+.access-log-geo-strip {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
-    gap: 8px;
+    justify-content: space-between;
+    gap: 10px;
     flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--run-text-muted, #ccc);
+    line-height: 1.4;
     padding: 2px 0;
 }
 
-.access-log-gps-badge {
-    background: rgba(16, 185, 129, 0.12);
-    color: #34d399;
-    border: 1px solid rgba(16, 185, 129, 0.35);
-    font-size: 11px;
-    font-weight: 600;
-    padding: 3px 8px;
-    border-radius: 4px;
-    letter-spacing: .02em;
+.access-log-geo-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.access-log-geo-icon {
+    color: var(--run-accent, #38bdf8);
+    font-size: 12px;
+}
+
+.access-log-geo-location {
+    font-weight: 500;
+    color: var(--run-text, #f0f0f0);
+}
+
+.access-log-geo-isp {
+    color: var(--run-text-soft, #999);
+    font-size: 11.5px;
+}
+
+.access-log-geo-as {
+    color: var(--run-text-soft, #777);
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    font-size: 10.5px;
+}
+
+.access-log-geo-right {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-family: 'JetBrains Mono', 'Consolas', monospace;
-    max-width: 100%;
-    word-break: break-all;
-}
-
-.access-log-maps-btn {
-    background: rgba(56, 189, 248, 0.12);
-    color: #38bdf8;
-    border: 1px solid rgba(56, 189, 248, 0.35);
-    font-size: 11px;
-    font-weight: 600;
-    padding: 3px 10px;
-    border-radius: 4px;
-    letter-spacing: .03em;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    text-decoration: none;
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s, color 0.15s;
-    white-space: nowrap;
     flex-shrink: 0;
 }
 
-.access-log-maps-btn:hover {
+.access-log-gps-mini {
+    background: rgba(16, 185, 129, 0.12);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 3px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.access-log-maps-mini-btn {
+    background: rgba(56, 189, 248, 0.12);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 3px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+
+.access-log-maps-mini-btn:hover {
     background: rgba(56, 189, 248, 0.25);
     border-color: #38bdf8;
     color: #bae6fd;
 }
 
-.access-log-details-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-    gap: 6px 14px;
-    padding-top: 8px;
-    border-top: 1px solid var(--run-border-quiet, #1a1a1a);
-    font-size: 11px;
-}
-
-.access-log-spec-item {
+.access-log-pills-row {
     display: flex;
+    align-items: center;
     gap: 6px;
-    min-width: 0;
-    line-height: 1.4;
+    flex-wrap: wrap;
+    padding-top: 2px;
 }
 
-.access-log-spec-label {
+.access-log-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid var(--run-border-quiet, #222);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--run-text-muted, #ccc);
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.access-log-pill i {
+    color: var(--run-text-soft, #777);
+    font-size: 11.5px;
+}
+
+.access-log-pill:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: var(--run-border-hover, #444);
+}
+
+.access-log-expanded-panel {
+    margin-top: 6px;
+    padding-top: 10px;
+    border-top: 1px solid var(--run-border-quiet, #1f1f1f);
+    animation: fadeIn 0.18s ease-in-out;
+}
+
+.access-log-deep-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 12px 18px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--run-border-quiet, #1a1a1a);
+    border-radius: 5px;
+    padding: 10px 14px;
+}
+
+.access-log-deep-col {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.access-log-deep-header {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--run-accent, #38bdf8);
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    margin-bottom: 2px;
+}
+
+.access-log-deep-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 11px;
+    line-height: 1.4;
+    min-width: 0;
+}
+
+.access-log-deep-row span {
     color: var(--run-text-soft, #777);
     flex-shrink: 0;
-    white-space: nowrap;
 }
 
-.access-log-spec-val {
+.access-log-deep-row code {
     color: var(--run-text-muted, #ddd);
     font-family: 'JetBrains Mono', 'Consolas', monospace;
-    font-size: 10.5px;
-    min-width: 0;
-    word-break: break-word;
-    overflow-wrap: anywhere;
+    font-size: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 1px 4px;
+    border-radius: 3px;
+    text-align: right;
+    word-break: break-all;
+}
+
+.access-log-deep-row code.truncate-code {
+    max-width: 170px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+}
+
+.access-log-deep-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+
+.access-log-copy-json-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--run-border-subtle, rgba(255, 255, 255, 0.12));
+    color: var(--run-text-muted, #ccc);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.15s;
+}
+
+.access-log-copy-json-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: var(--run-border-hover, #666);
+    color: #fff;
 }
 
 .access-log-empty {
@@ -3954,35 +4093,20 @@ body.view-action .sidebar-run-section {
         gap: 6px;
     }
 
-    .access-log-gps-row {
-        width: 100%;
-        justify-content: space-between;
+    .access-log-geo-strip {
+        flex-direction: column;
+        align-items: flex-start;
         gap: 6px;
     }
 
-    .access-log-gps-badge {
-        font-size: 10.5px;
-        padding: 3px 6px;
-        flex: 1;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+    .access-log-geo-right {
+        width: 100%;
+        justify-content: space-between;
     }
 
-    .access-log-maps-btn {
-        font-size: 10.5px;
-        padding: 3px 8px;
-    }
-
-    .access-log-location {
-        font-size: 11px;
-    }
-
-    .access-log-details-grid {
+    .access-log-deep-grid {
         grid-template-columns: 1fr;
-        gap: 5px;
-        font-size: 10.5px;
+        gap: 10px;
     }
 }
 

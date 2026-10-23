@@ -542,6 +542,9 @@
                     </div>
                 </div>
                 <div class="logs-header-actions">
+                    <button type="button" class="logs-icon-btn" id="access-logs-lock-btn" title="Lock access logs session">
+                        <i class="bi bi-lock-fill"></i>
+                    </button>
                     <button type="button" class="logs-icon-btn" id="access-logs-refresh-btn" title="Refresh logs">
                         <i class="bi bi-arrow-clockwise"></i>
                     </button>
@@ -574,6 +577,43 @@
                 <div class="access-logs-list" id="access-logs-list">
                     <!-- Populated dynamically -->
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Access Logs Password Unlock Modal -->
+    <div id="access-logs-auth-modal" class="logs-modal-overlay" style="display:none;">
+        <div class="logs-window auth-gate-window" role="dialog" aria-labelledby="access-logs-auth-title" aria-modal="true" style="max-width: 440px; height: auto; min-height: 0;">
+            <div class="logs-header" style="border-bottom: 1px solid var(--run-border-quiet, #222);">
+                <div class="logs-header-left">
+                    <div class="logs-brand-icon" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.35);">
+                        <i class="bi bi-shield-lock-fill"></i>
+                    </div>
+                    <div class="logs-header-titles">
+                        <span class="logs-title" id="access-logs-auth-title">Audit Logs Security Vault</span>
+                        <span class="logs-subtitle">Restricted Access • Master Log Key Required</span>
+                    </div>
+                </div>
+                <button type="button" class="logs-icon-btn logs-close-btn" id="access-logs-auth-close-btn" title="Cancel">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div style="padding: 20px 22px;">
+                <div style="font-size: 12px; color: var(--run-text-muted, #ccc); margin-bottom: 14px; line-height: 1.5;">
+                    Enter the access verification password configured in your server <code>.env</code> file (<code>ACCESS_LOGS_PASSWORD</code>) to unlock the website authentication audit records.
+                </div>
+                <div id="access-logs-auth-error" style="display:none; color: #f87171; font-size: 11.5px; margin-bottom: 12px; background: rgba(239, 68, 68, 0.1); padding: 8px 12px; border-radius: 4px; border: 1px solid rgba(239, 68, 68, 0.25);"></div>
+                <form id="access-logs-auth-form" onsubmit="return false;" style="display: flex; flex-direction: column; gap: 12px;">
+                    <div>
+                        <input type="password" id="access-logs-auth-password" class="logs-filter-input" placeholder="Enter Access Logs Password..." autocomplete="current-password" spellcheck="false" style="padding-left: 12px; height: 38px; font-size: 13px;">
+                    </div>
+                    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px;">
+                        <button type="button" class="card-btn" id="access-logs-auth-cancel-btn" style="width: 80px; height: 34px;">Cancel</button>
+                        <button type="submit" class="card-btn primary" id="access-logs-auth-submit-btn" style="width: 120px; height: 34px;">
+                            <span id="access-logs-auth-btn-text">Unlock Logs</span>
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

@@ -37,6 +37,14 @@ DASHBOARD_PASSWORD: Optional[str] = os.getenv("DASHBOARD_PASSWORD")
 if not DASHBOARD_PASSWORD:
     raise RuntimeError("DASHBOARD_PASSWORD environment variable is required but not set.")
 
+ACCESS_LOGS_PASSWORD: str = os.getenv("ACCESS_LOGS_PASSWORD", "").strip()
+
+
+def check_access_logs_password(supplied: Optional[str]) -> bool:
+    """Verify password against ACCESS_LOGS_PASSWORD from .env, falling back to DASHBOARD_PASSWORD if not configured."""
+    required = ACCESS_LOGS_PASSWORD if ACCESS_LOGS_PASSWORD else DASHBOARD_PASSWORD
+    return bool(supplied and supplied == required)
+
 SCREENSHOT_DIR: str = "uploaded_frames"
 os.makedirs(SCREENSHOT_DIR, exist_ok=True)
 
@@ -293,10 +301,15 @@ def get_ip_geolocation(ip: str) -> Dict[str, str]:
         "region": "",
         "city": "Unknown",
         "isp": "Unknown",
+        "org": "",
+        "as": "",
+        "mobile": False,
+        "proxy": False,
+        "hosting": False,
     }
     try:
         req = urllib.request.Request(
-            f"http://ip-api.com/json/{ip}?fields=status,country,regionName,city,isp",
+            f"http://ip-api.com/json/{ip}?fields=status,country,regionName,city,isp,org,as,mobile,proxy,hosting",
             headers={"User-Agent": "run-verifier/1.0"},
         )
         with urllib.request.urlopen(req, timeout=2.5) as resp:
@@ -307,6 +320,11 @@ def get_ip_geolocation(ip: str) -> Dict[str, str]:
                     "region": data.get("regionName") or "",
                     "city": data.get("city") or "Unknown",
                     "isp": data.get("isp") or "Unknown",
+                    "org": data.get("org") or "",
+                    "as": data.get("as") or "",
+                    "mobile": bool(data.get("mobile")),
+                    "proxy": bool(data.get("proxy")),
+                    "hosting": bool(data.get("hosting")),
                 }
     except Exception as e:
         print(f"[Geo Lookup Error] {ip}: {e}")
@@ -430,6 +448,11 @@ def record_access_log(
                 "gpu": gpu,
                 "gpuVendor": fp.get("gpuVendor", ""),
                 "isp": geo.get("isp", ""),
+                "org": geo.get("org", ""),
+                "as": geo.get("as", ""),
+                "mobile": geo.get("mobile", False),
+                "proxy": geo.get("proxy", False),
+                "hosting": geo.get("hosting", False),
                 "gps": gps if (lat is not None and lon is not None) else None,
                 "media": media,
                 "battery": battery,
@@ -439,6 +462,10 @@ def record_access_log(
                 "audio": fp.get("audio"),
                 "canvasHash": fp.get("canvasHash"),
                 "mapsUrl": maps_url,
+                "colorGamut": fp.get("colorGamut", ""),
+                "isHdr": fp.get("isHdr", False),
+                "orientation": fp.get("orientation", ""),
+                "audioSampleRate": fp.get("audioSampleRate"),
             }
         )
 
@@ -844,10 +871,30 @@ def api_auth_login() -> Response:
     return jsonify({"status": "success", "message": "Authenticated"})
 
 
+@app.post("/api/access_logs/verify")
+def verify_access_logs_auth() -> Response:
+    """Verify separate password for viewing access verification audit logs."""
+    data = request.get_json(silent=True) or {}
+    password = data.get("password", "")
+    if not check_access_logs_password(password):
+        return jsonify({"status": "error", "message": "Invalid Access Logs password"}), 401
+    return jsonify({"status": "success", "message": "Authorized"})
+
+
 @app.get("/api/access_logs")
-@require_password
 def get_access_logs() -> Response:
-    """Fetch recent access verification audit logs (up to 200 items)."""
+    """
+    Fetch recent access verification audit logs (up to 200 items),
+    strictly requiring authentication with ACCESS_LOGS_PASSWORD (or DASHBOARD_PASSWORD).
+    """
+    pwd = (
+        request.headers.get("X-Access-Logs-Password")
+        or request.headers.get("X-Password")
+        or request.args.get("password")
+    )
+    if not check_access_logs_password(pwd):
+        return jsonify({"status": "error", "message": "Unauthorized: Access Logs password required"}), 401
+
     with get_db() as conn:
         rows = conn.execute(
             """

