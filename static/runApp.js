@@ -69,7 +69,7 @@ const RunApp = (() => {
         { username: 'a-00000000-W', ip: '192.168.1.101', updated_at: new Date(Date.now() - 4000).toISOString(), visible: true, demo: true },
         { username: 'b-00000000-W', ip: '192.168.1.102', updated_at: new Date(Date.now() - 17000).toISOString(), visible: false, demo: true },
         { username: 'c-00000000-W', ip: '192.168.1.103', updated_at: new Date(Date.now() - 75000).toISOString(), visible: false, demo: true },
-        { username: 'd-00000000-L', ip: '192.168.1.104', updated_at: new Date(Date.now() - 90000).toISOString(), visible: true, demo: true }
+        { username: 'd-00000000-W', ip: '192.168.1.104', updated_at: new Date(Date.now() - 90000).toISOString(), visible: true, demo: true }
     ];
 
     /**
@@ -967,6 +967,17 @@ const RunApp = (() => {
                 });
                 dashboardSocket.on('new_access_log', data => {
                     handleRealtimeAccessLog(data);
+                });
+                dashboardSocket.on('ip_blocked', data => {
+                    if (!data || !data.ip) return;
+                    if (data.blocked) {
+                        accessLogsState.blockedIps.add(data.ip);
+                    } else {
+                        accessLogsState.blockedIps.delete(data.ip);
+                    }
+                    if (accessLogsState.isOpen) {
+                        renderAccessLogsList();
+                    }
                 });
             } catch (err) {
                 console.error('[Dashboard Socket Error]', err);
@@ -3516,6 +3527,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
     const accessLogsState = {
         isOpen: false,
         logs: [],
+        blockedIps: new Set(),
         filterStatus: 'ALL',
         searchQuery: ''
     };
@@ -3732,12 +3744,61 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             }
             if (!resp.ok) throw new Error('Failed to retrieve logs');
             accessLogsState.logs = await resp.json();
+            accessLogsState.blockedIps.clear();
+            (accessLogsState.logs || []).forEach(l => {
+                if (l.is_blocked && l.ip) {
+                    accessLogsState.blockedIps.add(l.ip);
+                }
+            });
             renderAccessLogsList();
         } catch (err) {
             console.error('[Access Logs Error]', err);
             if (listEl) {
                 listEl.innerHTML = '<div class="access-log-empty" style="color:var(--run-status-red,#f87171);">Failed to load access logs.</div>';
             }
+        }
+    }
+
+    /**
+     * Toggle administrator IP blocking status for a given client IP address.
+     *
+     * @param {string} ip - Target IP address to block or unblock.
+     * @param {boolean} shouldBlock - True to block, false to unblock.
+     */
+    async function toggleBlockIp(ip, shouldBlock) {
+        if (!ip || ip === 'Unknown IP' || ip === 'Unknown') return;
+        const actionLabel = shouldBlock ? 'block' : 'unblock';
+        const confirmMsg = shouldBlock 
+            ? `Are you sure you want to block IP ${ip}?\n\nAny future access or login attempts from this IP will be rejected with 403 Forbidden.`
+            : `Are you sure you want to unblock IP ${ip}?`;
+        if (!confirm(confirmMsg)) return;
+
+        const pwd = getStoredAccessLogsPassword();
+        try {
+            const endpoint = shouldBlock ? '/api/access_logs/block_ip' : '/api/access_logs/unblock_ip';
+            const resp = await fetch(`${VPS_URL}${endpoint}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Access-Logs-Password': pwd,
+                    'X-Password': pwd
+                },
+                body: JSON.stringify({ ip, reason: shouldBlock ? 'Blocked via dashboard access logs' : '' })
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok || data.status !== 'success') {
+                throw new Error(data.message || `Failed to ${actionLabel} IP`);
+            }
+            showNotification(data.message || `IP ${ip} ${actionLabel}ed successfully`, 'success');
+
+            if (shouldBlock) {
+                accessLogsState.blockedIps.add(ip);
+            } else {
+                accessLogsState.blockedIps.delete(ip);
+            }
+            renderAccessLogsList();
+        } catch (err) {
+            showNotification(err.message || `Failed to ${actionLabel} IP`, 'error');
         }
     }
 
@@ -3835,6 +3896,8 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
                 statusClass = 'access-log-status-BLOCKED';
             }
 
+            const isBlocked = accessLogsState.blockedIps.has(log.ip) || Boolean(log.is_blocked);
+
             let detailsObj = {};
             try {
                 if (log.details) detailsObj = JSON.parse(log.details);
@@ -3898,13 +3961,14 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
 
             return `
                 <div class="access-log-entry" id="log-card-${log.id}">
-                    <!-- Primary Header -->
+                    <!-- Primary Header (Clean & Compact) -->
                     <div class="access-log-header-row">
                         <div class="access-log-ip-badge">
                             <i class="bi bi-shield-check access-log-shield-icon"></i>
                             <span class="access-log-ip-text">${escapeHtml(log.ip || 'Unknown IP')}</span>
                             <span class="${statusClass}">${escapeHtml(log.status || 'UNKNOWN')}</span>
                             ${netTagHtml}
+                            ${isBlocked ? '<span class="access-log-blocked-badge" title="This IP address is blocked from accessing the dashboard"><i class="bi bi-ban"></i> BLOCKED</span>' : ''}
                         </div>
                         <div class="access-log-meta">
                             <span class="access-log-device-badge">
@@ -3914,13 +3978,18 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
                             <span class="access-log-time" title="Local: ${localTimeStr} (UTC: ${escapeHtml(log.created_at || '')})">
                                 <i class="bi bi-clock"></i> ${escapeHtml(localTimeStr)}
                             </span>
+                            <button type="button" class="access-log-block-btn ${isBlocked ? 'is-blocked' : ''}" 
+                                    onclick="RunApp.toggleBlockIp('${escapeHtml(log.ip || '')}', ${isBlocked ? 'false' : 'true'})" 
+                                    title="${isBlocked ? 'Unblock this IP address' : 'Block this IP address from accessing dashboard'}">
+                                <i class="bi bi-${isBlocked ? 'unlock-fill' : 'slash-circle'}"></i> ${isBlocked ? 'Unblock' : 'Block IP'}
+                            </button>
                             <button type="button" class="access-log-toggle-btn" onclick="RunApp.toggleLogDetail(${log.id})" id="log-toggle-btn-${log.id}" title="Toggle detailed technical inspector">
                                 <i class="bi bi-chevron-down"></i> Details
                             </button>
                         </div>
                     </div>
 
-                    <!-- Geo & ISP Row -->
+                    <!-- Geo & ISP Row (Minimal Summary) -->
                     <div class="access-log-location-row">
                         <i class="bi bi-geo-alt-fill access-log-geo-icon"></i>
                         <span class="access-log-geo-location">${escapeHtml(locationStr)}</span>
@@ -3928,48 +3997,47 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
                         ${asStr ? `<span class="access-log-geo-as">• ${escapeHtml(asStr)}</span>` : ''}
                     </div>
 
-                    ${hasGps ? `
-                    <!-- Verified High-Accuracy GPS Row -->
-                    <div class="access-log-gps-row">
-                        <span class="access-log-gps-badge" title="High-accuracy GPS sensor coordinates">
-                            <i class="bi bi-crosshair"></i> GPS: ${escapeHtml(gpsDisplay)}
-                        </span>
-                        <a class="access-log-maps-btn" href="${mapsUrl}" target="_blank" rel="noreferrer" title="Open GPS Location in Google Maps">
-                            <i class="bi bi-geo-alt-fill"></i> View Map
-                        </a>
-                    </div>
-                    ` : ''}
-
-                    <!-- Quick-Scan Pills Row -->
-                    <div class="access-log-pills-row">
-                        <span class="access-log-pill" title="Screen resolution">
-                            <i class="bi bi-display"></i> ${escapeHtml(log.screen || '-')}
-                        </span>
-                        <span class="access-log-pill" title="Hardware concurrency & memory">
-                            <i class="bi bi-cpu"></i> ${escapeHtml(log.hardware || '-')}
-                        </span>
-                        <span class="access-log-pill" title="Graphics: ${escapeHtml(log.gpu || '')}">
-                            <i class="bi bi-gpu-card"></i> ${escapeHtml(cleanGpu)}
-                        </span>
-                        ${detailsObj.battery ? `
-                        <span class="access-log-pill" title="Device Battery">
-                            <i class="bi bi-battery-charging"></i> ${escapeHtml(detailsObj.battery.level || '')} ${detailsObj.battery.charging ? '⚡' : ''}
-                        </span>
-                        ` : ''}
-                        ${lanIp ? `
-                        <span class="access-log-pill" title="LAN / Discovered Candidate IP">
-                            <i class="bi bi-router"></i> ${escapeHtml(lanIp)}
-                        </span>
-                        ` : ''}
-                        ${modelName ? `
-                        <span class="access-log-pill" title="Device Model">
-                            <i class="bi bi-phone"></i> ${escapeHtml(modelName)}
-                        </span>
-                        ` : ''}
-                    </div>
-
-                    <!-- Deep-Dive Forensic Inspector (Collapsible) -->
+                    <!-- Deep-Dive Forensic Inspector (Contains GPS, Hardware Pills & Telemetry) -->
                     <div class="access-log-expanded-panel" id="log-detail-${log.id}" style="display: none;">
+                        ${hasGps ? `
+                        <!-- Verified High-Accuracy GPS Row -->
+                        <div class="access-log-gps-row" style="margin-bottom: 8px;">
+                            <span class="access-log-gps-badge" title="High-accuracy GPS sensor coordinates">
+                                <i class="bi bi-crosshair"></i> GPS: ${escapeHtml(gpsDisplay)}
+                            </span>
+                            <a class="access-log-maps-btn" href="${mapsUrl}" target="_blank" rel="noreferrer" title="Open GPS Location in Google Maps">
+                                <i class="bi bi-geo-alt-fill"></i> View Map
+                            </a>
+                        </div>
+                        ` : ''}
+
+                        <!-- Quick-Scan Pills Row -->
+                        <div class="access-log-pills-row" style="margin-bottom: 12px;">
+                            <span class="access-log-pill" title="Screen resolution">
+                                <i class="bi bi-display"></i> ${escapeHtml(log.screen || '-')}
+                            </span>
+                            <span class="access-log-pill" title="Hardware concurrency & memory">
+                                <i class="bi bi-cpu"></i> ${escapeHtml(log.hardware || '-')}
+                            </span>
+                            <span class="access-log-pill" title="Graphics: ${escapeHtml(log.gpu || '')}">
+                                <i class="bi bi-gpu-card"></i> ${escapeHtml(cleanGpu)}
+                            </span>
+                            ${detailsObj.battery ? `
+                            <span class="access-log-pill" title="Device Battery">
+                                <i class="bi bi-battery-charging"></i> ${escapeHtml(detailsObj.battery.level || '')} ${detailsObj.battery.charging ? '⚡' : ''}
+                            </span>
+                            ` : ''}
+                            ${lanIp ? `
+                            <span class="access-log-pill" title="LAN / Discovered Candidate IP">
+                                <i class="bi bi-router"></i> ${escapeHtml(lanIp)}
+                            </span>
+                            ` : ''}
+                            ${modelName ? `
+                            <span class="access-log-pill" title="Device Model">
+                                <i class="bi bi-phone"></i> ${escapeHtml(modelName)}
+                            </span>
+                            ` : ''}
+                        </div>
                         <div class="access-log-deep-grid">
                             <!-- Col 1: Hardware & Display Specs -->
                             <div class="access-log-deep-col">
@@ -4866,6 +4934,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         openFtpBrowser,
         closeFtpBrowser,
         toggleLogDetail,
+        toggleBlockIp,
         copyLogJson
     };
 })();

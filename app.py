@@ -73,6 +73,18 @@ pending_screenshot_requests: Dict[str, Dict[str, Any]] = {}  # Mapping: req_id -
 fs_lock = threading.Lock()
 pending_fs_requests: Dict[str, Dict[str, Any]] = {}  # Mapping: req_id -> {event, result}
 
+# Lock for administrator blocked IP address set
+blocked_ips_lock = threading.Lock()
+blocked_ips_set: Set[str] = set()
+
+
+def is_ip_blocked(ip: Optional[str]) -> bool:
+    """Check if an IP address is in the administrator blacklist."""
+    if not ip or not isinstance(ip, str):
+        return False
+    with blocked_ips_lock:
+        return ip in blocked_ips_set
+
 
 # ── Utility & Validation Helpers ─────────────────────────────────────────────
 
@@ -201,9 +213,34 @@ def init_db() -> None:
         except sqlite3.OperationalError:
             pass
 
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS blocked_ips (
+                ip TEXT PRIMARY KEY,
+                reason TEXT DEFAULT 'Blocked by administrator',
+                created_at TEXT DEFAULT (datetime('now'))
+            )
+            """
+        )
 
-# Initialize schema on startup
+
+def load_blocked_ips() -> None:
+    """Load existing blocked IP addresses from database into in-memory set."""
+    try:
+        with get_db() as conn:
+            rows = conn.execute("SELECT ip FROM blocked_ips").fetchall()
+            with blocked_ips_lock:
+                blocked_ips_set.clear()
+                for r in rows:
+                    if r["ip"]:
+                        blocked_ips_set.add(r["ip"])
+    except Exception as e:
+        print(f"[Blocked IPs Error] Failed to load blocked IPs: {e}")
+
+
+# Initialize schema and blocked IP cache on startup
 init_db()
+load_blocked_ips()
 
 
 def log_operation(username: str, op_type: str, details: str, status: str = "success") -> None:
@@ -511,6 +548,7 @@ def record_access_log(
                 "id": log_id,
                 "ip": ip,
                 "status": status.upper(),
+                "is_blocked": is_ip_blocked(ip),
                 "country": geo.get("country", "Unknown"),
                 "region": geo.get("region", ""),
                 "city": geo.get("city", "Unknown"),
@@ -550,10 +588,14 @@ def require_password(f):
     """
     @wraps(f)
     def wrapper(*args, **kwargs):
+        client_ip = get_client_ip()
+        if is_ip_blocked(client_ip):
+            return jsonify({"detail": "Access from this IP address is blocked by an administrator.", "status": "blocked"}), 403
+
         password = request.headers.get("x-password")
         if not password or password != DASHBOARD_PASSWORD:
             record_access_log(
-                get_client_ip(),
+                client_ip,
                 "FAILED",
                 raw_ua=request.headers.get("User-Agent", ""),
             )
@@ -858,6 +900,10 @@ def api_auth_login() -> Response:
     fingerprint = data.get("fingerprint") or {}
     client_ip = get_client_ip()
 
+    if is_ip_blocked(client_ip):
+        record_access_log(client_ip, "BLOCKED (IP Blacklisted)", fingerprint)
+        return jsonify({"detail": "Access from this IP address is blocked by an administrator.", "status": "blocked"}), 403
+
     blocked_reason = fingerprint.get("blockedReason")
     if blocked_reason:
         record_access_log(client_ip, f"BLOCKED ({blocked_reason})", fingerprint)
@@ -908,7 +954,95 @@ def get_access_logs() -> Response:
             """
         ).fetchall()
 
-    return jsonify([dict(row) for row in rows])
+    with blocked_ips_lock:
+        current_blocked = set(blocked_ips_set)
+
+    result = []
+    for row in rows:
+        item = dict(row)
+        item["is_blocked"] = item.get("ip") in current_blocked
+        result.append(item)
+
+    return jsonify(result)
+
+
+@app.post("/api/access_logs/block_ip")
+def api_block_ip() -> Response:
+    """Block an IP address from authenticating or accessing the dashboard."""
+    pwd = (
+        request.headers.get("X-Access-Logs-Password")
+        or request.headers.get("X-Password")
+        or request.args.get("password")
+    )
+    if not check_access_logs_password(pwd):
+        return jsonify({"status": "error", "message": "Unauthorized: Access Logs password required"}), 401
+
+    data = request.get_json(silent=True) or {}
+    ip = (data.get("ip") or "").strip()
+    reason = (data.get("reason") or "Blocked by administrator").strip()
+
+    if not ip:
+        return jsonify({"status": "error", "message": "Missing IP address"}), 400
+
+    with get_db() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO blocked_ips (ip, reason, created_at) VALUES (?, ?, datetime('now'))",
+            (ip, reason),
+        )
+
+    with blocked_ips_lock:
+        blocked_ips_set.add(ip)
+
+    log_operation("SYSTEM", "SECURITY", f"IP address blocked: {ip} ({reason})", "success")
+    socketio.emit("ip_blocked", {"ip": ip, "blocked": True}, room="dashboard")
+
+    return jsonify({"status": "success", "message": f"IP {ip} blocked successfully", "ip": ip, "blocked": True})
+
+
+@app.post("/api/access_logs/unblock_ip")
+def api_unblock_ip() -> Response:
+    """Unblock a previously blocked IP address."""
+    pwd = (
+        request.headers.get("X-Access-Logs-Password")
+        or request.headers.get("X-Password")
+        or request.args.get("password")
+    )
+    if not check_access_logs_password(pwd):
+        return jsonify({"status": "error", "message": "Unauthorized: Access Logs password required"}), 401
+
+    data = request.get_json(silent=True) or {}
+    ip = (data.get("ip") or "").strip()
+
+    if not ip:
+        return jsonify({"status": "error", "message": "Missing IP address"}), 400
+
+    with get_db() as conn:
+        conn.execute("DELETE FROM blocked_ips WHERE ip = ?", (ip,))
+
+    with blocked_ips_lock:
+        blocked_ips_set.discard(ip)
+
+    log_operation("SYSTEM", "SECURITY", f"IP address unblocked: {ip}", "success")
+    socketio.emit("ip_blocked", {"ip": ip, "blocked": False}, room="dashboard")
+
+    return jsonify({"status": "success", "message": f"IP {ip} unblocked successfully", "ip": ip, "blocked": False})
+
+
+@app.get("/api/access_logs/blocked_ips")
+def get_blocked_ips() -> Response:
+    """Fetch all currently blocked IP addresses."""
+    pwd = (
+        request.headers.get("X-Access-Logs-Password")
+        or request.headers.get("X-Password")
+        or request.args.get("password")
+    )
+    if not check_access_logs_password(pwd):
+        return jsonify({"status": "error", "message": "Unauthorized: Access Logs password required"}), 401
+
+    with get_db() as conn:
+        rows = conn.execute("SELECT ip, reason, created_at FROM blocked_ips ORDER BY created_at DESC").fetchall()
+
+    return jsonify([dict(r) for r in rows])
 
 
 @app.get("/api/clients")

@@ -94,12 +94,15 @@ Runtime-generated (gitignored): `database.db` (SQLite with WAL mode), `uploaded_
   - `upload_counters` (username → count) (`counter_lock`)
   - `pending_screenshot_requests` (req_id → `{event, username, result}`) (`screenshot_lock`)
   - `pending_fs_requests` (req_id → `{event, result}`) (`fs_lock`)
+  - `blocked_ips_set` (in-memory set of administrator blocked IPs) (`blocked_ips_lock`)
 - **Database (`init_db()` at import):** SQLite with WAL mode (`database.db`):
   - `clients`: `username` (PK), `visible` (INT default 1), `capture` (INT default 0), `version` (TEXT), `updated_at` (TEXT), `ip` (TEXT).
   - `operations_log`: `id` (PK AUTOINCREMENT), `username` (TEXT), `op_type` (TEXT), `details` (TEXT), `status` (TEXT), `created_at` (TEXT). Indexed on `(username, id DESC)`.
   - `access_logs`: `id` (PK AUTOINCREMENT), `ip` (TEXT), `status` (TEXT), `country`, `region`, `city`, `isp`, `browser`, `os`, `device`, `screen`, `timezone`, `language`, `hardware`, `gpu`, `latitude` (REAL), `longitude` (REAL), `accuracy` (REAL), `gps_location` (TEXT), `details` (TEXT JSON), `created_at` (TEXT). Indexed on `id DESC`.
+  - `blocked_ips`: `ip` (TEXT PK), `reason` (TEXT), `created_at` (TEXT). Blacklisted IPs blocked from login and dashboard access.
 - **Security & Storage helpers:**
   - `is_safe_name()`: Regex `^[a-zA-Z0-9_\-\.]+$` guards against path traversal (`..`, `/`, `\`).
+  - `is_ip_blocked()`: Checks in-memory blocklist set for immediate IP blacklisting.
   - `prune_old_frames()`: Caps stored frames per client folder at `MAX_FRAMES_PER_USER = 1000`.
 
 #### REST API (JSON; password-protected unless noted)
@@ -107,9 +110,12 @@ Runtime-generated (gitignored): `database.db` (SQLite with WAL mode), `uploaded_
 | Endpoint | Method | Purpose |
 |---|---|---|
 | `/` | `GET` | Serve dashboard SPA shell (`index.html`) (Public) |
-| `/api/auth/login` | `POST` | Authenticate dashboard; logs device fingerprint & IP to `access_logs` |
+| `/api/auth/login` | `POST` | Authenticate dashboard; logs device fingerprint & IP to `access_logs` (rejects blocked IPs with 403) |
 | `/api/access_logs/verify` | `POST` | Verify access-log password (`ACCESS_LOGS_PASSWORD`) |
-| `/api/access_logs` | `GET` | List audit records of dashboard logins with IP & geolocation |
+| `/api/access_logs` | `GET` | List audit records of dashboard logins with IP, geolocation, and `is_blocked` status |
+| `/api/access_logs/block_ip` | `POST` | Block client IP address from authenticating or accessing dashboard |
+| `/api/access_logs/unblock_ip` | `POST` | Unblock a previously blacklisted IP address |
+| `/api/access_logs/blocked_ips` | `GET` | List all currently blacklisted IP addresses |
 | `/api/clients` | `GET` | Connected and registered clients with online status, IP, version, visibility |
 | `/api/frames/<username>` | `GET` | Frame history list for user (sorted newest first) |
 | `/api/frames/delete` | `POST` | Delete single frame or all frames for a user |
@@ -153,7 +159,8 @@ Runtime-generated (gitignored): `database.db` (SQLite with WAL mode), `uploaded_
     - `status_change` — `{"username", "online", "version", "ip"}`: Real-time node connect/disconnect.
     - `new_frame` — `{"username", "filename"}`: Broadcasts uploaded frame for live streaming.
     - `new_operation_log` — `{"id", "username", "op_type", "details", "status", "created_at"}`: Real-time audit log stream.
-    - `new_access_log` — `{"id", "ip", "status", "country", "region", "city", "isp", "browser", "os", "device", ...}`: Real-time dashboard access attempt stream.
+    - `new_access_log` — `{"id", "ip", "status", "is_blocked", "country", "region", "city", "isp", "browser", "os", "device", ...}`: Real-time dashboard access attempt stream.
+    - `ip_blocked` — `{"ip", "blocked"}`: Real-time administrator IP blacklist/whitelist broadcast.
 
 ---
 
@@ -263,7 +270,7 @@ Runtime-generated (gitignored): `database.db` (SQLite with WAL mode), `uploaded_
   - *Block 11:* Remote script library and execution dispatcher.
   - *Block 12:* Remote Filesystem / FTP Browser — logical drive selector, directory browser, file preview editor (<512 KB), file write/upload, recursive delete, folder creation, rename, and download.
   - *Block 13:* Operations Audit Log Subsystem — real-time action feed, client filtering, export, clear.
-  - *Block 13B:* Access Verification Logs Subsystem — authentication audit viewer, geolocation details with map link, ISP, browser, OS, GPU, hardware concurrency, and verification pass/fail status.
+  - *Block 13B:* Access Verification Logs Subsystem — authentication audit viewer with real-time Block/Unblock IP control, compact 2-line minimal cards in collapsed state, and deep-dive collapsible forensic inspector with GPS coordinates, map links, ISP, browser, OS, GPU, hardware concurrency, and verification pass/fail status.
   - *Block 14:* Command dispatching and REST API integration with error handling.
   - *Block 15:* Bootstrap, hotkeys, and event delegation.
 - **`framesApp.js` (FramesApp viewer — ~1.1k lines):**
