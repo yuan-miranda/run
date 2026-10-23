@@ -4017,40 +4017,38 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
                             <!-- Col 1: Hardware & Display Specs -->
                             <div class="access-log-deep-col">
                                 <div class="access-log-deep-header"><i class="bi bi-motherboard"></i> Hardware & Display</div>
-                                <div class="access-log-deep-row"><span>Screen:</span> <code>${escapeHtml(log.screen || '-')}</code></div>
+                                <div class="access-log-deep-row"><span>Display:</span> <code>${escapeHtml(log.screen || '-')}</code></div>
                                 <div class="access-log-deep-row"><span>Viewport:</span> <code>${escapeHtml(detailsObj.viewport || '-')}</code></div>
-                                <div class="access-log-deep-row"><span>CPU & RAM:</span> <code>${escapeHtml(log.hardware || '-')}</code></div>
-                                <div class="access-log-deep-row"><span>GPU Chipset:</span> <code>${escapeHtml(cleanGpu)}</code></div>
+                                <div class="access-log-deep-row"><span>Processor:</span> <code>${escapeHtml(log.hardware || '-')}</code></div>
+                                <div class="access-log-deep-row"><span>Graphics:</span> <code>${escapeHtml(cleanGpu)}</code></div>
                                 <div class="access-log-deep-row"><span>Raw GPU:</span> <code class="truncate-code" title="${escapeHtml(log.gpu || '')}">${escapeHtml(log.gpu || '-')}</code></div>
                                 <div class="access-log-deep-row"><span>Battery:</span> <code>${escapeHtml(batteryDisplay)}</code></div>
-                                <div class="access-log-deep-row"><span>Device Model:</span> <code>${escapeHtml(modelName || (log.device || 'Desktop / PC'))}</code></div>
+                                ${modelName ? `<div class="access-log-deep-row"><span>Model:</span> <code>${escapeHtml(modelName)}</code></div>` : ''}
                                 <div class="access-log-deep-row"><span>Color / HDR:</span> <code>${detailsObj.isHdr ? 'HDR Active' : 'SDR'}${detailsObj.colorGamut ? ` (${escapeHtml(detailsObj.colorGamut)})` : ''}</code></div>
                                 <div class="access-log-deep-row"><span>Orientation:</span> <code>${escapeHtml(detailsObj.orientation || '-')}</code></div>
-                                <div class="access-log-deep-row"><span>Touch Support:</span> <code>${detailsObj.touchSupport ? 'Touch Enabled' : 'Mouse / No Touch'}</code></div>
+                                <div class="access-log-deep-row"><span>Touch:</span> <code>${detailsObj.touchSupport ? 'Touch Enabled' : 'Mouse / No Touch'}</code></div>
                             </div>
 
                             <!-- Col 2: Network & Carrier Intelligence -->
                             <div class="access-log-deep-col">
                                 <div class="access-log-deep-header"><i class="bi bi-diagram-3"></i> Network & Carrier</div>
                                 <div class="access-log-deep-row"><span>ISP:</span> <code title="${escapeHtml(log.isp || '')}">${escapeHtml(log.isp || '-')}</code></div>
-                                <div class="access-log-deep-row"><span>AS Number:</span> <code title="${escapeHtml(detailsObj.as || '')}">${escapeHtml(asClean)}</code></div>
-                                <div class="access-log-deep-row"><span>Organization:</span> <code title="${escapeHtml(orgDisplay)}">${escapeHtml(orgDisplay)}</code></div>
+                                <div class="access-log-deep-row"><span>ASN:</span> <code title="${escapeHtml(detailsObj.as || '')}">${escapeHtml(asClean)}</code></div>
+                                ${(detailsObj.org && detailsObj.org !== log.isp) ? `<div class="access-log-deep-row"><span>Organization:</span> <code title="${escapeHtml(orgDisplay)}">${escapeHtml(orgDisplay)}</code></div>` : ''}
                                 <div class="access-log-deep-row"><span>Net Type:</span> <code>${escapeHtml(netTypeLabel)}</code></div>
-                                <div class="access-log-deep-row"><span>Downlink / RTT:</span> <code>${detailsObj.connection ? `${escapeHtml(detailsObj.connection.effectiveType || '')} ${escapeHtml(detailsObj.connection.downlink || '')} (${escapeHtml(detailsObj.connection.rtt || '-')})` : '-'}</code></div>
+                                <div class="access-log-deep-row"><span>Speed / RTT:</span> <code>${detailsObj.connection ? `${escapeHtml(detailsObj.connection.effectiveType || '')} ${escapeHtml(detailsObj.connection.downlink || '')} (${escapeHtml(detailsObj.connection.rtt || '-')})` : '-'}</code></div>
                                 <div class="access-log-deep-row"><span>Discovered LAN:</span> <code title="${escapeHtml(lanIpDisplay)}">${escapeHtml(lanIpDisplay)}</code></div>
-                                <div class="access-log-deep-row"><span>GPS Sensor:</span> <code>${hasGps ? escapeHtml(gpsDisplay) : 'Unavailable'}</code></div>
-                                <div class="access-log-deep-row"><span>Location:</span> <code title="${escapeHtml(locationStr)}">${escapeHtml(locationStr)}</code></div>
+                                <div class="access-log-deep-row"><span>GPS Sensor:</span> <code>${hasGps ? escapeHtml(gpsDisplay) : 'Sensor unavailable'}</code></div>
                             </div>
 
                             <!-- Col 3: Browser & Security Environment -->
                             <div class="access-log-deep-col">
                                 <div class="access-log-deep-header"><i class="bi bi-shield-lock"></i> Environment & Audio</div>
-                                <div class="access-log-deep-row"><span>Local Time:</span> <code>${escapeHtml(localTimeStr)}</code></div>
                                 <div class="access-log-deep-row"><span>Timezone:</span> <code>${escapeHtml(log.timezone || '-')}</code></div>
                                 <div class="access-log-deep-row"><span>Languages:</span> <code>${escapeHtml(log.language || '-')}</code></div>
                                 <div class="access-log-deep-row"><span>Audio Pipeline:</span> <code>${escapeHtml(audioDisplay)}</code></div>
                                 <div class="access-log-deep-row"><span>Canvas Hash:</span> <code>${detailsObj.canvasHash ? escapeHtml(String(detailsObj.canvasHash).slice(0, 12)) : '-'}</code></div>
-                                <div class="access-log-deep-row"><span>Media Hardware:</span> <code>${detailsObj.media ? `${detailsObj.media.cameras} Cams, ${detailsObj.media.microphones} Mics` : '-'}</code></div>
+                                <div class="access-log-deep-row"><span>Media Devices:</span> <code>${detailsObj.media ? `${detailsObj.media.cameras} Cams, ${detailsObj.media.microphones} Mics` : '-'}</code></div>
                                 <div class="access-log-deep-row"><span>Cookies / DNT:</span> <code>${detailsObj.cookieEnabled ? 'Cookies On' : 'No Cookies'} · DNT: ${escapeHtml(String(detailsObj.doNotTrack ?? 'off'))}</code></div>
                             </div>
                         </div>
