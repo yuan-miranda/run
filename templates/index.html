@@ -545,9 +545,6 @@
                     <button type="button" class="logs-icon-btn" id="access-logs-refresh-btn" title="Refresh logs">
                         <i class="bi bi-arrow-clockwise"></i>
                     </button>
-                    <button type="button" class="logs-icon-btn" id="access-logs-clear-btn" title="Clear access logs">
-                        <i class="bi bi-trash"></i>
-                    </button>
                     <button type="button" class="logs-icon-btn logs-close-btn" id="access-logs-close-btn" title="Close (ESC)">
                         <i class="bi bi-x-lg"></i>
                     </button>
@@ -566,6 +563,7 @@
                 <div class="logs-filter-pills" id="access-logs-filter-pills">
                     <button type="button" class="logs-pill active" data-filter="ALL">All</button>
                     <button type="button" class="logs-pill" data-filter="SUCCESS">Success</button>
+                    <button type="button" class="logs-pill" data-filter="BLOCKED">Blocked</button>
                     <button type="button" class="logs-pill" data-filter="FAILED">Failed</button>
                 </div>
                 <div class="logs-counter" id="access-logs-counter">0 logs</div>
@@ -575,6 +573,52 @@
             <div class="logs-list-container" id="access-logs-list-container">
                 <div class="access-logs-list" id="access-logs-list">
                     <!-- Populated dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Identity & Device Verification Gate Modal -->
+    <div id="auth-gate-modal" class="logs-modal-overlay" style="display:none;">
+        <div class="logs-window auth-gate-window" role="dialog" aria-labelledby="auth-gate-title" aria-modal="true" style="max-width: 460px; height: auto; min-height: 0;">
+            <div class="logs-header" style="border-bottom: 1px solid var(--run-border-quiet, #222);">
+                <div class="logs-header-left">
+                    <div class="logs-brand-icon"><i class="bi bi-shield-lock-fill"></i></div>
+                    <div class="logs-header-titles">
+                        <span class="logs-title" id="auth-gate-title">Security Verification</span>
+                        <span class="logs-subtitle">Internal Access Verification Gate</span>
+                    </div>
+                </div>
+            </div>
+            <div class="auth-gate-body" style="padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+                <p style="font-size: 13px; color: var(--run-text-muted, #ccc); margin: 0; line-height: 1.5;">
+                    Access to this command dashboard is restricted to authorized personnel. You must enter the access password and grant location verification to proceed.
+                </p>
+                
+                <div id="auth-gate-insecure-warning" style="display: none; padding: 10px 12px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 4px; font-size: 11.5px; color: #fde68a; line-height: 1.4;">
+                    <i class="bi bi-exclamation-triangle-fill" style="margin-right: 6px; color: #fbbf24;"></i>
+                    <strong>HTTP Security Notice:</strong> Modern browsers (Chrome, Edge, Safari) strictly block location permission prompts on unencrypted HTTP (<code>http://...</code>). Access via <strong>HTTPS</strong> or <strong>localhost</strong> for location prompts to appear.
+                </div>
+
+                <div id="auth-gate-error" style="display: none; padding: 10px 12px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.5); border-radius: 4px; font-size: 12px; color: #f87171; line-height: 1.4;">
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label for="auth-gate-password" style="font-size: 11px; text-transform: uppercase; letter-spacing: .06em; font-weight: bold; color: var(--run-text-dim, #888);">
+                        Dashboard Password
+                    </label>
+                    <input type="password" id="auth-gate-password" class="popup-input" placeholder="Enter password..." style="height: 42px; min-height: 42px; max-height: 42px; padding: 10px 12px;" autocomplete="current-password">
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 4px;">
+                    <button type="button" id="auth-gate-submit-btn" class="popup-btn confirm" style="flex: 1; justify-content: center; height: 42px;">
+                        <i class="bi bi-shield-check"></i> Grant Permission & Connect
+                    </button>
+                </div>
+                
+                <div id="auth-gate-spinner" style="display: none; align-items: center; justify-content: center; gap: 8px; font-size: 12px; color: var(--run-text-soft, #888); padding-top: 4px;">
+                    <i class="bi bi-hourglass-split" style="animation: spin 1s linear infinite;"></i>
+                    <span>Waiting for location permission in browser...</span>
                 </div>
             </div>
         </div>

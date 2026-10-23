@@ -822,6 +822,11 @@ def api_auth_login() -> Response:
     fingerprint = data.get("fingerprint") or {}
     client_ip = get_client_ip()
 
+    blocked_reason = fingerprint.get("blockedReason")
+    if blocked_reason:
+        record_access_log(client_ip, f"BLOCKED ({blocked_reason})", fingerprint)
+        return jsonify({"detail": f"Access blocked: {blocked_reason}", "status": "blocked"}), 403
+
     if not password or password != DASHBOARD_PASSWORD:
         record_access_log(client_ip, "FAILED", fingerprint)
         return jsonify({"detail": "Invalid password", "status": "error"}), 401
@@ -848,15 +853,6 @@ def get_access_logs() -> Response:
         ).fetchall()
 
     return jsonify([dict(row) for row in rows])
-
-
-@app.post("/api/access_logs/clear")
-@require_password
-def clear_access_logs() -> Response:
-    """Purge all records from access_logs."""
-    with get_db() as conn:
-        conn.execute("DELETE FROM access_logs")
-    return jsonify({"status": "success"})
 
 
 @app.get("/api/clients")
@@ -1467,4 +1463,14 @@ def clear_user_logs(username: str) -> Response:
 # ── Application Entry Point ──────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=5002, debug=False, allow_unsafe_werkzeug=True)
+    cert_file = os.getenv("SSL_CERT", "cert.pem")
+    key_file = os.getenv("SSL_KEY", "key.pem")
+    ssl_kwargs = {}
+    if os.path.exists(cert_file) and os.path.exists(key_file):
+        print(f"[*] SSL certificates detected ({cert_file}, {key_file}) - Launching server over HTTPS...")
+        if ASYNC_MODE == "eventlet":
+            ssl_kwargs = {"certfile": cert_file, "keyfile": key_file}
+        else:
+            ssl_kwargs = {"ssl_context": (cert_file, key_file)}
+
+    socketio.run(app, host="0.0.0.0", port=5002, debug=False, allow_unsafe_werkzeug=True, **ssl_kwargs)

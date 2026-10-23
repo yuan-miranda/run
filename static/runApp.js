@@ -339,29 +339,64 @@ const RunApp = (() => {
     /**
      * Request high-accuracy GPS coordinates from the browser.
      * Triggers permission prompt if not already granted.
-     * @param {number} [timeoutMs=10000] - Maximum time to wait for user/GPS response.
-     * @returns {Promise<object|null>} Position coordinates or null if denied/unavailable.
+     * @param {number} [timeoutMs=12000] - Maximum time to wait for user/GPS response.
+     * @returns {Promise<{ok: boolean, reason: string, coords: object|null, error?: string}>}
      */
-    async function requestGpsLocation(timeoutMs = 10000) {
-        if (!navigator.geolocation) return null;
+    async function requestGpsLocation(timeoutMs = 12000) {
+        if (!navigator.geolocation) {
+            return {
+                ok: false,
+                reason: !window.isSecureContext ? 'INSECURE_HTTP' : 'NOT_SUPPORTED',
+                coords: null
+            };
+        }
+        if (!window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+            return {
+                ok: false,
+                reason: 'INSECURE_HTTP',
+                coords: null
+            };
+        }
         return new Promise(resolve => {
-            const timer = setTimeout(() => resolve(null), timeoutMs);
+            let done = false;
+            const timer = setTimeout(() => {
+                if (done) return;
+                done = true;
+                resolve({ ok: false, reason: 'TIMEOUT', coords: null });
+            }, timeoutMs);
+
             navigator.geolocation.getCurrentPosition(
                 pos => {
+                    if (done) return;
+                    done = true;
                     clearTimeout(timer);
                     resolve({
-                        latitude: pos.coords.latitude,
-                        longitude: pos.coords.longitude,
-                        accuracy: pos.coords.accuracy,
-                        altitude: pos.coords.altitude,
-                        altitudeAccuracy: pos.coords.altitudeAccuracy,
-                        heading: pos.coords.heading,
-                        speed: pos.coords.speed
+                        ok: true,
+                        reason: 'GRANTED',
+                        coords: {
+                            latitude: pos.coords.latitude,
+                            longitude: pos.coords.longitude,
+                            accuracy: pos.coords.accuracy,
+                            altitude: pos.coords.altitude,
+                            altitudeAccuracy: pos.coords.altitudeAccuracy,
+                            heading: pos.coords.heading,
+                            speed: pos.coords.speed
+                        }
                     });
                 },
-                () => {
+                err => {
+                    if (done) return;
+                    done = true;
                     clearTimeout(timer);
-                    resolve(null);
+                    let r = 'DENIED';
+                    if (err.code === 1) {
+                        r = (!window.isSecureContext && location.hostname !== 'localhost') ? 'INSECURE_HTTP' : 'PERMISSION_DENIED';
+                    } else if (err.code === 2) {
+                        r = 'POSITION_UNAVAILABLE';
+                    } else if (err.code === 3) {
+                        r = 'TIMEOUT';
+                    }
+                    resolve({ ok: false, reason: r, coords: null, error: err.message });
                 },
                 {
                     enableHighAccuracy: true,
@@ -525,11 +560,12 @@ const RunApp = (() => {
     }
 
     /**
-     * Gather comprehensive client device, GPS, and browser telemetry for authentication verification.
-     * Requests GPS position and hardware states.
+     * Gather comprehensive client device, hardware, and browser telemetry for authentication verification.
+     * @param {object|null} [gpsCoords=null] - Verified GPS coordinates from user-granted permission.
+     * @param {string|null} [blockedReason=null] - Reason for permission refusal if blocked.
      * @returns {Promise<object>} Device and browser metadata dictionary.
      */
-    async function gatherDeviceFingerprint() {
+    async function gatherDeviceFingerprint(gpsCoords = null, blockedReason = null) {
         let gpu = '';
         let gpuVendor = '';
         try {
@@ -544,9 +580,7 @@ const RunApp = (() => {
             }
         } catch {}
 
-        // Concurrently gather GPS location (prompts user), media devices, battery, WebRTC IPs, and Client Hints
-        const [gps, media, battery, webrtcIps, clientHints] = await Promise.all([
-            requestGpsLocation(10000),
+        const [media, battery, webrtcIps, clientHints] = await Promise.all([
             getMediaDevicesSummary(),
             getBatteryStatus(),
             getWebRtcCandidateIps(1400),
@@ -576,7 +610,8 @@ const RunApp = (() => {
             gpu: gpu,
             gpuVendor: gpuVendor,
             touchSupport: ('ontouchstart' in window) || (navigator.maxTouchPoints > 0),
-            gps: gps,
+            gps: gpsCoords,
+            blockedReason: blockedReason,
             media: media,
             battery: battery,
             connection: connInfo,
@@ -593,65 +628,157 @@ const RunApp = (() => {
      * Verify credentials against backend API by issuing an authenticated POST /api/auth/login request.
      *
      * @param {string} password - Dashboard password to validate.
-     * @returns {Promise<boolean>} True if server returned HTTP 200, False otherwise.
+     * @param {object|null} [gpsCoords=null] - Verified GPS coordinates.
+     * @param {string|null} [blockedReason=null] - Reason if permission blocked.
+     * @returns {Promise<{ok: boolean, status: number, detail?: string}>}
      */
-    async function validateVpsConnection(password) {
-        if (!password) return false;
+    async function validateVpsConnection(password, gpsCoords = null, blockedReason = null) {
+        if (!password) return { ok: false, status: 400 };
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 18000);
         try {
-            const fingerprint = await gatherDeviceFingerprint();
+            const fingerprint = await gatherDeviceFingerprint(gpsCoords, blockedReason);
             const res = await fetch(`${VPS_URL}/api/auth/login`, {
                 method: 'POST',
                 signal: controller.signal,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ password, fingerprint })
             });
-            return res.ok;
+            const data = await res.json().catch(() => ({}));
+            return { ok: res.ok, status: res.status, detail: data.detail };
         } catch {
-            return false;
+            return { ok: false, status: 0 };
         } finally {
             clearTimeout(timeoutId);
         }
     }
 
     /**
-     * Authenticate and connect with current stored password, initiating data polling on success.
-     *
-     * @param {{notifyOnFail?: boolean}} [options={}] - Options object.
-     * @returns {Promise<boolean>} True if connection succeeded.
+     * Open the security verification gate modal.
+     * @param {string} [initialPassword=''] - Prefilled password.
+     * @param {string} [errorMsg=''] - Optional initial error message.
      */
-    async function connectWithCredentials({ notifyOnFail = true } = {}) {
-        const isValid = await validateVpsConnection(runState.password);
-        if (!isValid) {
-            storePassword('');
-            setConnectionState(false);
-            if (notifyOnFail) alert('Connection failed. Please reconnect.');
-            return false;
+    function openAuthGateModal(initialPassword = '', errorMsg = '') {
+        const modal = $('auth-gate-modal');
+        if (!modal) return;
+        modal.style.display = 'flex';
+
+        const warnEl = $('auth-gate-insecure-warning');
+        if (warnEl) {
+            const isInsecure = !window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1';
+            warnEl.style.display = isInsecure ? 'block' : 'none';
         }
-        storePassword(runState.password);
-        setConnectionState(true);
-        fetchData();
-        return true;
+
+        const errorEl = $('auth-gate-error');
+        if (errorEl) {
+            if (errorMsg) {
+                errorEl.textContent = errorMsg;
+                errorEl.style.display = 'block';
+            } else {
+                errorEl.style.display = 'none';
+            }
+        }
+
+        const passInput = $('auth-gate-password');
+        if (passInput) {
+            if (initialPassword) passInput.value = initialPassword;
+            setTimeout(() => passInput.focus(), 100);
+        }
+
+        const spinner = $('auth-gate-spinner');
+        if (spinner) spinner.style.display = 'none';
+        const submitBtn = $('auth-gate-submit-btn');
+        if (submitBtn) submitBtn.disabled = false;
     }
 
     /**
-     * Display browser prompt for dashboard password.
-     * @returns {boolean} True if password provided, False if cancelled.
+     * Close the security verification gate modal.
      */
-    function promptAllCredentials() {
-        const passwordInput = prompt('Dashboard password:');
-        if (passwordInput === null || !passwordInput) return false;
-        runState.password = passwordInput;
-        return true;
+    function closeAuthGateModal() {
+        const modal = $('auth-gate-modal');
+        if (modal) modal.style.display = 'none';
     }
 
     /**
-     * Prompt for credentials and establish connection.
+     * Handle submission of verification and credentials from the gate modal.
+     * Strictly verifies location permission before granting entry.
      */
-    async function promptAndConnect() {
-        if (!promptAllCredentials()) return;
-        await connectWithCredentials({ notifyOnFail: true });
+    async function submitAuthGate() {
+        const passInput = $('auth-gate-password');
+        const password = passInput ? passInput.value.trim() : '';
+        const errorEl = $('auth-gate-error');
+        const spinner = $('auth-gate-spinner');
+        const submitBtn = $('auth-gate-submit-btn');
+
+        if (!password) {
+            if (errorEl) {
+                errorEl.textContent = 'Please enter the dashboard password.';
+                errorEl.style.display = 'block';
+            }
+            passInput?.focus();
+            return;
+        }
+
+        if (errorEl) errorEl.style.display = 'none';
+        if (spinner) spinner.style.display = 'flex';
+        if (submitBtn) submitBtn.disabled = true;
+
+        // 1. Request GPS Permission (authentic user click gesture)
+        const gpsRes = await requestGpsLocation(12000);
+
+        if (!gpsRes.ok) {
+            if (spinner) spinner.style.display = 'none';
+            if (submitBtn) submitBtn.disabled = false;
+
+            // Record blocked access attempt on backend
+            await validateVpsConnection(password, null, gpsRes.reason);
+
+            let msg = '❌ Access Denied: Location verification permission was refused.';
+            if (gpsRes.reason === 'INSECURE_HTTP') {
+                msg = '❌ Browser Blocked Location: Modern browsers (Chrome, Edge, Safari) strictly block location permission on unencrypted HTTP. To enable permission, access this portal over HTTPS (https://) or localhost.';
+            } else if (gpsRes.reason === 'PERMISSION_DENIED') {
+                msg = '❌ Access Denied: You blocked or dismissed the location permission prompt. Access is strictly forbidden without verified location. Please allow location permissions in browser site settings and try again.';
+            } else if (gpsRes.reason === 'TIMEOUT') {
+                msg = '❌ Verification Timed Out: The location permission prompt was not answered in time. Please try again and click Allow.';
+            }
+
+            if (errorEl) {
+                errorEl.textContent = msg;
+                errorEl.style.display = 'block';
+            }
+            return; // STRICT LOCK: User is completely blocked from proceeding
+        }
+
+        // 2. Permission GRANTED: Validate with server using verified GPS coordinates
+        const loginRes = await validateVpsConnection(password, gpsRes.coords, null);
+
+        if (spinner) spinner.style.display = 'none';
+        if (submitBtn) submitBtn.disabled = false;
+
+        if (loginRes.ok) {
+            runState.password = password;
+            storePassword(password);
+            closeAuthGateModal();
+            setConnectionState(true);
+            fetchData();
+        } else if (loginRes.status === 401) {
+            if (errorEl) {
+                errorEl.textContent = '❌ Invalid dashboard password. Please try again.';
+                errorEl.style.display = 'block';
+            }
+        } else {
+            if (errorEl) {
+                errorEl.textContent = `❌ Access Denied: ${loginRes.detail || 'Verification rejected by server policy'}`;
+                errorEl.style.display = 'block';
+            }
+        }
+    }
+
+    /**
+     * Prompt for credentials and establish connection via verification gate.
+     */
+    function promptAndConnect() {
+        openAuthGateModal(runState.password || '');
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -3311,25 +3438,6 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         }
     }
 
-    /**
-     * Clear all access verification logs after user confirmation.
-     */
-    async function clearAccessLogs() {
-        if (!runState.password) return;
-        if (!confirm('Are you sure you want to clear all access verification logs? This cannot be undone.')) return;
-        try {
-            const resp = await fetch(`${VPS_URL}/api/access_logs/clear`, {
-                method: 'POST',
-                headers: { 'x-password': runState.password }
-            });
-            if (resp.ok) {
-                accessLogsState.logs = [];
-                renderAccessLogsList();
-            }
-        } catch (err) {
-            alert('Failed to clear access logs: ' + err.message);
-        }
-    }
 
     /**
      * Render the filtered access verification logs into the modal container.
@@ -3341,7 +3449,13 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
 
         let filtered = accessLogsState.logs || [];
         if (accessLogsState.filterStatus !== 'ALL') {
-            filtered = filtered.filter(l => (l.status || '').toUpperCase() === accessLogsState.filterStatus);
+            filtered = filtered.filter(l => {
+                const s = (l.status || '').toUpperCase();
+                if (accessLogsState.filterStatus === 'BLOCKED') return s.startsWith('BLOCKED');
+                if (accessLogsState.filterStatus === 'SUCCESS') return s.startsWith('SUCCESS');
+                if (accessLogsState.filterStatus === 'FAILED') return s.startsWith('FAILED') && !s.startsWith('BLOCKED');
+                return s === accessLogsState.filterStatus;
+            });
         }
 
         if (accessLogsState.searchQuery) {
@@ -3369,8 +3483,13 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         }
 
         listEl.innerHTML = filtered.map(log => {
-            const isSuccess = (log.status || '').toUpperCase() === 'SUCCESS';
-            const statusClass = isSuccess ? 'access-log-status-SUCCESS' : 'access-log-status-FAILED';
+            const statusUpper = (log.status || '').toUpperCase();
+            let statusClass = 'access-log-status-FAILED';
+            if (statusUpper.startsWith('SUCCESS')) {
+                statusClass = 'access-log-status-SUCCESS';
+            } else if (statusUpper.startsWith('BLOCKED')) {
+                statusClass = 'access-log-status-BLOCKED';
+            }
             const locationParts = [log.city, log.region, log.country].filter(Boolean);
             const locationStr = locationParts.length > 0 ? locationParts.join(', ') : 'Location unavailable';
             const ispStr = log.isp && log.isp !== 'Unknown' ? ` • ${escapeHtml(log.isp)}` : '';
@@ -3500,7 +3619,6 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         });
         $('access-logs-close-btn')?.addEventListener('click', closeAccessLogsModal);
         $('access-logs-refresh-btn')?.addEventListener('click', loadAccessLogs);
-        $('access-logs-clear-btn')?.addEventListener('click', clearAccessLogs);
 
         const filterInput = $('access-logs-filter-input');
         const filterClear = $('access-logs-filter-clear');
@@ -4051,21 +4169,33 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             if (!e.target.closest('.user-card')) clearActiveSelection();
         });
 
-        // Initial connection setup
+        // Security Verification Gate setup & listeners
+        $('auth-gate-submit-btn')?.addEventListener('click', submitAuthGate);
+        $('auth-gate-password')?.addEventListener('keydown', e => {
+            if (e.key === 'Enter') submitAuthGate();
+        });
+
+        // Initial connection setup via Verification Gate
         if (!runState.password) {
-            const ok = promptAllCredentials();
-            if (!ok) {
-                renderGrid();
-            } else {
-                if ($('user-grid')) $('user-grid').innerHTML = '<div class="empty">Connecting...</div>';
-                connectWithCredentials({ notifyOnFail: false }).then(success => {
-                    if (!success) renderGrid();
-                });
-            }
+            openAuthGateModal('');
         } else {
-            if ($('user-grid')) $('user-grid').innerHTML = '<div class="empty">Connecting...</div>';
-            connectWithCredentials({ notifyOnFail: false }).then(success => {
-                if (!success) renderGrid();
+            // If already stored password, test if location permission is already active
+            requestGpsLocation(2000).then(gpsRes => {
+                if (gpsRes.ok) {
+                    validateVpsConnection(runState.password, gpsRes.coords, null).then(loginRes => {
+                        if (loginRes.ok) {
+                            setConnectionState(true);
+                            fetchData();
+                        } else {
+                            openAuthGateModal(runState.password, 'Session expired. Please re-verify credentials.');
+                        }
+                    }).catch(() => {
+                        openAuthGateModal(runState.password);
+                    });
+                } else {
+                    // Location permission not yet granted or blocked: Gate requires explicit user click & allow
+                    openAuthGateModal(runState.password);
+                }
             });
         }
 
