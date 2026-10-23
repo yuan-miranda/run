@@ -336,7 +336,8 @@ header {
     z-index: 40;
 }
 
-.run-connect-wrap {
+.run-connect-wrap,
+.run-access-logs-wrap {
     border-right: 1px solid var(--border);
     z-index: 50;
     display: none;
@@ -1659,6 +1660,7 @@ body.view-frames #folderWrap {
 }
 
 body.view-frames .run-connect-wrap,
+body.view-frames .run-access-logs-wrap,
 body.view-frames .run-client-wrap,
 body.view-frames .run-theme-wrap,
 body.view-frames .action-mode-wrap,
@@ -1722,6 +1724,7 @@ body.view-action #view-action {
 body.view-action .frames-header-right,
 body.view-action #folderWrap,
 body.view-action .run-connect-wrap,
+body.view-action .run-access-logs-wrap,
 body.view-action .run-client-wrap,
 body.view-action .run-theme-wrap {
     display: none !important;
@@ -2057,6 +2060,7 @@ body.view-action .sidebar-run-section {
     }
 
     body.view-run .run-connect-wrap,
+    body.view-run .run-access-logs-wrap,
     body.view-run .run-theme-wrap,
     body.view-frames .frames-header-right,
     body.view-run .frames-header-right,
@@ -3539,6 +3543,177 @@ body.view-action .sidebar-run-section {
     overflow-wrap: anywhere;
     white-space: pre-wrap;
     line-height: 1.45;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ACCESS VERIFICATION LOGS
+   ═══════════════════════════════════════════════════════════════ */
+
+.access-logs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.access-log-entry {
+    background: var(--run-surface, #0e0e0e);
+    border: 1px solid var(--run-border-quiet, #1f1f1f);
+    border-radius: 5px;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.access-log-entry:hover {
+    border-color: var(--run-border-hover, #444);
+    background: var(--run-surface-alt, #141414);
+}
+
+.access-log-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.access-log-ip-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--run-text, #fff);
+}
+
+.access-log-location {
+    font-size: 12px;
+    color: var(--run-text-muted, #ccc);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.access-log-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    color: var(--run-text-soft, #888);
+}
+
+.access-log-status-SUCCESS {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+    border: 1px solid rgba(34, 197, 94, 0.35);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 3px;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+
+.access-log-status-FAILED {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 3px;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+
+.access-log-device-badge {
+    background: var(--run-elevated, #1a1a1a);
+    border: 1px solid var(--run-border-quiet, #2a2a2a);
+    color: var(--run-text-dim, #aaa);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.access-log-gps-badge {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 3px;
+    letter-spacing: .04em;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+}
+
+.access-log-maps-btn {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 3px;
+    letter-spacing: .04em;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.access-log-maps-btn:hover {
+    background: rgba(56, 189, 248, 0.28);
+    border-color: #38bdf8;
+    color: #bae6fd;
+}
+
+.access-log-details-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 6px 14px;
+    padding-top: 8px;
+    border-top: 1px solid var(--run-border-quiet, #1a1a1a);
+    font-size: 11px;
+}
+
+.access-log-spec-item {
+    display: flex;
+    gap: 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.access-log-spec-label {
+    color: var(--run-text-soft, #777);
+    flex-shrink: 0;
+}
+
+.access-log-spec-val {
+    color: var(--run-text-muted, #ddd);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    font-size: 10.5px;
+}
+
+.access-log-empty {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--run-text-soft, #666);
+    font-size: 13px;
 }
 
 

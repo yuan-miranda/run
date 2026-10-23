@@ -23,6 +23,9 @@
             <div class="run-connect-wrap" id="runConnectWrap">
                 <button class="folder-btn" id="run-connect-btn">connect</button>
             </div>
+            <div class="run-access-logs-wrap" id="runAccessLogsWrap" style="display: none;">
+                <button class="folder-btn" id="run-access-logs-btn" title="View website access & verification logs">access logs</button>
+            </div>
             <div class="run-client-wrap" id="runClientWrap" style="display: none;">
                 <span class="folder-btn run-client-name" id="runClientName"></span>
             </div>
@@ -128,6 +131,7 @@
             <div class="sidebar-run-section">
                 <div class="sidebar-section-label">connection</div>
                 <button class="sidebar-row-btn" id="sidebar-connect-btn">connect</button>
+                <button class="sidebar-row-btn" id="sidebar-access-logs-btn" style="display: none;">access logs</button>
                 <div class="sidebar-section-label">theme</div>
                 <div id="sidebar-theme-list">
                     <button class="sidebar-theme-btn" id="sidebar-theme-random-option"
@@ -520,6 +524,56 @@
             <!-- Logs List Container -->
             <div class="logs-list-container" id="logs-list-container">
                 <div class="logs-list" id="logs-list">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Access Verification Logs Modal -->
+    <div id="access-logs-modal" class="logs-modal-overlay" style="display:none;">
+        <div class="logs-window" role="dialog" aria-labelledby="access-logs-modal-title" aria-modal="true">
+            <div class="logs-header">
+                <div class="logs-header-left">
+                    <div class="logs-brand-icon"><i class="bi bi-shield-lock"></i></div>
+                    <div class="logs-header-titles">
+                        <span class="logs-title" id="access-logs-modal-title">Access Verification Logs</span>
+                        <span class="logs-subtitle">Website authentication audit trail, IP geolocation & device telemetry</span>
+                    </div>
+                </div>
+                <div class="logs-header-actions">
+                    <button type="button" class="logs-icon-btn" id="access-logs-refresh-btn" title="Refresh logs">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                    <button type="button" class="logs-icon-btn" id="access-logs-clear-btn" title="Clear access logs">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                    <button type="button" class="logs-icon-btn logs-close-btn" id="access-logs-close-btn" title="Close (ESC)">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Toolbar & Filter -->
+            <div class="logs-toolbar">
+                <div class="logs-search-wrap">
+                    <i class="bi bi-search logs-search-icon"></i>
+                    <input type="text" id="access-logs-filter-input" class="logs-filter-input" placeholder="Search by IP, city, country, browser, OS..." autocomplete="off" spellcheck="false">
+                    <button type="button" class="logs-filter-clear" id="access-logs-filter-clear" style="display:none;" title="Clear filter">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+                <div class="logs-filter-pills" id="access-logs-filter-pills">
+                    <button type="button" class="logs-pill active" data-filter="ALL">All</button>
+                    <button type="button" class="logs-pill" data-filter="SUCCESS">Success</button>
+                    <button type="button" class="logs-pill" data-filter="FAILED">Failed</button>
+                </div>
+                <div class="logs-counter" id="access-logs-counter">0 logs</div>
+            </div>
+
+            <!-- Logs List Container -->
+            <div class="logs-list-container" id="access-logs-list-container">
+                <div class="access-logs-list" id="access-logs-list">
                     <!-- Populated dynamically -->
                 </div>
             </div>

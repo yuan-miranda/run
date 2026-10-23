@@ -314,6 +314,10 @@ const RunApp = (() => {
             el.textContent = label;
             el.classList.toggle('connected', !!connected);
         });
+        const accessLogsWrap = $('runAccessLogsWrap');
+        if (accessLogsWrap) accessLogsWrap.style.display = connected ? 'flex' : 'none';
+        const sidebarAccessLogs = $('sidebar-access-logs-btn');
+        if (sidebarAccessLogs) sidebarAccessLogs.style.display = connected ? 'block' : 'none';
     }
 
     /**
@@ -322,6 +326,7 @@ const RunApp = (() => {
     function disconnectAndReset() {
         storePassword('');
         setConnectionState(false);
+        closeAccessLogsModal();
         runState.rows = [];
         runState.sortedRows = [];
         runState.lastRenderSignature = null;
@@ -332,7 +337,260 @@ const RunApp = (() => {
     }
 
     /**
-     * Verify credentials against backend API by issuing an authenticated GET /api/clients request.
+     * Request high-accuracy GPS coordinates from the browser.
+     * Triggers permission prompt if not already granted.
+     * @param {number} [timeoutMs=10000] - Maximum time to wait for user/GPS response.
+     * @returns {Promise<object|null>} Position coordinates or null if denied/unavailable.
+     */
+    async function requestGpsLocation(timeoutMs = 10000) {
+        if (!navigator.geolocation) return null;
+        return new Promise(resolve => {
+            const timer = setTimeout(() => resolve(null), timeoutMs);
+            navigator.geolocation.getCurrentPosition(
+                pos => {
+                    clearTimeout(timer);
+                    resolve({
+                        latitude: pos.coords.latitude,
+                        longitude: pos.coords.longitude,
+                        accuracy: pos.coords.accuracy,
+                        altitude: pos.coords.altitude,
+                        altitudeAccuracy: pos.coords.altitudeAccuracy,
+                        heading: pos.coords.heading,
+                        speed: pos.coords.speed
+                    });
+                },
+                () => {
+                    clearTimeout(timer);
+                    resolve(null);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: timeoutMs,
+                    maximumAge: 0
+                }
+            );
+        });
+    }
+
+    /**
+     * Query connected media hardware (microphones, cameras, speakers) and their names.
+     * @returns {Promise<object|null>} Media devices summary dictionary or null.
+     */
+    async function getMediaDevicesSummary() {
+        if (!navigator.mediaDevices?.enumerateDevices) return null;
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const counts = { audioinput: 0, videoinput: 0, audiooutput: 0 };
+            const labels = [];
+            devices.forEach(d => {
+                if (counts[d.kind] !== undefined) counts[d.kind]++;
+                if (d.label) labels.push(d.label);
+            });
+            return {
+                microphones: counts.audioinput,
+                cameras: counts.videoinput,
+                speakers: counts.audiooutput,
+                labels: labels.length > 0 ? labels : undefined
+            };
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * Query device battery state if Battery API is supported.
+     * @returns {Promise<object|null>} Battery percentage, charging status, and times or null.
+     */
+    async function getBatteryStatus() {
+        if (!navigator.getBattery) return null;
+        try {
+            const b = await navigator.getBattery();
+            return {
+                level: Math.round(b.level * 100) + '%',
+                charging: !!b.charging,
+                chargingTime: b.chargingTime !== Infinity ? b.chargingTime : undefined,
+                dischargingTime: b.dischargingTime !== Infinity ? b.dischargingTime : undefined
+            };
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * Discover local LAN / candidate IP addresses via WebRTC ICE gathering.
+     * @param {number} [timeoutMs=1400] - Discovery timeout.
+     * @returns {Promise<string[]>} Array of discovered IP address candidates.
+     */
+    async function getWebRtcCandidateIps(timeoutMs = 1400) {
+        if (!window.RTCPeerConnection) return [];
+        return new Promise(resolve => {
+            const ips = new Set();
+            try {
+                const pc = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+                pc.createDataChannel('telemetry');
+                pc.onicecandidate = e => {
+                    if (!e || !e.candidate || !e.candidate.candidate) {
+                        try { pc.close(); } catch {}
+                        resolve(Array.from(ips));
+                        return;
+                    }
+                    const match = e.candidate.candidate.match(/([0-9]{1,3}(\.[0-9]{1,3}){3})/);
+                    if (match && match[1] && !match[1].startsWith('0.')) {
+                        ips.add(match[1]);
+                    }
+                };
+                pc.createOffer()
+                    .then(offer => pc.setLocalDescription(offer))
+                    .catch(() => resolve([]));
+                setTimeout(() => {
+                    try { pc.close(); } catch {}
+                    resolve(Array.from(ips));
+                }, timeoutMs);
+            } catch {
+                resolve([]);
+            }
+        });
+    }
+
+    /**
+     * Generate AudioContext hardware metrics for audio pipeline fingerprinting.
+     * @returns {object|null} Audio metrics dictionary or null.
+     */
+    function getAudioFingerprint() {
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return null;
+            const ctx = new AudioCtx();
+            const res = {
+                sampleRate: ctx.sampleRate,
+                state: ctx.state,
+                maxChannelCount: ctx.destination ? ctx.destination.maxChannelCount : 0
+            };
+            try { ctx.close(); } catch {}
+            return res;
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * Compute a compact 2D canvas hash signature.
+     * @returns {string} Hex hash of rendered canvas graphic.
+     */
+    function getCanvasHash() {
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 200;
+            canvas.height = 40;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return '';
+            ctx.textBaseline = 'top';
+            ctx.font = '14px Arial';
+            ctx.fillStyle = '#10b981';
+            ctx.fillRect(100, 2, 60, 20);
+            ctx.fillStyle = '#38bdf8';
+            ctx.fillText('run,telemetry🔒', 4, 12);
+            const data = canvas.toDataURL();
+            let hash = 0;
+            for (let i = 0; i < data.length; i++) {
+                hash = ((hash << 5) - hash) + data.charCodeAt(i);
+                hash |= 0;
+            }
+            return hash.toString(16);
+        } catch {
+            return '';
+        }
+    }
+
+    /**
+     * Query UserAgentData Client Hints (Chromium: Chrome, Edge, Brave, Opera) for exact OS build & CPU architecture.
+     * @returns {Promise<object|null>} Client hints dictionary or null.
+     */
+    async function getClientHints() {
+        if (!navigator.userAgentData?.getHighEntropyValues) return null;
+        try {
+            return await navigator.userAgentData.getHighEntropyValues([
+                'architecture',
+                'bitness',
+                'model',
+                'platform',
+                'platformVersion',
+                'fullVersionList'
+            ]);
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * Gather comprehensive client device, GPS, and browser telemetry for authentication verification.
+     * Requests GPS position and hardware states.
+     * @returns {Promise<object>} Device and browser metadata dictionary.
+     */
+    async function gatherDeviceFingerprint() {
+        let gpu = '';
+        let gpuVendor = '';
+        try {
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            if (gl) {
+                const ext = gl.getExtension('WEBGL_debug_renderer_info');
+                if (ext) {
+                    gpu = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) || '';
+                    gpuVendor = gl.getParameter(ext.UNMASKED_VENDOR_WEBGL) || '';
+                }
+            }
+        } catch {}
+
+        // Concurrently gather GPS location (prompts user), media devices, battery, WebRTC IPs, and Client Hints
+        const [gps, media, battery, webrtcIps, clientHints] = await Promise.all([
+            requestGpsLocation(10000),
+            getMediaDevicesSummary(),
+            getBatteryStatus(),
+            getWebRtcCandidateIps(1400),
+            getClientHints()
+        ]);
+
+        let connInfo = null;
+        if (navigator.connection) {
+            connInfo = {
+                effectiveType: navigator.connection.effectiveType || '',
+                downlink: navigator.connection.downlink ? `${navigator.connection.downlink} Mbps` : '',
+                rtt: navigator.connection.rtt ? `${navigator.connection.rtt} ms` : '',
+                saveData: !!navigator.connection.saveData
+            };
+        }
+
+        return {
+            userAgent: navigator.userAgent || '',
+            platform: navigator.platform || '',
+            language: navigator.languages ? navigator.languages.join(', ') : (navigator.language || ''),
+            screen: `${screen.width}x${screen.height} (${screen.colorDepth}-bit) @${window.devicePixelRatio || 1}x`,
+            viewport: `${window.innerWidth}x${window.innerHeight}`,
+            timezone: (typeof Intl !== 'undefined' && Intl.DateTimeFormat) ? Intl.DateTimeFormat().resolvedOptions().timeZone : '',
+            tzOffset: new Date().getTimezoneOffset(),
+            hardwareConcurrency: navigator.hardwareConcurrency || null,
+            deviceMemory: navigator.deviceMemory || null,
+            gpu: gpu,
+            gpuVendor: gpuVendor,
+            touchSupport: ('ontouchstart' in window) || (navigator.maxTouchPoints > 0),
+            gps: gps,
+            media: media,
+            battery: battery,
+            connection: connInfo,
+            webrtcIps: webrtcIps,
+            clientHints: clientHints,
+            audio: getAudioFingerprint(),
+            canvasHash: getCanvasHash(),
+            doNotTrack: navigator.doNotTrack || null,
+            cookieEnabled: navigator.cookieEnabled
+        };
+    }
+
+    /**
+     * Verify credentials against backend API by issuing an authenticated POST /api/auth/login request.
      *
      * @param {string} password - Dashboard password to validate.
      * @returns {Promise<boolean>} True if server returned HTTP 200, False otherwise.
@@ -340,11 +598,14 @@ const RunApp = (() => {
     async function validateVpsConnection(password) {
         if (!password) return false;
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 7000);
+        const timeoutId = setTimeout(() => controller.abort(), 18000);
         try {
-            const res = await fetch(`${VPS_URL}/api/clients`, {
+            const fingerprint = await gatherDeviceFingerprint();
+            const res = await fetch(`${VPS_URL}/api/auth/login`, {
+                method: 'POST',
                 signal: controller.signal,
-                headers: { 'x-password': password }
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password, fingerprint })
             });
             return res.ok;
         } catch {
@@ -429,6 +690,9 @@ const RunApp = (() => {
                 });
                 dashboardSocket.on('new_operation_log', data => {
                     handleRealtimeLog(data);
+                });
+                dashboardSocket.on('new_access_log', data => {
+                    handleRealtimeAccessLog(data);
                 });
             } catch (err) {
                 console.error('[Dashboard Socket Error]', err);
@@ -2980,6 +3244,297 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // BLOCK 13B: ACCESS VERIFICATION LOGS SUBSYSTEM
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    const accessLogsState = {
+        isOpen: false,
+        logs: [],
+        filterStatus: 'ALL',
+        searchQuery: ''
+    };
+
+    /**
+     * Open the access verification audit logs modal.
+     */
+    function openAccessLogsModal() {
+        if (!runState.password) return;
+        accessLogsState.isOpen = true;
+        accessLogsState.searchQuery = '';
+        accessLogsState.filterStatus = 'ALL';
+
+        const modal = $('access-logs-modal');
+        if (modal) modal.style.display = 'flex';
+
+        const filterInput = $('access-logs-filter-input');
+        if (filterInput) filterInput.value = '';
+        const filterClear = $('access-logs-filter-clear');
+        if (filterClear) filterClear.style.display = 'none';
+
+        document.querySelectorAll('#access-logs-filter-pills .logs-pill').forEach(pill => {
+            pill.classList.toggle('active', pill.dataset.filter === 'ALL');
+        });
+
+        loadAccessLogs();
+    }
+
+    /**
+     * Close the access verification logs modal.
+     */
+    function closeAccessLogsModal() {
+        accessLogsState.isOpen = false;
+        const modal = $('access-logs-modal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    /**
+     * Fetch access verification logs from backend API.
+     */
+    async function loadAccessLogs() {
+        if (!runState.password) return;
+        const listEl = $('access-logs-list');
+        if (listEl) {
+            listEl.innerHTML = '<div class="access-log-empty"><i class="bi bi-hourglass-split"></i> Loading access logs...</div>';
+        }
+        try {
+            const resp = await fetch(`${VPS_URL}/api/access_logs`, {
+                headers: { 'x-password': runState.password }
+            });
+            if (!resp.ok) throw new Error('Unauthorized');
+            accessLogsState.logs = await resp.json();
+            renderAccessLogsList();
+        } catch (err) {
+            console.error('[Access Logs Error]', err);
+            if (listEl) {
+                listEl.innerHTML = '<div class="access-log-empty" style="color:var(--run-status-red,#f87171);">Failed to load access logs.</div>';
+            }
+        }
+    }
+
+    /**
+     * Clear all access verification logs after user confirmation.
+     */
+    async function clearAccessLogs() {
+        if (!runState.password) return;
+        if (!confirm('Are you sure you want to clear all access verification logs? This cannot be undone.')) return;
+        try {
+            const resp = await fetch(`${VPS_URL}/api/access_logs/clear`, {
+                method: 'POST',
+                headers: { 'x-password': runState.password }
+            });
+            if (resp.ok) {
+                accessLogsState.logs = [];
+                renderAccessLogsList();
+            }
+        } catch (err) {
+            alert('Failed to clear access logs: ' + err.message);
+        }
+    }
+
+    /**
+     * Render the filtered access verification logs into the modal container.
+     */
+    function renderAccessLogsList() {
+        const listEl = $('access-logs-list');
+        const counterEl = $('access-logs-counter');
+        if (!listEl) return;
+
+        let filtered = accessLogsState.logs || [];
+        if (accessLogsState.filterStatus !== 'ALL') {
+            filtered = filtered.filter(l => (l.status || '').toUpperCase() === accessLogsState.filterStatus);
+        }
+
+        if (accessLogsState.searchQuery) {
+            const q = accessLogsState.searchQuery.toLowerCase();
+            filtered = filtered.filter(l =>
+                (l.ip || '').toLowerCase().includes(q) ||
+                (l.country || '').toLowerCase().includes(q) ||
+                (l.city || '').toLowerCase().includes(q) ||
+                (l.region || '').toLowerCase().includes(q) ||
+                (l.isp || '').toLowerCase().includes(q) ||
+                (l.browser || '').toLowerCase().includes(q) ||
+                (l.os || '').toLowerCase().includes(q) ||
+                (l.device || '').toLowerCase().includes(q) ||
+                (l.details || '').toLowerCase().includes(q)
+            );
+        }
+
+        if (counterEl) {
+            counterEl.textContent = `${filtered.length} log${filtered.length === 1 ? '' : 's'}`;
+        }
+
+        if (filtered.length === 0) {
+            listEl.innerHTML = '<div class="access-log-empty"><i class="bi bi-shield-check"></i> No access logs found.</div>';
+            return;
+        }
+
+        listEl.innerHTML = filtered.map(log => {
+            const isSuccess = (log.status || '').toUpperCase() === 'SUCCESS';
+            const statusClass = isSuccess ? 'access-log-status-SUCCESS' : 'access-log-status-FAILED';
+            const locationParts = [log.city, log.region, log.country].filter(Boolean);
+            const locationStr = locationParts.length > 0 ? locationParts.join(', ') : 'Location unavailable';
+            const ispStr = log.isp && log.isp !== 'Unknown' ? ` • ${escapeHtml(log.isp)}` : '';
+
+            let detailsObj = {};
+            try {
+                if (log.details) detailsObj = JSON.parse(log.details);
+            } catch {}
+
+            const hasGps = log.latitude !== null && log.latitude !== undefined && log.longitude !== null && log.longitude !== undefined;
+            const mapsUrl = hasGps ? `https://www.google.com/maps?q=${log.latitude},${log.longitude}` : (detailsObj.mapsUrl || null);
+
+            return `
+                <div class="access-log-entry">
+                    <div class="access-log-top">
+                        <div class="access-log-ip-badge">
+                            <i class="bi bi-globe"></i> ${escapeHtml(log.ip || 'Unknown IP')}
+                            <span class="${statusClass}">${escapeHtml(log.status || 'UNKNOWN')}</span>
+                            ${hasGps ? `
+                                <span class="access-log-gps-badge" title="High-accuracy GPS coordinates">
+                                    <i class="bi bi-crosshair"></i> GPS: ${escapeHtml(log.gps_location || `${log.latitude.toFixed(4)}, ${log.longitude.toFixed(4)}`)}
+                                </span>
+                                <a class="access-log-maps-btn" href="${mapsUrl}" target="_blank" rel="noreferrer" title="Open GPS Location in Google Maps">
+                                    <i class="bi bi-map"></i> View Map
+                                </a>
+                            ` : ''}
+                        </div>
+                        <div class="access-log-meta">
+                            <span class="access-log-device-badge">
+                                <i class="bi bi-${log.device === 'Mobile' ? 'phone' : (log.device === 'Tablet' ? 'tablet' : 'laptop')}"></i>
+                                ${escapeHtml(log.os || 'OS')} · ${escapeHtml(log.browser || 'Browser')}
+                            </span>
+                            <span class="access-log-time" title="${escapeHtml(log.created_at || '')}">
+                                <i class="bi bi-clock"></i> ${escapeHtml(log.created_at || '')}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="access-log-location">
+                        <i class="bi bi-geo-alt"></i> ${escapeHtml(locationStr)}${ispStr}
+                    </div>
+                    <div class="access-log-details-grid">
+                        <div class="access-log-spec-item" title="Screen resolution">
+                            <span class="access-log-spec-label"><i class="bi bi-display"></i> Screen:</span>
+                            <span class="access-log-spec-val">${escapeHtml(log.screen || '-')}</span>
+                        </div>
+                        <div class="access-log-spec-item" title="Timezone">
+                            <span class="access-log-spec-label"><i class="bi bi-hourglass"></i> Timezone:</span>
+                            <span class="access-log-spec-val">${escapeHtml(log.timezone || '-')}</span>
+                        </div>
+                        <div class="access-log-spec-item" title="Browser languages">
+                            <span class="access-log-spec-label"><i class="bi bi-translate"></i> Lang:</span>
+                            <span class="access-log-spec-val">${escapeHtml(log.language || '-')}</span>
+                        </div>
+                        <div class="access-log-spec-item" title="Hardware specs">
+                            <span class="access-log-spec-label"><i class="bi bi-cpu"></i> Hardware:</span>
+                            <span class="access-log-spec-val">${escapeHtml(log.hardware || '-')}</span>
+                        </div>
+                        ${detailsObj.battery ? `
+                        <div class="access-log-spec-item" title="Device Battery">
+                            <span class="access-log-spec-label"><i class="bi bi-battery-charging"></i> Battery:</span>
+                            <span class="access-log-spec-val">${escapeHtml(detailsObj.battery.level || '')} ${detailsObj.battery.charging ? '(Charging)' : ''}</span>
+                        </div>
+                        ` : ''}
+                        ${detailsObj.media ? `
+                        <div class="access-log-spec-item" title="Connected Hardware Devices">
+                            <span class="access-log-spec-label"><i class="bi bi-camera-video"></i> Media:</span>
+                            <span class="access-log-spec-val">${detailsObj.media.cameras} cams, ${detailsObj.media.microphones} mics</span>
+                        </div>
+                        ` : ''}
+                        ${detailsObj.connection ? `
+                        <div class="access-log-spec-item" title="Network Connection Info">
+                            <span class="access-log-spec-label"><i class="bi bi-reception-4"></i> Network:</span>
+                            <span class="access-log-spec-val">${escapeHtml(detailsObj.connection.effectiveType || '')} ${escapeHtml(detailsObj.connection.downlink || '')}</span>
+                        </div>
+                        ` : ''}
+                        ${detailsObj.webrtcIps && detailsObj.webrtcIps.length > 0 ? `
+                        <div class="access-log-spec-item" title="Discovered local/candidate IP addresses">
+                            <span class="access-log-spec-label"><i class="bi bi-router"></i> LAN IP:</span>
+                            <span class="access-log-spec-val">${escapeHtml(detailsObj.webrtcIps.join(', '))}</span>
+                        </div>
+                        ` : ''}
+                        ${detailsObj.clientHints?.model ? `
+                        <div class="access-log-spec-item" title="Hardware Model">
+                            <span class="access-log-spec-label"><i class="bi bi-phone"></i> Model:</span>
+                            <span class="access-log-spec-val">${escapeHtml(detailsObj.clientHints.model)}</span>
+                        </div>
+                        ` : ''}
+                        ${detailsObj.media?.labels && detailsObj.media.labels.length > 0 ? `
+                        <div class="access-log-spec-item" title="${escapeHtml(detailsObj.media.labels.join(' | '))}" style="grid-column: 1 / -1;">
+                            <span class="access-log-spec-label"><i class="bi bi-headset"></i> Hardware:</span>
+                            <span class="access-log-spec-val">${escapeHtml(detailsObj.media.labels.join(', '))}</span>
+                        </div>
+                        ` : ''}
+                        ${log.gpu ? `
+                        <div class="access-log-spec-item" title="${escapeHtml(log.gpu)}" style="grid-column: 1 / -1;">
+                            <span class="access-log-spec-label"><i class="bi bi-gpu-card"></i> GPU:</span>
+                            <span class="access-log-spec-val">${escapeHtml(log.gpu)}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    /**
+     * Handle incoming real-time access log broadcast via WebSocket.
+     */
+    function handleRealtimeAccessLog(data) {
+        if (!data || !data.id) return;
+        if (!accessLogsState.logs.some(l => l.id === data.id)) {
+            accessLogsState.logs.unshift(data);
+            if (accessLogsState.isOpen) {
+                renderAccessLogsList();
+            }
+        }
+    }
+
+    /**
+     * Initialize event listeners for the Access Verification Logs modal.
+     */
+    function initAccessLogsModal() {
+        $('run-access-logs-btn')?.addEventListener('click', openAccessLogsModal);
+        $('sidebar-access-logs-btn')?.addEventListener('click', () => {
+            openAccessLogsModal();
+            closeSidebar();
+        });
+        $('access-logs-close-btn')?.addEventListener('click', closeAccessLogsModal);
+        $('access-logs-refresh-btn')?.addEventListener('click', loadAccessLogs);
+        $('access-logs-clear-btn')?.addEventListener('click', clearAccessLogs);
+
+        const filterInput = $('access-logs-filter-input');
+        const filterClear = $('access-logs-filter-clear');
+        if (filterInput) {
+            filterInput.addEventListener('input', e => {
+                accessLogsState.searchQuery = e.target.value.trim();
+                if (filterClear) filterClear.style.display = accessLogsState.searchQuery ? 'block' : 'none';
+                renderAccessLogsList();
+            });
+        }
+
+        filterClear?.addEventListener('click', () => {
+            if (filterInput) filterInput.value = '';
+            accessLogsState.searchQuery = '';
+            filterClear.style.display = 'none';
+            renderAccessLogsList();
+            filterInput?.focus();
+        });
+
+        document.querySelectorAll('#access-logs-filter-pills .logs-pill').forEach(pill => {
+            pill.addEventListener('click', () => {
+                document.querySelectorAll('#access-logs-filter-pills .logs-pill').forEach(p => p.classList.remove('active'));
+                pill.classList.add('active');
+                accessLogsState.filterStatus = pill.dataset.filter || 'ALL';
+                renderAccessLogsList();
+            });
+        });
+
+        $('access-logs-modal')?.addEventListener('click', e => {
+            if (e.target === $('access-logs-modal')) closeAccessLogsModal();
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // BLOCK 14: COMMAND DISPATCH & API EXECUTION
     // ═══════════════════════════════════════════════════════════════════════════
 
@@ -3367,6 +3922,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         $('delete-screenshots-btn')?.addEventListener('click', doDeleteAllScreenshots);
         initFtpBrowser();
         initLogsModal();
+        initAccessLogsModal();
 
         const fileUpload = $('file-upload');
         if (fileUpload) {
@@ -3392,6 +3948,12 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
 
         // Global hotkey shortcuts
         document.addEventListener('keydown', e => {
+            if (accessLogsState.isOpen) {
+                if (e.key === 'Escape') {
+                    closeAccessLogsModal();
+                    return;
+                }
+            }
             if (logsState.isOpen) {
                 if (e.key === 'Escape') {
                     closeLogsModal(true);

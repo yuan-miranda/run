@@ -11,6 +11,9 @@ import shutil
 import sqlite3
 import base64
 import threading
+import json
+import ipaddress
+import urllib.request
 from datetime import datetime, timezone
 from contextlib import contextmanager
 from functools import wraps
@@ -143,6 +146,47 @@ def init_db() -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_ops_user ON operations_log(username, id DESC);"
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS access_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ip TEXT NOT NULL,
+                status TEXT NOT NULL,
+                country TEXT,
+                region TEXT,
+                city TEXT,
+                isp TEXT,
+                browser TEXT,
+                os TEXT,
+                device TEXT,
+                screen TEXT,
+                timezone TEXT,
+                language TEXT,
+                hardware TEXT,
+                gpu TEXT,
+                latitude REAL,
+                longitude REAL,
+                accuracy REAL,
+                gps_location TEXT,
+                details TEXT,
+                created_at TEXT DEFAULT (datetime('now'))
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_access_logs_id ON access_logs(id DESC);"
+        )
+
+        for col_name, col_type in (
+            ("latitude", "REAL"),
+            ("longitude", "REAL"),
+            ("accuracy", "REAL"),
+            ("gps_location", "TEXT"),
+        ):
+            try:
+                conn.execute(f"ALTER TABLE access_logs ADD COLUMN {col_name} {col_type}")
+            except sqlite3.OperationalError:
+                pass
 
 
 # Initialize schema on startup
@@ -197,6 +241,267 @@ def log_operation(username: str, op_type: str, details: str, status: str = "succ
         print(f"[Log Error] Failed to write operations log: {e}")
 
 
+# ── In-Memory IP Geolocation Cache & Telemetry Helpers ─────────────────────────
+
+geo_cache: Dict[str, Dict[str, str]] = {}
+geo_cache_lock = threading.Lock()
+
+
+def get_client_ip() -> str:
+    """Extract real client IP address considering proxy headers."""
+    for header in ("CF-Connecting-IP", "X-Forwarded-For", "X-Real-IP"):
+        val = request.headers.get(header)
+        if val:
+            ip = val.split(",")[0].strip()
+            if ip:
+                return ip
+    return request.remote_addr or "127.0.0.1"
+
+
+def get_ip_geolocation(ip: str) -> Dict[str, str]:
+    """
+    Perform geolocation lookup on an IP address with caching and quick timeout.
+    Returns dictionary with country, region, city, isp.
+    """
+    with geo_cache_lock:
+        if ip in geo_cache:
+            return geo_cache[ip]
+
+    # Check for private/loopback/invalid IP
+    try:
+        ip_obj = ipaddress.ip_address(ip)
+        if ip_obj.is_private or ip_obj.is_loopback:
+            res = {
+                "country": "Local Network",
+                "region": "Private",
+                "city": "Internal",
+                "isp": "Localhost / LAN",
+            }
+            with geo_cache_lock:
+                geo_cache[ip] = res
+            return res
+    except Exception:
+        pass
+
+    res = {
+        "country": "Unknown",
+        "region": "",
+        "city": "Unknown",
+        "isp": "Unknown",
+    }
+    try:
+        req = urllib.request.Request(
+            f"http://ip-api.com/json/{ip}?fields=status,country,regionName,city,isp",
+            headers={"User-Agent": "run-verifier/1.0"},
+        )
+        with urllib.request.urlopen(req, timeout=2.5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            if data.get("status") == "success":
+                res = {
+                    "country": data.get("country") or "Unknown",
+                    "region": data.get("regionName") or "",
+                    "city": data.get("city") or "Unknown",
+                    "isp": data.get("isp") or "Unknown",
+                }
+    except Exception as e:
+        print(f"[Geo Lookup Error] {ip}: {e}")
+
+    with geo_cache_lock:
+        geo_cache[ip] = res
+    return res
+
+
+def parse_user_agent_summary(ua_string: str) -> Tuple[str, str, str]:
+    """Parse user agent into (browser, os, device)."""
+    ua = (ua_string or "").lower()
+
+    # Operating System
+    if "windows" in ua:
+        os_name = "Windows"
+    elif "macintosh" in ua or "mac os" in ua:
+        os_name = "macOS"
+    elif "android" in ua:
+        os_name = "Android"
+    elif "iphone" in ua:
+        os_name = "iOS (iPhone)"
+    elif "ipad" in ua:
+        os_name = "iOS (iPad)"
+    elif "linux" in ua:
+        os_name = "Linux"
+    elif "cros" in ua:
+        os_name = "Chrome OS"
+    else:
+        os_name = "Unknown OS"
+
+    # Device type
+    if "mobile" in ua or "iphone" in ua or "android" in ua:
+        device_type = "Mobile"
+    elif "tablet" in ua or "ipad" in ua:
+        device_type = "Tablet"
+    else:
+        device_type = "Desktop"
+
+    # Browser
+    if "edg/" in ua or "edge/" in ua:
+        browser_name = "Edge"
+    elif "chrome/" in ua and "chromium" not in ua:
+        browser_name = "Chrome"
+    elif "firefox/" in ua:
+        browser_name = "Firefox"
+    elif "safari/" in ua and "chrome" not in ua:
+        browser_name = "Safari"
+    elif "opera/" in ua or "opr/" in ua:
+        browser_name = "Opera"
+    else:
+        browser_name = "Browser"
+
+    return browser_name, os_name, device_type
+
+
+def record_access_log(
+    ip: str,
+    status: str,
+    fingerprint: Optional[Dict[str, Any]] = None,
+    raw_ua: Optional[str] = None,
+) -> None:
+    """Record a dashboard login or verification attempt into access_logs table."""
+    try:
+        geo = get_ip_geolocation(ip)
+        fp = fingerprint or {}
+        ua_str = fp.get("userAgent") or raw_ua or request.headers.get("User-Agent", "")
+        browser, os_name, device = parse_user_agent_summary(ua_str)
+
+        screen = fp.get("screen", "")
+        timezone_val = fp.get("timezone", "")
+        language = fp.get("language", "")
+        gpu = fp.get("gpu", "")
+
+        gps = fp.get("gps") or {}
+        lat = gps.get("latitude")
+        lon = gps.get("longitude")
+        acc = gps.get("accuracy")
+        gps_location = ""
+        if lat is not None and lon is not None:
+            acc_str = f" (±{int(acc)}m)" if acc is not None else ""
+            gps_location = f"{lat:.5f}, {lon:.5f}{acc_str}"
+
+        media = fp.get("media") or {}
+        battery = fp.get("battery") or {}
+        connection = fp.get("connection") or {}
+
+        client_hints = fp.get("clientHints") or {}
+        if os_name == "Windows" and client_hints.get("platformVersion"):
+            try:
+                major = int(client_hints["platformVersion"].split(".")[0])
+                if major >= 13:
+                    os_name = "Windows 11"
+                else:
+                    os_name = "Windows 10"
+            except Exception:
+                pass
+
+        hardware_parts = []
+        if fp.get("hardwareConcurrency"):
+            hardware_parts.append(f"{fp['hardwareConcurrency']} cores")
+        if fp.get("deviceMemory"):
+            hardware_parts.append(f"{fp['deviceMemory']} GB RAM")
+        arch = client_hints.get("architecture")
+        bitness = client_hints.get("bitness")
+        if arch or bitness:
+            hardware_parts.append(f"{arch or ''} {bitness or ''}-bit".strip())
+        hardware = ", ".join(hardware_parts)
+
+        maps_url = f"https://www.google.com/maps?q={lat},{lon}" if (lat is not None and lon is not None) else None
+
+        details_json = json.dumps(
+            {
+                "userAgent": ua_str,
+                "platform": fp.get("platform", ""),
+                "viewport": fp.get("viewport", ""),
+                "tzOffset": fp.get("tzOffset"),
+                "touchSupport": fp.get("touchSupport", False),
+                "gpu": gpu,
+                "gpuVendor": fp.get("gpuVendor", ""),
+                "isp": geo.get("isp", ""),
+                "gps": gps if (lat is not None and lon is not None) else None,
+                "media": media,
+                "battery": battery,
+                "connection": connection,
+                "webrtcIps": fp.get("webrtcIps") or [],
+                "clientHints": client_hints,
+                "audio": fp.get("audio"),
+                "canvasHash": fp.get("canvasHash"),
+                "mapsUrl": maps_url,
+            }
+        )
+
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO access_logs (
+                    ip, status, country, region, city, isp,
+                    browser, os, device, screen, timezone,
+                    language, hardware, gpu, latitude, longitude,
+                    accuracy, gps_location, details, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                """,
+                (
+                    ip,
+                    status.upper(),
+                    geo.get("country", "Unknown"),
+                    geo.get("region", ""),
+                    geo.get("city", "Unknown"),
+                    geo.get("isp", "Unknown"),
+                    browser,
+                    os_name,
+                    device,
+                    screen,
+                    timezone_val,
+                    language,
+                    hardware,
+                    gpu,
+                    lat,
+                    lon,
+                    acc,
+                    gps_location,
+                    details_json,
+                ),
+            )
+            log_id = cursor.lastrowid
+
+        socketio.emit(
+            "new_access_log",
+            {
+                "id": log_id,
+                "ip": ip,
+                "status": status.upper(),
+                "country": geo.get("country", "Unknown"),
+                "region": geo.get("region", ""),
+                "city": geo.get("city", "Unknown"),
+                "isp": geo.get("isp", "Unknown"),
+                "browser": browser,
+                "os": os_name,
+                "device": device,
+                "screen": screen,
+                "timezone": timezone_val,
+                "language": language,
+                "hardware": hardware,
+                "gpu": gpu,
+                "latitude": lat,
+                "longitude": lon,
+                "accuracy": acc,
+                "gps_location": gps_location,
+                "details": details_json,
+                "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+            },
+            room="dashboard",
+        )
+    except Exception as e:
+        print(f"[Access Log Error] Failed to record access log: {e}")
+
+
 # ── Security & Authentication Middleware ─────────────────────────────────────
 
 def require_password(f):
@@ -213,6 +518,11 @@ def require_password(f):
     def wrapper(*args, **kwargs):
         password = request.headers.get("x-password")
         if not password or password != DASHBOARD_PASSWORD:
+            record_access_log(
+                get_client_ip(),
+                "FAILED",
+                raw_ua=request.headers.get("User-Agent", ""),
+            )
             return jsonify({"detail": "Unauthorized", "status": "error"}), 401
         return f(*args, **kwargs)
 
@@ -499,6 +809,54 @@ def handle_fs_response(data: Any) -> None:
 def index() -> str:
     """Render the primary HTML dashboard interface."""
     return render_template("index.html")
+
+
+@app.post("/api/auth/login")
+def api_auth_login() -> Response:
+    """
+    Authenticate dashboard login, capture client IP and device telemetry verification,
+    and persist record in access_logs audit table.
+    """
+    data = request.get_json(silent=True) or {}
+    password = data.get("password", "")
+    fingerprint = data.get("fingerprint") or {}
+    client_ip = get_client_ip()
+
+    if not password or password != DASHBOARD_PASSWORD:
+        record_access_log(client_ip, "FAILED", fingerprint)
+        return jsonify({"detail": "Invalid password", "status": "error"}), 401
+
+    record_access_log(client_ip, "SUCCESS", fingerprint)
+    return jsonify({"status": "success", "message": "Authenticated"})
+
+
+@app.get("/api/access_logs")
+@require_password
+def get_access_logs() -> Response:
+    """Fetch recent access verification audit logs (up to 200 items)."""
+    with get_db() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, ip, status, country, region, city, isp,
+                   browser, os, device, screen, timezone,
+                   language, hardware, gpu, latitude, longitude,
+                   accuracy, gps_location, details, created_at
+            FROM access_logs
+            ORDER BY id DESC
+            LIMIT 200
+            """
+        ).fetchall()
+
+    return jsonify([dict(row) for row in rows])
+
+
+@app.post("/api/access_logs/clear")
+@require_password
+def clear_access_logs() -> Response:
+    """Purge all records from access_logs."""
+    with get_db() as conn:
+        conn.execute("DELETE FROM access_logs")
+    return jsonify({"status": "success"})
 
 
 @app.get("/api/clients")
