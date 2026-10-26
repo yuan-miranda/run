@@ -95,6 +95,8 @@ Runtime-generated (gitignored): `database.db` (SQLite with WAL mode), `uploaded_
   - `pending_screenshot_requests` (req_id → `{event, username, result}`) (`screenshot_lock`)
   - `pending_fs_requests` (req_id → `{event, result}`) (`fs_lock`)
   - `blocked_ips_set` (in-memory set of administrator blocked IPs) (`blocked_ips_lock`)
+  - `auto_update_cooldown` (username → timestamp of last auto-update dispatch) (`auto_update_lock`)
+  - Automatic client update dispatch on `register` for legacy/mismatched clients when `AUTO_UPDATE_CLIENTS` is enabled.
 - **Database (`init_db()` at import):** SQLite with WAL mode (`database.db`):
   - `clients`: `username` (PK), `visible` (INT default 1), `capture` (INT default 0), `version` (TEXT), `updated_at` (TEXT), `ip` (TEXT).
   - `operations_log`: `id` (PK AUTOINCREMENT), `username` (TEXT), `op_type` (TEXT), `details` (TEXT), `status` (TEXT), `created_at` (TEXT). Indexed on `(username, id DESC)`.
@@ -333,6 +335,8 @@ Runtime-generated (gitignored): `database.db` (SQLite with WAL mode), `uploaded_
 | `ACCESS_LOGS_PASSWORD` | `app.py` | No | `DASHBOARD_PASSWORD` | Password required to unlock dashboard access verification records. |
 | `SOCKETIO_ASYNC_MODE` | `app.py` | No | Auto-detect | Forces Socket.IO async mode (`gevent`, `eventlet`, or `threading`). |
 | `SSL_CERT` / `SSL_KEY` | `app.py` | No | `cert.pem` / `key.pem` | Enables HTTPS when certificate and private key files exist. |
+| `AUTO_UPDATE_CLIENTS` | `app.py` | No | `true` | Automatically triggers remote update command upon client registration if client is outdated. |
+| `SERVER_VERSION` | `app.py` | No | Git HEAD SHA | Target server version against which client registration versions are evaluated. |
 | `VPS_URL` | `client.py` | No | `https://runx.ddns.net` | Target server URL. Automatically tests HTTPS and HTTP fallback. |
 | `CLIENT_VERSION` | `build.py`, CI | No | Git commit SHA | Truncated to 7 characters and etched into binary. Falls back to `"dev"`. |
 | `APPDATA` | `client.py`, `installer.py` | OS-provided | `~\\AppData\\Roaming` | Base path for client installation and identity storage. |
