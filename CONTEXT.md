@@ -215,7 +215,7 @@ Runtime-generated (gitignored): `database.db` (SQLite with WAL mode), `uploaded_
 ### 3.3 `installer.py` — Installer (`installer.exe`)
 
 - **Privilege Elevation:** Requests UAC elevation (`ShellExecuteW "runas"`) on fresh installs; skipped on updates if `run.dat` exists.
-- **Process Termination:** Stops existing `run.exe` and `powershell.exe` processes and disables watchdog task before updating files.
+- **Process Termination:** Stops existing `run.exe` processes and disables watchdog task before updating files.
 - **Windows Defender Exclusion:** Adds Windows Defender folder exclusion on fresh installs:
   `Add-MpPreference -ExclusionPath '%APPDATA%\run'`.
 - **Target Paths:**

@@ -59,12 +59,6 @@ def stop_running_processes():
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
-    subprocess.run(
-        ["taskkill", "/F", "/IM", "powershell.exe"],
-        creationflags=subprocess.CREATE_NO_WINDOW,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
     time.sleep(1)
 
 
