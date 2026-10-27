@@ -448,9 +448,10 @@ def parse_user_agent_summary(ua_string: str) -> Tuple[str, str, str]:
 
 def check_ban_evasion(client_ip: str, fingerprint: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     """
-    Cross-checks client system information, hardware, display, and network telemetry against
-    historical logs of banned/blocked IPs to detect ban evasion (VPN hopping, proxy switching).
-    Location and GPS coordinates are strictly excluded to avoid false positives for co-located administrators.
+    Cross-checks incoming client hardware and display telemetry against the recorded
+    hardware profiles of each banned IP in blocked_ips to detect ban evasion.
+    IP addresses and GPS/geolocation are strictly excluded.
+    Matching is performed per banned IP on full hardware similarity.
 
     Parameters:
         client_ip (str): Incoming client IP address.
@@ -464,14 +465,15 @@ def check_ban_evasion(client_ip: str, fingerprint: Optional[Dict[str, Any]]) -> 
 
     try:
         with get_db() as conn:
-            blocked_rows = conn.execute(
+            # Query the latest recorded hardware profile for each banned IP in blocked_ips
+            rows = conn.execute(
                 """
-                SELECT id, ip, details, screen, timezone, language, hardware, gpu
-                FROM access_logs
-                WHERE ip != ?
-                  AND (ip IN (SELECT ip FROM blocked_ips) OR status LIKE 'BLOCKED%')
-                ORDER BY id DESC
-                LIMIT 200
+                SELECT b.ip AS banned_ip, b.reason AS banned_reason,
+                       l.details, l.screen, l.timezone, l.language, l.hardware, l.gpu, l.id AS log_id
+                FROM blocked_ips b
+                JOIN access_logs l ON l.ip = b.ip
+                WHERE b.ip != ?
+                ORDER BY l.id DESC
                 """,
                 (client_ip,),
             ).fetchall()
@@ -479,115 +481,104 @@ def check_ban_evasion(client_ip: str, fingerprint: Optional[Dict[str, Any]]) -> 
         print(f"[Ban Evasion Check Error] {e}")
         return None
 
-    if not blocked_rows:
+    if not rows:
         return None
 
-    incoming_webrtc = [str(x).strip() for x in (fingerprint.get("webrtcIps") or []) if x]
+    # Group by banned_ip to inspect each banned IP individually with its latest recorded hardware
+    banned_profiles = {}
+    for r in rows:
+        b_ip = r["banned_ip"]
+        if b_ip not in banned_profiles:
+            banned_profiles[b_ip] = r
+
     incoming_canvas = str(fingerprint.get("canvasHash") or "").strip()
     incoming_screen = str(fingerprint.get("screen") or "").strip()
     incoming_viewport = str(fingerprint.get("viewport") or "").strip()
-    incoming_tz = str(fingerprint.get("timezone") or "").strip()
     incoming_gpu = str(fingerprint.get("gpu") or "").strip()
 
-    hw_concurrency = fingerprint.get("hardwareConcurrency")
-    dev_memory = fingerprint.get("deviceMemory")
-    incoming_cores = f"{hw_concurrency} cores" if hw_concurrency else ""
-    incoming_ram = f"{dev_memory} GB RAM" if dev_memory else ""
+    incoming_hw = str(fingerprint.get("hardware") or "").strip()
+    if not incoming_hw:
+        parts = []
+        if fingerprint.get("hardwareConcurrency"):
+            parts.append(f"{fingerprint['hardwareConcurrency']} cores")
+        if fingerprint.get("deviceMemory"):
+            parts.append(f"{fingerprint['deviceMemory']} GB RAM")
+        ch = fingerprint.get("clientHints") or {}
+        arch = ch.get("architecture")
+        bitness = ch.get("bitness")
+        if arch or bitness:
+            parts.append(f"{arch or ''} {bitness or ''}-bit".strip())
+        incoming_hw = ", ".join(parts)
 
     incoming_audio = fingerprint.get("audio") or {}
-    incoming_audio_rate = fingerprint.get("audioSampleRate") or incoming_audio.get("sampleRate")
+    incoming_audio_rate = str(fingerprint.get("audioSampleRate") or incoming_audio.get("sampleRate") or "").strip()
     incoming_media = fingerprint.get("media") or {}
 
-    for row in blocked_rows:
-        b_ip = row["ip"]
+    for b_ip, b_row in banned_profiles.items():
         b_details = {}
         try:
-            if row["details"]:
-                b_details = json.loads(row["details"]) if isinstance(row["details"], str) else row["details"]
+            if b_row["details"]:
+                b_details = json.loads(b_row["details"]) if isinstance(b_row["details"], str) else b_row["details"]
         except Exception:
             pass
 
-        reasons = []
-
-        # 1. Discovered WebRTC / Candidate IP Match (Direct network fingerprint)
-        b_webrtc = [str(x).strip() for x in (b_details.get("webrtcIps") or []) if x]
-        for w_ip in incoming_webrtc:
-            if is_ip_blocked(w_ip):
-                reasons.append(f"Discovered WebRTC IP ({w_ip}) is in blacklist")
-                break
-            if w_ip in b_webrtc:
-                try:
-                    ip_obj = ipaddress.ip_address(w_ip)
-                    if not ip_obj.is_private and not ip_obj.is_loopback:
-                        reasons.append(f"Leaked Public WebRTC IP match: {w_ip}")
-                    else:
-                        if (incoming_canvas and incoming_canvas == str(b_details.get("canvasHash") or "").strip()) or (incoming_screen and incoming_screen == (row["screen"] or "")):
-                            reasons.append(f"WebRTC LAN IP ({w_ip}) + device fingerprint match")
-                except Exception:
-                    reasons.append(f"WebRTC IP match: {w_ip}")
-                break
-
-        # 2. Canvas Cryptographic Hash + Hardware / Display / Audio / Media Profile (Location strictly excluded)
         b_canvas = str(b_details.get("canvasHash") or "").strip()
+        b_screen = str(b_row["screen"] or "").strip()
         b_viewport = str(b_details.get("viewport") or "").strip()
-        b_hw = row["hardware"] or ""
+        b_hw = str(b_row["hardware"] or "").strip()
+        b_gpu = str(b_row["gpu"] or "").strip()
         b_audio = b_details.get("audio") or {}
-        b_rate = b_details.get("audioSampleRate") or b_audio.get("sampleRate")
+        b_audio_rate = str(b_details.get("audioSampleRate") or b_audio.get("sampleRate") or "").strip()
         b_media = b_details.get("media") or {}
 
-        if incoming_canvas and b_canvas and incoming_canvas == b_canvas:
-            matching_traits = 0
-            trait_desc = []
-            if incoming_screen and incoming_screen == (row["screen"] or ""):
-                matching_traits += 1
-                trait_desc.append("Display")
-            if incoming_viewport and b_viewport and incoming_viewport == b_viewport:
-                matching_traits += 1
-                trait_desc.append("Viewport")
-            if (incoming_cores and incoming_cores in b_hw) or (incoming_ram and incoming_ram in b_hw):
-                matching_traits += 1
-                trait_desc.append("Processor")
-            if incoming_gpu and incoming_gpu == (row["gpu"] or ""):
-                matching_traits += 1
-                trait_desc.append("GPU")
-            if incoming_tz and incoming_tz == (row["timezone"] or ""):
-                matching_traits += 1
-                trait_desc.append("Timezone")
-            if incoming_audio_rate and b_rate and str(incoming_audio_rate) == str(b_rate):
-                matching_traits += 1
-                trait_desc.append(f"Audio ({incoming_audio_rate}Hz)")
-            if (
-                incoming_media
-                and b_media
-                and incoming_media.get("cameras") is not None
-                and incoming_media.get("cameras") == b_media.get("cameras")
-                and incoming_media.get("microphones") is not None
-                and incoming_media.get("microphones") == b_media.get("microphones")
-            ):
-                matching_traits += 1
-                trait_desc.append(f"Media ({incoming_media.get('cameras')}cam/{incoming_media.get('microphones')}mic)")
+        # Compare hardware similarity as-is for this individual banned IP (NO IP, NO lat/long checks)
+        canvas_match = bool(incoming_canvas and b_canvas and incoming_canvas == b_canvas)
+        screen_match = bool(incoming_screen and b_screen and incoming_screen == b_screen)
+        viewport_match = bool(incoming_viewport and b_viewport and incoming_viewport == b_viewport)
+        hw_match = bool(incoming_hw and b_hw and incoming_hw == b_hw)
+        gpu_match = bool(incoming_gpu and b_gpu and incoming_gpu == b_gpu)
+        audio_match = bool(incoming_audio_rate and b_audio_rate and incoming_audio_rate == b_audio_rate)
 
-            if matching_traits >= 2:
-                reasons.append(f"Canvas Hash ({incoming_canvas}) + {', '.join(trait_desc)} match")
+        media_match = False
+        if incoming_media and b_media:
+            in_cam = incoming_media.get("cameras")
+            in_mic = incoming_media.get("microphones")
+            b_cam = b_media.get("cameras")
+            b_mic = b_media.get("microphones")
+            if in_cam is not None and in_cam == b_cam and in_mic is not None and in_mic == b_mic:
+                media_match = True
 
-        # 3. Multi-Attribute Hardware/Display Profile (if canvas is unavailable or masked)
-        elif incoming_screen and incoming_screen == (row["screen"] or ""):
-            if (
-                incoming_viewport
-                and b_viewport
-                and incoming_viewport == b_viewport
-                and incoming_gpu
-                and incoming_gpu == (row["gpu"] or "")
-                and (incoming_cores and incoming_cores in b_hw)
-                and (incoming_ram and incoming_ram in b_hw)
-            ):
-                reasons.append(f"Hardware & Display Profile match ({incoming_screen}, {incoming_viewport}, {incoming_gpu})")
+        matched_traits = []
+        if screen_match:
+            matched_traits.append(f"Screen ({incoming_screen})")
+        if viewport_match:
+            matched_traits.append(f"Viewport ({incoming_viewport})")
+        if hw_match:
+            matched_traits.append(f"Processor/RAM ({incoming_hw})")
+        if gpu_match:
+            matched_traits.append(f"GPU ({incoming_gpu})")
+        if audio_match:
+            matched_traits.append(f"Audio ({incoming_audio_rate}Hz)")
+        if media_match:
+            matched_traits.append(f"Media ({incoming_media.get('cameras')}cam/{incoming_media.get('microphones')}mic)")
 
-        if reasons:
+        # Full hardware profile similarity criteria:
+        # 1. Exact Canvas Hash + Exact Screen + at least two other exact hardware components (HW, GPU, Viewport, Audio)
+        # 2. Or complete exact match across Screen + Viewport + Processor/RAM + GPU if Canvas is absent
+        is_similar = False
+        reasons = []
+        if canvas_match and screen_match and (hw_match or gpu_match or viewport_match):
+            is_similar = True
+            reasons.append(f"Hardware fingerprint match: Canvas ({incoming_canvas}) + {', '.join(matched_traits)}")
+        elif screen_match and viewport_match and hw_match and gpu_match:
+            is_similar = True
+            reasons.append(f"Complete hardware profile match: {', '.join(matched_traits)}")
+
+        if is_similar:
             return {
                 "matched_ip": b_ip,
                 "reasons": reasons,
-                "matched_log_id": row["id"],
+                "matched_log_id": b_row.get("log_id"),
             }
 
     return None

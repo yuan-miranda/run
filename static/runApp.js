@@ -4021,80 +4021,73 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
 
         if (detailsObj.evasion) return detailsObj.evasion;
 
-        const currentWebrtc = (detailsObj.webrtcIps || []).map(x => String(x).trim()).filter(Boolean);
         const currentCanvas = String(detailsObj.canvasHash || '').trim();
         const currentScreen = String(log.screen || '').trim();
         const currentViewport = String(detailsObj.viewport || '').trim();
-        const currentTz = String(log.timezone || '').trim();
         const currentGpu = String(log.gpu || '').trim();
         const currentHw = String(log.hardware || '').trim();
         const currentAudio = detailsObj.audio || {};
-        const currentAudioRate = detailsObj.audioSampleRate || currentAudio.sampleRate;
+        const currentAudioRate = String(detailsObj.audioSampleRate || currentAudio.sampleRate || '').trim();
         const currentMedia = detailsObj.media || {};
+
+        // Track distinct banned IPs already checked to evaluate each banned entity individually
+        const evaluatedBannedIps = new Set();
 
         for (const target of allLogs) {
             if (target.ip === log.ip) continue;
-            const targetBlocked = blockedIps.has(target.ip) || Boolean(target.is_blocked) || (target.status || '').toUpperCase().startsWith('BLOCKED');
+            // Only inspect targets whose IP is actively blacklisted in blockedIps
+            const targetBlocked = blockedIps.has(target.ip) || Boolean(target.is_blocked);
             if (!targetBlocked) continue;
+            if (evaluatedBannedIps.has(target.ip)) continue;
+            evaluatedBannedIps.add(target.ip);
 
             let targetDetails = {};
             try {
                 if (target.details) targetDetails = typeof target.details === 'string' ? JSON.parse(target.details) : target.details;
             } catch {}
 
-            const reasons = [];
-
-            // 1. WebRTC Candidate / Discovered IP Match
-            const targetWebrtc = (targetDetails.webrtcIps || []).map(x => String(x).trim()).filter(Boolean);
-            for (const wIp of currentWebrtc) {
-                if (blockedIps.has(wIp)) {
-                    reasons.push(`Discovered LAN IP (${wIp}) in blacklist`);
-                    break;
-                }
-                if (targetWebrtc.includes(wIp)) {
-                    const isPrivate = /^(127\.|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(wIp);
-                    if (!isPrivate) {
-                        reasons.push(`Leaked Public WebRTC IP: ${wIp}`);
-                    } else if ((currentCanvas && currentCanvas === String(targetDetails.canvasHash || '').trim()) || (currentScreen && currentScreen === String(target.screen || '').trim())) {
-                        reasons.push(`WebRTC LAN IP (${wIp}) + device match`);
-                    }
-                    break;
-                }
-            }
-
-            // 2. Canvas Cryptographic Hash + Hardware / Display Profile (Location strictly excluded)
             const targetCanvas = String(targetDetails.canvasHash || '').trim();
+            const targetScreen = String(target.screen || '').trim();
             const targetViewport = String(targetDetails.viewport || '').trim();
+            const targetGpu = String(target.gpu || '').trim();
+            const targetHw = String(target.hardware || '').trim();
             const targetAudio = targetDetails.audio || {};
-            const targetAudioRate = targetDetails.audioSampleRate || targetAudio.sampleRate;
+            const targetAudioRate = String(targetDetails.audioSampleRate || targetAudio.sampleRate || '').trim();
             const targetMedia = targetDetails.media || {};
 
-            if (currentCanvas && targetCanvas && currentCanvas === targetCanvas) {
-                let traits = 0;
-                const traitNames = [];
-                if (currentScreen && currentScreen === String(target.screen || '').trim()) { traits++; traitNames.push('Display'); }
-                if (currentViewport && targetViewport && currentViewport === targetViewport) { traits++; traitNames.push('Viewport'); }
-                if (currentTz && currentTz === String(target.timezone || '').trim()) { traits++; traitNames.push('Timezone'); }
-                if (currentHw && target.hardware && (currentHw.includes(target.hardware) || target.hardware.includes(currentHw))) { traits++; traitNames.push('Processor'); }
-                if (currentGpu && currentGpu === String(target.gpu || '').trim()) { traits++; traitNames.push('GPU'); }
-                if (currentAudioRate && targetAudioRate && String(currentAudioRate) === String(targetAudioRate)) { traits++; traitNames.push(`Audio (${currentAudioRate}Hz)`); }
-                if (currentMedia.cameras !== undefined && targetMedia.cameras !== undefined && currentMedia.cameras === targetMedia.cameras &&
-                    currentMedia.microphones !== undefined && targetMedia.microphones !== undefined && currentMedia.microphones === targetMedia.microphones) {
-                    traits++; traitNames.push(`Media (${currentMedia.cameras}cam/${currentMedia.microphones}mic)`);
-                }
-                if (traits >= 2) {
-                    reasons.push(`Canvas Hash (${currentCanvas}) + ${traitNames.join(', ')} match`);
-                }
-            } else if (currentScreen && currentScreen === String(target.screen || '').trim()) {
-                // 3. Fallback Multi-Factor Hardware/Display Profile match
-                if (currentViewport && targetViewport && currentViewport === targetViewport &&
-                    currentGpu && currentGpu === String(target.gpu || '').trim() &&
-                    currentHw && target.hardware && currentHw === String(target.hardware).trim()) {
-                    reasons.push(`Hardware & Display Profile match (${currentScreen}, ${currentViewport}, ${currentGpu})`);
-                }
+            // Compare hardware similarity as-is for this individual banned IP (NO IP, NO lat/long)
+            const canvasMatch = Boolean(currentCanvas && targetCanvas && currentCanvas === targetCanvas);
+            const screenMatch = Boolean(currentScreen && targetScreen && currentScreen === targetScreen);
+            const viewportMatch = Boolean(currentViewport && targetViewport && currentViewport === targetViewport);
+            const hwMatch = Boolean(currentHw && targetHw && currentHw === targetHw);
+            const gpuMatch = Boolean(currentGpu && targetGpu && currentGpu === targetGpu);
+            const audioMatch = Boolean(currentAudioRate && targetAudioRate && currentAudioRate === targetAudioRate);
+
+            let mediaMatch = false;
+            if (currentMedia.cameras !== undefined && targetMedia.cameras !== undefined && currentMedia.cameras === targetMedia.cameras &&
+                currentMedia.microphones !== undefined && targetMedia.microphones !== undefined && currentMedia.microphones === targetMedia.microphones) {
+                mediaMatch = true;
             }
 
-            if (reasons.length > 0) {
+            const matchedTraits = [];
+            if (screenMatch) matchedTraits.push(`Screen (${currentScreen})`);
+            if (viewportMatch) matchedTraits.push(`Viewport (${currentViewport})`);
+            if (hwMatch) matchedTraits.push(`Processor/RAM (${currentHw})`);
+            if (gpuMatch) matchedTraits.push(`GPU (${currentGpu})`);
+            if (audioMatch) matchedTraits.push(`Audio (${currentAudioRate}Hz)`);
+            if (mediaMatch) matchedTraits.push(`Media (${currentMedia.cameras}cam/${currentMedia.microphones}mic)`);
+
+            let isSimilar = false;
+            const reasons = [];
+            if (canvasMatch && screenMatch && (hwMatch || gpuMatch || viewportMatch)) {
+                isSimilar = true;
+                reasons.push(`Hardware fingerprint match: Canvas (${currentCanvas}) + ${matchedTraits.join(', ')}`);
+            } else if (screenMatch && viewportMatch && hwMatch && gpuMatch) {
+                isSimilar = true;
+                reasons.push(`Complete hardware profile match: ${matchedTraits.join(', ')}`);
+            }
+
+            if (isSimilar) {
                 return {
                     matchedIp: target.ip,
                     reasons: reasons,
