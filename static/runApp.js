@@ -132,33 +132,14 @@ const RunApp = (() => {
      * @param {Array<{username: string}>} rows - Array of user records.
      * @returns {Map<string, string>} Map linking username to display label.
      */
-    const STORAGE_KEY_CUSTOM_TAGS = 'run_custom_client_tags';
-
-    function getCustomClientTags() {
-        try {
-            const tags = JSON.parse(localStorage.getItem(STORAGE_KEY_CUSTOM_TAGS) || '{}');
-            const legacyNames = JSON.parse(localStorage.getItem('run_custom_client_names') || '{}');
-            for (const [k, v] of Object.entries(legacyNames)) {
-                if (!tags[k] && v) {
-                    const match = String(v).match(/\(([^)]+)\)$/);
-                    tags[k] = match ? match[1].trim() : String(v).trim();
-                }
-            }
-            return tags;
-        } catch {
-            return {};
-        }
-    }
-
     /**
      * Construct a mapping of usernames to display labels, appending short ID or custom tag only if name collision occurs.
-     * Checks localStorage for user-customized tags.
+     * Uses client nickname from database and Socket.IO if configured.
      *
-     * @param {Array<{username: string}>} rows - Array of user records.
+     * @param {Array<{username: string, nickname?: string}>} rows - Array of user records.
      * @returns {Map<string, string>} Map linking username to display label.
      */
     function buildDisplayUsernameMap(rows) {
-        const customTags = getCustomClientTags();
         const counts = new Map();
         rows.forEach(user => {
             const { baseName } = parseModernUsername(user.username);
@@ -177,7 +158,7 @@ const RunApp = (() => {
             if (!needsId) {
                 return [user.username, parsed.baseName];
             }
-            const tag = customTags[user.username] || parsed.id;
+            const tag = (user.nickname || '').trim() || parsed.id;
             return [user.username, `${parsed.baseName} (${tag})`];
         }));
     }
@@ -999,6 +980,21 @@ const RunApp = (() => {
                         FramesApp.handleNewFrame(data);
                     }
                 });
+                dashboardSocket.on('client_nickname_updated', data => {
+                    if (!data || !data.username) return;
+                    const row = runState.rows?.find(r => r.username === data.username);
+                    if (row) {
+                        row.nickname = data.nickname || '';
+                        runState.displayNameMap = buildDisplayUsernameMap(runState.rows);
+                        renderGrid();
+                        if (runState.popupUser && runState.popupUser.username === data.username) {
+                            runState.popupUser.nickname = data.nickname || '';
+                            const disp = getDisplayUsername(data.username);
+                            if ($('popup-target-label')) $('popup-target-label').textContent = disp;
+                            if ($('sidebar-action-target')) $('sidebar-action-target').textContent = disp;
+                        }
+                    }
+                });
                 dashboardSocket.on('new_operation_log', data => {
                     handleRealtimeLog(data);
                 });
@@ -1061,12 +1057,11 @@ const RunApp = (() => {
 
         const parsed = parseModernUsername(user.username);
         const isDupe = (runState.duplicateUsernames && runState.duplicateUsernames.has(user.username)) || !!(parsed.id && displayUsername.includes('('));
-        const customTags = getCustomClientTags();
-        const tag = isDupe ? (customTags[user.username] || parsed.id || '') : '';
+        const tag = isDupe ? ((user.nickname || '').trim() || parsed.id || '') : '';
 
         let nameHtml = '';
         if (isDupe && tag) {
-            nameHtml = `${escapeHtml(parsed.baseName)} (<span class="card-username-tag is-editable" data-username="${escapeHtml(user.username)}" data-default-id="${escapeHtml(parsed.id)}" title="Click to edit (leave empty to reset)">${escapeHtml(tag)}</span>)`;
+            nameHtml = `${escapeHtml(parsed.baseName)} (<span class="card-username-tag is-editable" data-username="${escapeHtml(user.username)}" data-default-id="${escapeHtml(parsed.id)}"${versionAttr}>${escapeHtml(tag)}</span>)`;
         } else {
             nameHtml = escapeHtml(displayUsername);
         }
@@ -1193,35 +1188,40 @@ const RunApp = (() => {
     }
 
     /**
-     * Set or clear a customized frontend client tag in localStorage.
-     * When customTag is empty, it removes the entry so the name reverts back to normal.
+     * Set or clear a customized client tag/nickname globally via server and socket.
+     * When customTag is empty, it clears the nickname so it reverts back to normal.
      *
      * @param {string} username - Client composite username.
      * @param {string} customTag - New custom display string or empty to reset.
      */
-    function setCustomClientTag(username, customTag) {
-        const map = getCustomClientTags();
+    async function setCustomClientTag(username, customTag) {
         const trimmed = (customTag || '').trim();
-        if (trimmed) {
-            map[username] = trimmed;
-        } else {
-            delete map[username];
+        const row = runState.rows?.find(u => u.username === username);
+        if (row) {
+            row.nickname = trimmed;
         }
-        try {
-            localStorage.setItem(STORAGE_KEY_CUSTOM_TAGS, JSON.stringify(map));
-            const old = JSON.parse(localStorage.getItem('run_custom_client_names') || '{}');
-            if (old[username]) {
-                delete old[username];
-                localStorage.setItem('run_custom_client_names', JSON.stringify(old));
-            }
-        } catch {}
 
         runState.displayNameMap = buildDisplayUsernameMap(runState.rows || []);
         renderGrid();
         if (runState.popupUser && runState.popupUser.username === username) {
+            runState.popupUser.nickname = trimmed;
             const disp = getDisplayUsername(username);
             if ($('popup-target-label')) $('popup-target-label').textContent = disp;
             if ($('sidebar-action-target')) $('sidebar-action-target').textContent = disp;
+        }
+
+        if (!runState.isConnected) return;
+        try {
+            await fetch(`${VPS_URL}/api/client/nickname`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-password': runState.password
+                },
+                body: JSON.stringify({ username, nickname: trimmed })
+            });
+        } catch (e) {
+            console.error('[Nickname Error] Failed to update nickname:', e);
         }
     }
 

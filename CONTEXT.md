@@ -98,7 +98,7 @@ Runtime-generated (gitignored): `database.db` (SQLite with WAL mode), `uploaded_
   - `auto_update_cooldown` (username → timestamp of last auto-update dispatch) (`auto_update_lock`)
   - Automatic client update dispatch on `register` for legacy/mismatched clients when `AUTO_UPDATE_CLIENTS` is enabled.
 - **Database (`init_db()` at import):** SQLite with WAL mode (`database.db`):
-  - `clients`: `username` (PK), `visible` (INT default 1), `capture` (INT default 0), `version` (TEXT), `updated_at` (TEXT), `ip` (TEXT).
+  - `clients`: `username` (PK), `visible` (INT default 1), `capture` (INT default 0), `version` (TEXT), `updated_at` (TEXT), `ip` (TEXT), `nickname` (TEXT).
   - `operations_log`: `id` (PK AUTOINCREMENT), `username` (TEXT), `op_type` (TEXT), `details` (TEXT), `status` (TEXT), `created_at` (TEXT). Indexed on `(username, id DESC)`.
   - `access_logs`: `id` (PK AUTOINCREMENT), `ip` (TEXT), `status` (TEXT), `country`, `region`, `city`, `isp`, `browser`, `os`, `device`, `screen`, `timezone`, `language`, `hardware`, `gpu`, `latitude` (REAL), `longitude` (REAL), `accuracy` (REAL), `gps_location` (TEXT), `details` (TEXT JSON), `created_at` (TEXT). Indexed on `id DESC`.
   - `blocked_ips`: `ip` (TEXT PK), `reason` (TEXT), `created_at` (TEXT). Blacklisted IPs blocked from login and dashboard access.
@@ -118,7 +118,8 @@ Runtime-generated (gitignored): `database.db` (SQLite with WAL mode), `uploaded_
 | `/api/access_logs/block_ip` | `POST` | Block client IP address from authenticating or accessing dashboard |
 | `/api/access_logs/unblock_ip` | `POST` | Unblock a previously blacklisted IP address |
 | `/api/access_logs/blocked_ips` | `GET` | List all currently blacklisted IP addresses |
-| `/api/clients` | `GET` | Connected and registered clients with online status, IP, version, visibility |
+| `/api/clients` | `GET` | Connected and registered clients with online status, IP, version, visibility, nickname |
+| `/api/client/nickname` | `POST` | Update or clear custom display nickname for a client machine |
 | `/api/frames/<username>` | `GET` | Frame history list for user (sorted newest first) |
 | `/api/frames/delete` | `POST` | Delete single frame or all frames for a user |
 | `/frames/<username>/<filename>` | `GET` | Serve static frame image from disk (Public) |
@@ -163,6 +164,7 @@ Runtime-generated (gitignored): `database.db` (SQLite with WAL mode), `uploaded_
     - `new_operation_log` — `{"id", "username", "op_type", "details", "status", "created_at"}`: Real-time audit log stream.
     - `new_access_log` — `{"id", "ip", "status", "is_blocked", "country", "region", "city", "isp", "browser", "os", "device", ...}`: Real-time dashboard access attempt stream.
     - `ip_blocked` — `{"ip", "blocked"}`: Real-time administrator IP blacklist/whitelist broadcast.
+    - `client_nickname_updated` — `{"username", "nickname"}`: Real-time custom display nickname broadcast.
 
 ---
 

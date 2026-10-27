@@ -1007,14 +1007,7 @@ body:not(.kb-mode) .user-card:hover .os-logo {
 
 .card-username-tag.is-editable {
     cursor: text;
-    transition: opacity .15s, color .15s;
     user-select: text;
-    display: inline-block;
-}
-
-.card-username-tag.is-editable:hover {
-    text-decoration: underline dotted var(--run-border-focus, rgba(255, 255, 255, 0.4));
-    text-underline-offset: 3px;
 }
 
 .card-tag-input {
