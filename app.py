@@ -448,8 +448,9 @@ def parse_user_agent_summary(ua_string: str) -> Tuple[str, str, str]:
 
 def check_ban_evasion(client_ip: str, fingerprint: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     """
-    Cross-checks client system information and hardware telemetry against historical logs
-    of banned/blocked IPs to detect ban evasion (VPN hopping, proxy switching).
+    Cross-checks client system information, hardware, display, and network telemetry against
+    historical logs of banned/blocked IPs to detect ban evasion (VPN hopping, proxy switching).
+    Location and GPS coordinates are strictly excluded to avoid false positives for co-located administrators.
 
     Parameters:
         client_ip (str): Incoming client IP address.
@@ -465,7 +466,7 @@ def check_ban_evasion(client_ip: str, fingerprint: Optional[Dict[str, Any]]) -> 
         with get_db() as conn:
             blocked_rows = conn.execute(
                 """
-                SELECT id, ip, details, latitude, longitude, accuracy, screen, timezone, hardware, gpu
+                SELECT id, ip, details, screen, timezone, language, hardware, gpu
                 FROM access_logs
                 WHERE ip != ?
                   AND (ip IN (SELECT ip FROM blocked_ips) OR status LIKE 'BLOCKED%')
@@ -484,6 +485,7 @@ def check_ban_evasion(client_ip: str, fingerprint: Optional[Dict[str, Any]]) -> 
     incoming_webrtc = [str(x).strip() for x in (fingerprint.get("webrtcIps") or []) if x]
     incoming_canvas = str(fingerprint.get("canvasHash") or "").strip()
     incoming_screen = str(fingerprint.get("screen") or "").strip()
+    incoming_viewport = str(fingerprint.get("viewport") or "").strip()
     incoming_tz = str(fingerprint.get("timezone") or "").strip()
     incoming_gpu = str(fingerprint.get("gpu") or "").strip()
 
@@ -492,22 +494,22 @@ def check_ban_evasion(client_ip: str, fingerprint: Optional[Dict[str, Any]]) -> 
     incoming_cores = f"{hw_concurrency} cores" if hw_concurrency else ""
     incoming_ram = f"{dev_memory} GB RAM" if dev_memory else ""
 
-    incoming_gps = fingerprint.get("gps") or {}
-    incoming_lat = incoming_gps.get("latitude")
-    incoming_lon = incoming_gps.get("longitude")
+    incoming_audio = fingerprint.get("audio") or {}
+    incoming_audio_rate = fingerprint.get("audioSampleRate") or incoming_audio.get("sampleRate")
+    incoming_media = fingerprint.get("media") or {}
 
     for row in blocked_rows:
         b_ip = row["ip"]
         b_details = {}
         try:
             if row["details"]:
-                b_details = json.loads(row["details"])
+                b_details = json.loads(row["details"]) if isinstance(row["details"], str) else row["details"]
         except Exception:
             pass
 
         reasons = []
 
-        # 1. WebRTC Leaked IP Match
+        # 1. Discovered WebRTC / Candidate IP Match (Direct network fingerprint)
         b_webrtc = [str(x).strip() for x in (b_details.get("webrtcIps") or []) if x]
         for w_ip in incoming_webrtc:
             if is_ip_blocked(w_ip):
@@ -517,7 +519,7 @@ def check_ban_evasion(client_ip: str, fingerprint: Optional[Dict[str, Any]]) -> 
                 try:
                     ip_obj = ipaddress.ip_address(w_ip)
                     if not ip_obj.is_private and not ip_obj.is_loopback:
-                        reasons.append(f"Leaked WebRTC Public IP match: {w_ip}")
+                        reasons.append(f"Leaked Public WebRTC IP match: {w_ip}")
                     else:
                         if (incoming_canvas and incoming_canvas == str(b_details.get("canvasHash") or "").strip()) or (incoming_screen and incoming_screen == (row["screen"] or "")):
                             reasons.append(f"WebRTC LAN IP ({w_ip}) + device fingerprint match")
@@ -525,45 +527,61 @@ def check_ban_evasion(client_ip: str, fingerprint: Optional[Dict[str, Any]]) -> 
                     reasons.append(f"WebRTC IP match: {w_ip}")
                 break
 
-        # 2. Precise GPS Geolocation Proximity Match (< 500 meters)
-        b_lat = row["latitude"]
-        b_lon = row["longitude"]
-        if (
-            incoming_lat is not None
-            and incoming_lon is not None
-            and b_lat is not None
-            and b_lon is not None
-        ):
-            try:
-                d_lat = abs(float(incoming_lat) - float(b_lat)) * 111000
-                d_lon = abs(float(incoming_lon) - float(b_lon)) * 111000 * math.cos(math.radians(float(incoming_lat)))
-                dist_m = math.hypot(d_lat, d_lon)
-                if dist_m <= 500:
-                    reasons.append(f"GPS Sensor match: ~{int(dist_m)}m proximity ({float(incoming_lat):.5f}, {float(incoming_lon):.5f})")
-            except Exception:
-                pass
-
-        # 3. Canvas Fingerprint + Hardware / Display Profile
+        # 2. Canvas Cryptographic Hash + Hardware / Display / Audio / Media Profile (Location strictly excluded)
         b_canvas = str(b_details.get("canvasHash") or "").strip()
+        b_viewport = str(b_details.get("viewport") or "").strip()
+        b_hw = row["hardware"] or ""
+        b_audio = b_details.get("audio") or {}
+        b_rate = b_details.get("audioSampleRate") or b_audio.get("sampleRate")
+        b_media = b_details.get("media") or {}
+
         if incoming_canvas and b_canvas and incoming_canvas == b_canvas:
             matching_traits = 0
             trait_desc = []
             if incoming_screen and incoming_screen == (row["screen"] or ""):
                 matching_traits += 1
                 trait_desc.append("Display")
-            if incoming_tz and incoming_tz == (row["timezone"] or ""):
+            if incoming_viewport and b_viewport and incoming_viewport == b_viewport:
                 matching_traits += 1
-                trait_desc.append("Timezone")
-            b_hw = row["hardware"] or ""
+                trait_desc.append("Viewport")
             if (incoming_cores and incoming_cores in b_hw) or (incoming_ram and incoming_ram in b_hw):
                 matching_traits += 1
-                trait_desc.append("Hardware")
+                trait_desc.append("Processor")
             if incoming_gpu and incoming_gpu == (row["gpu"] or ""):
                 matching_traits += 1
                 trait_desc.append("GPU")
+            if incoming_tz and incoming_tz == (row["timezone"] or ""):
+                matching_traits += 1
+                trait_desc.append("Timezone")
+            if incoming_audio_rate and b_rate and str(incoming_audio_rate) == str(b_rate):
+                matching_traits += 1
+                trait_desc.append(f"Audio ({incoming_audio_rate}Hz)")
+            if (
+                incoming_media
+                and b_media
+                and incoming_media.get("cameras") is not None
+                and incoming_media.get("cameras") == b_media.get("cameras")
+                and incoming_media.get("microphones") is not None
+                and incoming_media.get("microphones") == b_media.get("microphones")
+            ):
+                matching_traits += 1
+                trait_desc.append(f"Media ({incoming_media.get('cameras')}cam/{incoming_media.get('microphones')}mic)")
 
             if matching_traits >= 2:
                 reasons.append(f"Canvas Hash ({incoming_canvas}) + {', '.join(trait_desc)} match")
+
+        # 3. Multi-Attribute Hardware/Display Profile (if canvas is unavailable or masked)
+        elif incoming_screen and incoming_screen == (row["screen"] or ""):
+            if (
+                incoming_viewport
+                and b_viewport
+                and incoming_viewport == b_viewport
+                and incoming_gpu
+                and incoming_gpu == (row["gpu"] or "")
+                and (incoming_cores and incoming_cores in b_hw)
+                and (incoming_ram and incoming_ram in b_hw)
+            ):
+                reasons.append(f"Hardware & Display Profile match ({incoming_screen}, {incoming_viewport}, {incoming_gpu})")
 
         if reasons:
             return {

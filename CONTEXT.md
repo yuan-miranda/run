@@ -83,7 +83,7 @@ Runtime-generated (gitignored): `database.db` (SQLite with WAL mode), `uploaded_
 - **Auth model:**
   - HTTP routes require `@require_password` decorator (token supplied via `x-access-token` header,
     query param `token`, or request JSON `password`/`token`).
-  - `/api/auth/login` validates password and logs browser client telemetry (fingerprint + IP) to `access_logs`.
+  - `/api/auth/login` validates password, performs ban evasion checks against historical blacklisted sessions using hardware/display/canvas/network telemetry (with location and GPS coordinates strictly excluded to avoid false positives for co-located administrators), and logs browser client telemetry (fingerprint + IP) to `access_logs`.
   - `/api/access_logs/verify` validates access log gate password (`ACCESS_LOGS_PASSWORD` or `DASHBOARD_PASSWORD`).
   - Socket.IO clients authenticate by emitting `register` with `{"username", "auth_token", "version", "lan_ip"}`
     where `auth_token == DASHBOARD_PASSWORD`.

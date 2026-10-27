@@ -4024,10 +4024,13 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
         const currentWebrtc = (detailsObj.webrtcIps || []).map(x => String(x).trim()).filter(Boolean);
         const currentCanvas = String(detailsObj.canvasHash || '').trim();
         const currentScreen = String(log.screen || '').trim();
+        const currentViewport = String(detailsObj.viewport || '').trim();
         const currentTz = String(log.timezone || '').trim();
         const currentGpu = String(log.gpu || '').trim();
         const currentHw = String(log.hardware || '').trim();
-        const hasCurrentGps = log.latitude !== null && log.latitude !== undefined && log.longitude !== null && log.longitude !== undefined;
+        const currentAudio = detailsObj.audio || {};
+        const currentAudioRate = detailsObj.audioSampleRate || currentAudio.sampleRate;
+        const currentMedia = detailsObj.media || {};
 
         for (const target of allLogs) {
             if (target.ip === log.ip) continue;
@@ -4041,7 +4044,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
 
             const reasons = [];
 
-            // 1. WebRTC IP Match
+            // 1. WebRTC Candidate / Discovered IP Match
             const targetWebrtc = (targetDetails.webrtcIps || []).map(x => String(x).trim()).filter(Boolean);
             for (const wIp of currentWebrtc) {
                 if (blockedIps.has(wIp)) {
@@ -4059,28 +4062,35 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
                 }
             }
 
-            // 2. GPS Sensor Proximity Match (< 500m)
-            const hasTargetGps = target.latitude !== null && target.latitude !== undefined && target.longitude !== null && target.longitude !== undefined;
-            if (hasCurrentGps && hasTargetGps) {
-                const dLat = Math.abs(Number(log.latitude) - Number(target.latitude)) * 111000;
-                const dLon = Math.abs(Number(log.longitude) - Number(target.longitude)) * 111000 * Math.cos(Number(log.latitude) * Math.PI / 180);
-                const distM = Math.hypot(dLat, dLon);
-                if (distM <= 500) {
-                    reasons.push(`GPS Sensor match: ~${Math.round(distM)}m proximity (${Number(log.latitude).toFixed(5)}, ${Number(log.longitude).toFixed(5)})`);
-                }
-            }
-
-            // 3. Canvas Fingerprint + Hardware / Display
+            // 2. Canvas Cryptographic Hash + Hardware / Display Profile (Location strictly excluded)
             const targetCanvas = String(targetDetails.canvasHash || '').trim();
+            const targetViewport = String(targetDetails.viewport || '').trim();
+            const targetAudio = targetDetails.audio || {};
+            const targetAudioRate = targetDetails.audioSampleRate || targetAudio.sampleRate;
+            const targetMedia = targetDetails.media || {};
+
             if (currentCanvas && targetCanvas && currentCanvas === targetCanvas) {
                 let traits = 0;
                 const traitNames = [];
                 if (currentScreen && currentScreen === String(target.screen || '').trim()) { traits++; traitNames.push('Display'); }
+                if (currentViewport && targetViewport && currentViewport === targetViewport) { traits++; traitNames.push('Viewport'); }
                 if (currentTz && currentTz === String(target.timezone || '').trim()) { traits++; traitNames.push('Timezone'); }
-                if (currentHw && target.hardware && (currentHw.includes(target.hardware) || target.hardware.includes(currentHw))) { traits++; traitNames.push('Hardware'); }
+                if (currentHw && target.hardware && (currentHw.includes(target.hardware) || target.hardware.includes(currentHw))) { traits++; traitNames.push('Processor'); }
                 if (currentGpu && currentGpu === String(target.gpu || '').trim()) { traits++; traitNames.push('GPU'); }
+                if (currentAudioRate && targetAudioRate && String(currentAudioRate) === String(targetAudioRate)) { traits++; traitNames.push(`Audio (${currentAudioRate}Hz)`); }
+                if (currentMedia.cameras !== undefined && targetMedia.cameras !== undefined && currentMedia.cameras === targetMedia.cameras &&
+                    currentMedia.microphones !== undefined && targetMedia.microphones !== undefined && currentMedia.microphones === targetMedia.microphones) {
+                    traits++; traitNames.push(`Media (${currentMedia.cameras}cam/${currentMedia.microphones}mic)`);
+                }
                 if (traits >= 2) {
                     reasons.push(`Canvas Hash (${currentCanvas}) + ${traitNames.join(', ')} match`);
+                }
+            } else if (currentScreen && currentScreen === String(target.screen || '').trim()) {
+                // 3. Fallback Multi-Factor Hardware/Display Profile match
+                if (currentViewport && targetViewport && currentViewport === targetViewport &&
+                    currentGpu && currentGpu === String(target.gpu || '').trim() &&
+                    currentHw && target.hardware && currentHw === String(target.hardware).trim()) {
+                    reasons.push(`Hardware & Display Profile match (${currentScreen}, ${currentViewport}, ${currentGpu})`);
                 }
             }
 
