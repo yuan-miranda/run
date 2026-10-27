@@ -16,6 +16,7 @@ import subprocess
 import json
 import ipaddress
 import urllib.request
+import math
 from datetime import datetime, timezone
 from contextlib import contextmanager
 from functools import wraps
@@ -445,11 +446,141 @@ def parse_user_agent_summary(ua_string: str) -> Tuple[str, str, str]:
     return browser_name, os_name, device_type
 
 
+def check_ban_evasion(client_ip: str, fingerprint: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """
+    Cross-checks client system information and hardware telemetry against historical logs
+    of banned/blocked IPs to detect ban evasion (VPN hopping, proxy switching).
+
+    Parameters:
+        client_ip (str): Incoming client IP address.
+        fingerprint (Optional[Dict[str, Any]]): Client browser & hardware telemetry.
+
+    Returns:
+        Optional[Dict[str, Any]]: Dictionary with matched_ip and reasons if evasion detected, else None.
+    """
+    if not fingerprint:
+        return None
+
+    try:
+        with get_db() as conn:
+            blocked_rows = conn.execute(
+                """
+                SELECT id, ip, details, latitude, longitude, accuracy, screen, timezone, hardware, gpu
+                FROM access_logs
+                WHERE ip != ?
+                  AND (ip IN (SELECT ip FROM blocked_ips) OR status LIKE 'BLOCKED%')
+                ORDER BY id DESC
+                LIMIT 200
+                """,
+                (client_ip,),
+            ).fetchall()
+    except Exception as e:
+        print(f"[Ban Evasion Check Error] {e}")
+        return None
+
+    if not blocked_rows:
+        return None
+
+    incoming_webrtc = [str(x).strip() for x in (fingerprint.get("webrtcIps") or []) if x]
+    incoming_canvas = str(fingerprint.get("canvasHash") or "").strip()
+    incoming_screen = str(fingerprint.get("screen") or "").strip()
+    incoming_tz = str(fingerprint.get("timezone") or "").strip()
+    incoming_gpu = str(fingerprint.get("gpu") or "").strip()
+
+    hw_concurrency = fingerprint.get("hardwareConcurrency")
+    dev_memory = fingerprint.get("deviceMemory")
+    incoming_cores = f"{hw_concurrency} cores" if hw_concurrency else ""
+    incoming_ram = f"{dev_memory} GB RAM" if dev_memory else ""
+
+    incoming_gps = fingerprint.get("gps") or {}
+    incoming_lat = incoming_gps.get("latitude")
+    incoming_lon = incoming_gps.get("longitude")
+
+    for row in blocked_rows:
+        b_ip = row["ip"]
+        b_details = {}
+        try:
+            if row["details"]:
+                b_details = json.loads(row["details"])
+        except Exception:
+            pass
+
+        reasons = []
+
+        # 1. WebRTC Leaked IP Match
+        b_webrtc = [str(x).strip() for x in (b_details.get("webrtcIps") or []) if x]
+        for w_ip in incoming_webrtc:
+            if is_ip_blocked(w_ip):
+                reasons.append(f"Discovered WebRTC IP ({w_ip}) is in blacklist")
+                break
+            if w_ip in b_webrtc:
+                try:
+                    ip_obj = ipaddress.ip_address(w_ip)
+                    if not ip_obj.is_private and not ip_obj.is_loopback:
+                        reasons.append(f"Leaked WebRTC Public IP match: {w_ip}")
+                    else:
+                        if (incoming_canvas and incoming_canvas == str(b_details.get("canvasHash") or "").strip()) or (incoming_screen and incoming_screen == (row["screen"] or "")):
+                            reasons.append(f"WebRTC LAN IP ({w_ip}) + device fingerprint match")
+                except Exception:
+                    reasons.append(f"WebRTC IP match: {w_ip}")
+                break
+
+        # 2. Precise GPS Geolocation Proximity Match (< 500 meters)
+        b_lat = row["latitude"]
+        b_lon = row["longitude"]
+        if (
+            incoming_lat is not None
+            and incoming_lon is not None
+            and b_lat is not None
+            and b_lon is not None
+        ):
+            try:
+                d_lat = abs(float(incoming_lat) - float(b_lat)) * 111000
+                d_lon = abs(float(incoming_lon) - float(b_lon)) * 111000 * math.cos(math.radians(float(incoming_lat)))
+                dist_m = math.hypot(d_lat, d_lon)
+                if dist_m <= 500:
+                    reasons.append(f"GPS Sensor match: ~{int(dist_m)}m proximity ({float(incoming_lat):.5f}, {float(incoming_lon):.5f})")
+            except Exception:
+                pass
+
+        # 3. Canvas Fingerprint + Hardware / Display Profile
+        b_canvas = str(b_details.get("canvasHash") or "").strip()
+        if incoming_canvas and b_canvas and incoming_canvas == b_canvas:
+            matching_traits = 0
+            trait_desc = []
+            if incoming_screen and incoming_screen == (row["screen"] or ""):
+                matching_traits += 1
+                trait_desc.append("Display")
+            if incoming_tz and incoming_tz == (row["timezone"] or ""):
+                matching_traits += 1
+                trait_desc.append("Timezone")
+            b_hw = row["hardware"] or ""
+            if (incoming_cores and incoming_cores in b_hw) or (incoming_ram and incoming_ram in b_hw):
+                matching_traits += 1
+                trait_desc.append("Hardware")
+            if incoming_gpu and incoming_gpu == (row["gpu"] or ""):
+                matching_traits += 1
+                trait_desc.append("GPU")
+
+            if matching_traits >= 2:
+                reasons.append(f"Canvas Hash ({incoming_canvas}) + {', '.join(trait_desc)} match")
+
+        if reasons:
+            return {
+                "matched_ip": b_ip,
+                "reasons": reasons,
+                "matched_log_id": row["id"],
+            }
+
+    return None
+
+
 def record_access_log(
     ip: str,
     status: str,
     fingerprint: Optional[Dict[str, Any]] = None,
     raw_ua: Optional[str] = None,
+    evasion_info: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Record a dashboard login or verification attempt into access_logs table."""
     try:
@@ -502,36 +633,37 @@ def record_access_log(
 
         maps_url = f"https://www.google.com/maps?q={lat},{lon}" if (lat is not None and lon is not None) else None
 
-        details_json = json.dumps(
-            {
-                "userAgent": ua_str,
-                "platform": fp.get("platform", ""),
-                "viewport": fp.get("viewport", ""),
-                "tzOffset": fp.get("tzOffset"),
-                "touchSupport": fp.get("touchSupport", False),
-                "gpu": gpu,
-                "gpuVendor": fp.get("gpuVendor", ""),
-                "isp": geo.get("isp", ""),
-                "org": geo.get("org", ""),
-                "as": geo.get("as", ""),
-                "mobile": geo.get("mobile", False),
-                "proxy": geo.get("proxy", False),
-                "hosting": geo.get("hosting", False),
-                "gps": gps if (lat is not None and lon is not None) else None,
-                "media": media,
-                "battery": battery,
-                "connection": connection,
-                "webrtcIps": fp.get("webrtcIps") or [],
-                "clientHints": client_hints,
-                "audio": fp.get("audio"),
-                "canvasHash": fp.get("canvasHash"),
-                "mapsUrl": maps_url,
-                "colorGamut": fp.get("colorGamut", ""),
-                "isHdr": fp.get("isHdr", False),
-                "orientation": fp.get("orientation", ""),
-                "audioSampleRate": fp.get("audioSampleRate"),
-            }
-        )
+        details_dict = {
+            "userAgent": ua_str,
+            "platform": fp.get("platform", ""),
+            "viewport": fp.get("viewport", ""),
+            "tzOffset": fp.get("tzOffset"),
+            "touchSupport": fp.get("touchSupport", False),
+            "gpu": gpu,
+            "gpuVendor": fp.get("gpuVendor", ""),
+            "isp": geo.get("isp", ""),
+            "org": geo.get("org", ""),
+            "as": geo.get("as", ""),
+            "mobile": geo.get("mobile", False),
+            "proxy": geo.get("proxy", False),
+            "hosting": geo.get("hosting", False),
+            "gps": gps if (lat is not None and lon is not None) else None,
+            "media": media,
+            "battery": battery,
+            "connection": connection,
+            "webrtcIps": fp.get("webrtcIps") or [],
+            "clientHints": client_hints,
+            "audio": fp.get("audio"),
+            "canvasHash": fp.get("canvasHash"),
+            "mapsUrl": maps_url,
+            "colorGamut": fp.get("colorGamut", ""),
+            "isHdr": fp.get("isHdr", False),
+            "orientation": fp.get("orientation", ""),
+            "audioSampleRate": fp.get("audioSampleRate"),
+        }
+        if evasion_info:
+            details_dict["evasion"] = evasion_info
+        details_json = json.dumps(details_dict)
 
         with get_db() as conn:
             cursor = conn.cursor()
@@ -967,6 +1099,34 @@ def api_auth_login() -> Response:
     if is_ip_blocked(client_ip):
         record_access_log(client_ip, "BLOCKED (IP Blacklisted)", fingerprint)
         return jsonify({"detail": "Access from this IP address is blocked by an administrator.", "status": "blocked"}), 403
+
+    # Cross-check client telemetry against banned/blocked entities for ban evasion
+    evasion = check_ban_evasion(client_ip, fingerprint)
+    if evasion:
+        matched_ip = evasion["matched_ip"]
+        reasons_summary = ", ".join(evasion["reasons"])
+        with get_db() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO blocked_ips (ip, reason, created_at) VALUES (?, ?, datetime('now'))",
+                (client_ip, f"Ban evasion: linked to {matched_ip} ({reasons_summary})"),
+            )
+        with blocked_ips_lock:
+            blocked_ips_set.add(client_ip)
+
+        log_operation("SYSTEM", "SECURITY", f"Auto-blocked ban-evading IP {client_ip} (linked to {matched_ip}: {reasons_summary})", "success")
+        socketio.emit("ip_blocked", {"ip": client_ip, "blocked": True}, room="dashboard")
+
+        record_access_log(
+            client_ip,
+            f"BLOCKED (Ban Evasion: {matched_ip})",
+            fingerprint,
+            evasion_info=evasion,
+        )
+        return jsonify({
+            "detail": f"Access blocked: IP ban evasion detected (linked to banned IP {matched_ip}).",
+            "status": "blocked",
+            "evasion": True
+        }), 403
 
     blocked_reason = fingerprint.get("blockedReason")
     if blocked_reason:

@@ -3775,6 +3775,61 @@ body.view-action .sidebar-run-section {
     gap: 4px;
 }
 
+.access-log-evasion-badge {
+    background: rgba(245, 158, 11, 0.18);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.55);
+    font-size: 9.5px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 3px;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.access-log-evasion-badge i {
+    color: #f59e0b;
+}
+
+.access-log-evasion-banner {
+    margin: 8px 0 4px 0;
+    padding: 8px 12px;
+    border-radius: 4px;
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    color: #fde68a;
+    font-size: 12px;
+    line-height: 1.45;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.access-log-evasion-banner i {
+    color: #f59e0b;
+    font-size: 14px;
+    margin-top: 1px;
+    flex-shrink: 0;
+}
+
+.access-log-evasion-banner code {
+    background: rgba(0, 0, 0, 0.4);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: #fff;
+    font-weight: 700;
+}
+
+.access-log-evasion-reasons {
+    margin-top: 3px;
+    font-size: 11px;
+    color: #fef3c7;
+    opacity: 0.95;
+}
+
 .access-log-status-SUCCESS {
     background: rgba(34, 197, 94, 0.15);
     color: #4ade80;

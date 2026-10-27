@@ -4006,6 +4006,96 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
     }
 
     /**
+     * Cross-check an access log entry against blocked IP sessions to detect ban evasion.
+     *
+     * @param {object} log - Current access log entry.
+     * @param {Array<object>} allLogs - All access logs.
+     * @param {Set<string>} blockedIps - Set of currently blocked IP strings.
+     * @returns {object|null} Matched evasion details or null.
+     */
+    function detectBanEvasion(log, allLogs, blockedIps) {
+        let detailsObj = {};
+        try {
+            if (log.details) detailsObj = typeof log.details === 'string' ? JSON.parse(log.details) : log.details;
+        } catch {}
+
+        if (detailsObj.evasion) return detailsObj.evasion;
+
+        const currentWebrtc = (detailsObj.webrtcIps || []).map(x => String(x).trim()).filter(Boolean);
+        const currentCanvas = String(detailsObj.canvasHash || '').trim();
+        const currentScreen = String(log.screen || '').trim();
+        const currentTz = String(log.timezone || '').trim();
+        const currentGpu = String(log.gpu || '').trim();
+        const currentHw = String(log.hardware || '').trim();
+        const hasCurrentGps = log.latitude !== null && log.latitude !== undefined && log.longitude !== null && log.longitude !== undefined;
+
+        for (const target of allLogs) {
+            if (target.ip === log.ip) continue;
+            const targetBlocked = blockedIps.has(target.ip) || Boolean(target.is_blocked) || (target.status || '').toUpperCase().startsWith('BLOCKED');
+            if (!targetBlocked) continue;
+
+            let targetDetails = {};
+            try {
+                if (target.details) targetDetails = typeof target.details === 'string' ? JSON.parse(target.details) : target.details;
+            } catch {}
+
+            const reasons = [];
+
+            // 1. WebRTC IP Match
+            const targetWebrtc = (targetDetails.webrtcIps || []).map(x => String(x).trim()).filter(Boolean);
+            for (const wIp of currentWebrtc) {
+                if (blockedIps.has(wIp)) {
+                    reasons.push(`Discovered LAN IP (${wIp}) in blacklist`);
+                    break;
+                }
+                if (targetWebrtc.includes(wIp)) {
+                    const isPrivate = /^(127\.|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(wIp);
+                    if (!isPrivate) {
+                        reasons.push(`Leaked Public WebRTC IP: ${wIp}`);
+                    } else if ((currentCanvas && currentCanvas === String(targetDetails.canvasHash || '').trim()) || (currentScreen && currentScreen === String(target.screen || '').trim())) {
+                        reasons.push(`WebRTC LAN IP (${wIp}) + device match`);
+                    }
+                    break;
+                }
+            }
+
+            // 2. GPS Sensor Proximity Match (< 500m)
+            const hasTargetGps = target.latitude !== null && target.latitude !== undefined && target.longitude !== null && target.longitude !== undefined;
+            if (hasCurrentGps && hasTargetGps) {
+                const dLat = Math.abs(Number(log.latitude) - Number(target.latitude)) * 111000;
+                const dLon = Math.abs(Number(log.longitude) - Number(target.longitude)) * 111000 * Math.cos(Number(log.latitude) * Math.PI / 180);
+                const distM = Math.hypot(dLat, dLon);
+                if (distM <= 500) {
+                    reasons.push(`GPS Sensor match: ~${Math.round(distM)}m proximity (${Number(log.latitude).toFixed(5)}, ${Number(log.longitude).toFixed(5)})`);
+                }
+            }
+
+            // 3. Canvas Fingerprint + Hardware / Display
+            const targetCanvas = String(targetDetails.canvasHash || '').trim();
+            if (currentCanvas && targetCanvas && currentCanvas === targetCanvas) {
+                let traits = 0;
+                const traitNames = [];
+                if (currentScreen && currentScreen === String(target.screen || '').trim()) { traits++; traitNames.push('Display'); }
+                if (currentTz && currentTz === String(target.timezone || '').trim()) { traits++; traitNames.push('Timezone'); }
+                if (currentHw && target.hardware && (currentHw.includes(target.hardware) || target.hardware.includes(currentHw))) { traits++; traitNames.push('Hardware'); }
+                if (currentGpu && currentGpu === String(target.gpu || '').trim()) { traits++; traitNames.push('GPU'); }
+                if (traits >= 2) {
+                    reasons.push(`Canvas Hash (${currentCanvas}) + ${traitNames.join(', ')} match`);
+                }
+            }
+
+            if (reasons.length > 0) {
+                return {
+                    matchedIp: target.ip,
+                    reasons: reasons,
+                    matchedLogId: target.id
+                };
+            }
+        }
+        return null;
+    }
+
+    /**
      * Render the filtered access verification logs into the modal container with clean, uncluttered layout.
      */
     function renderAccessLogsList() {
@@ -4058,6 +4148,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             }
 
             const isBlocked = accessLogsState.blockedIps.has(log.ip) || Boolean(log.is_blocked);
+            const evasionInfo = detectBanEvasion(log, accessLogsState.logs || [], accessLogsState.blockedIps);
 
             let detailsObj = {};
             try {
@@ -4139,6 +4230,7 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
                             <span class="${statusClass}">${escapeHtml(log.status || 'UNKNOWN')}</span>
                             ${netTagHtml}
                             ${isBlocked ? '<span class="access-log-blocked-badge" title="This IP address is blocked from accessing the dashboard"><i class="bi bi-ban"></i> BLOCKED</span>' : ''}
+                            ${evasionInfo ? `<span class="access-log-evasion-badge" title="Ban Evasion detected! Linked to ${escapeHtml(evasionInfo.matchedIp)}: ${escapeHtml((evasionInfo.reasons || []).join(', '))}"><i class="bi bi-shield-slash-fill"></i> BAN EVASION</span>` : ''}
                         </div>
                         <div class="access-log-meta">
                             <span class="access-log-device-badge">
@@ -4166,6 +4258,15 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
                         ${log.isp && log.isp !== 'Unknown' ? `<span class="access-log-geo-isp">• ${escapeHtml(log.isp)}</span>` : ''}
                         ${asStr ? `<span class="access-log-geo-as">• ${escapeHtml(asStr)}</span>` : ''}
                     </div>
+
+                    ${evasionInfo ? `
+                    <div class="access-log-evasion-banner">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <div>
+                            <strong>Ban Evasion Detected:</strong> Cross-checked and matched against banned IP <code>${escapeHtml(evasionInfo.matchedIp)}</code>.
+                            <div class="access-log-evasion-reasons">${escapeHtml((evasionInfo.reasons || []).join(' · '))}</div>
+                        </div>
+                    </div>` : ''}
 
                     <!-- Deep-Dive Forensic Inspector (Organized 3-Column Specifications) -->
                     <div class="access-log-expanded-panel" id="log-detail-${log.id}" style="display: none;">
