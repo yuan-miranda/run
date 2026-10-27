@@ -14,6 +14,12 @@
     color: inherit;
 }
 
+input::selection,
+textarea::selection {
+    background: var(--run-text, var(--text, #fff));
+    color: var(--run-text-inverse, var(--bg, #000));
+}
+
 /* ── Base (light fallback) ── */
 :root {
     --bg: #f5f5f5;
@@ -1011,6 +1017,8 @@ body:not(.kb-mode) .user-card:hover .os-logo {
 }
 
 .card-tag-input {
+    user-select: text;
+    -webkit-user-select: text;
     background: var(--run-elevated, var(--surface));
     border: 1px solid var(--run-border-focus, var(--border));
     border-radius: 2px;
@@ -1032,6 +1040,11 @@ body:not(.kb-mode) .user-card:hover .os-logo {
 .card-tag-input:focus {
     border-color: var(--run-border-heavy, var(--accent, #4ade80));
     box-shadow: 0 0 0 1px var(--run-border-heavy, var(--accent, #4ade80));
+}
+
+.card-tag-input::selection {
+    background: var(--run-text, var(--text, #fff));
+    color: var(--run-text-inverse, var(--bg, #000));
 }
 
 .card-actions {
