@@ -648,7 +648,10 @@ const FramesApp = (() => {
             const res = await fetch(`${VPS_URL}/api/clients`, { headers: authHeaders() });
             if (!res.ok) throw new Error('error ' + res.status);
             const clients = await res.json();
-            const folders = clients.map(c => ({ name: c.username }));
+            const folders = clients.map(c => ({
+                name: c.username,
+                label: c.nickname ? `${c.nickname} (${c.username})` : c.username
+            }));
 
             if (els.dropdownMenu) els.dropdownMenu.innerHTML = '';
             if (els.sidebarfolderlist) els.sidebarfolderlist.innerHTML = '';
@@ -657,7 +660,7 @@ const FramesApp = (() => {
                 const item = document.createElement('div');
                 const isSelected = f.name === state.currentFolder;
                 item.className = 'dropdown-item' + (isSelected ? ' active' : '');
-                item.textContent = f.name;
+                item.textContent = f.label;
                 item.dataset.folderName = f.name;
                 item.addEventListener('click', () => {
                     loadFolder(f.name);
@@ -669,7 +672,7 @@ const FramesApp = (() => {
                 if (els.sidebarfolderlist) {
                     const btn = document.createElement('button');
                     btn.className = 'sidebar-row-btn sidebar-folder-btn';
-                    btn.textContent = f.name;
+                    btn.textContent = f.label;
                     btn.dataset.folderName = f.name;
                     btn.addEventListener('click', () => {
                         loadFolder(f.name);
@@ -680,8 +683,8 @@ const FramesApp = (() => {
                 }
             });
 
-            const folderNames = folders.map(f => f.name);
-            window.RunUtils?.sizeDropdownToContent(els.folderBtn, els.dropdownMenu, els.folderWrap, folderNames, 'folder-btn');
+            const folderLabels = folders.map(f => f.label);
+            window.RunUtils?.sizeDropdownToContent(els.folderBtn, els.dropdownMenu, els.folderWrap, folderLabels, 'folder-btn');
 
             const saved = readSavedState();
             const def = folders.find(f => f.name === saved.folder) || folders[0];

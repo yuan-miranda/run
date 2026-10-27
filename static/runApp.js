@@ -139,6 +139,9 @@ const RunApp = (() => {
             counts.set(baseName, (counts.get(baseName) || 0) + 1);
         });
         return new Map(rows.map(user => {
+            if (user.nickname) {
+                return [user.username, user.nickname];
+            }
             const parsed = parseModernUsername(user.username);
             const needsId = parsed.id && (counts.get(parsed.baseName) || 0) > 1;
             return [user.username, needsId ? `${parsed.baseName} (${parsed.id})` : parsed.baseName];
@@ -979,6 +982,22 @@ const RunApp = (() => {
                         renderAccessLogsList();
                     }
                 });
+                dashboardSocket.on('client_nickname_updated', data => {
+                    if (!data || !data.username || !runState.isConnected) return;
+                    const row = runState.rows.find(r => r.username === data.username);
+                    if (row) {
+                        row.nickname = data.nickname || '';
+                        runState.displayNameMap = buildDisplayUsernameMap(runState.rows);
+                        renderGrid();
+                        if (runState.popupUser && runState.popupUser.username === data.username) {
+                            runState.popupUser.nickname = data.nickname || '';
+                            const displayName = getDisplayUsername(data.username);
+                            if ($('popup-target-label')) $('popup-target-label').textContent = displayName;
+                            const sidebarTarget = $('sidebar-action-target');
+                            if (sidebarTarget) sidebarTarget.textContent = displayName;
+                        }
+                    }
+                });
             } catch (err) {
                 console.error('[Dashboard Socket Error]', err);
             }
@@ -1018,16 +1037,25 @@ const RunApp = (() => {
         const showPrimary = showHint && alive && canInteract;
         const disabledAttrs = 'disabled aria-disabled="true"';
         const displayUsername = getDisplayUsername(user.username);
+        const parsed = parseModernUsername(user.username);
         const versionAttr = user.version ? ` title="${user.version}"` : '';
         const ipAttr = user.ip ? ` title="IP: ${escapeHtml(user.ip)}"` : ' title="IP: Unknown"';
         const winLogoHtml = `<i class="bi bi-windows os-logo"${ipAttr} aria-hidden="true"></i>`;
+
+        const origIdText = user.nickname ? (parsed.id ? `${parsed.baseName} (${parsed.id})` : parsed.baseName) : '';
 
         return `
             <div class="card-header">
                 <div style="flex:1;min-width:0;">
                     <div class="card-title-wrap">
-                        <span class="card-username ${alive ? '' : 'offline'}"${versionAttr}>${displayUsername}</span>
+                        <span class="card-username ${alive ? '' : 'offline'}"${versionAttr}>${escapeHtml(displayUsername)}</span>
+                        <button class="card-nickname-btn" data-username="${escapeHtml(user.username)}" data-nickname="${escapeHtml(user.nickname || '')}" title="Set or edit nickname" aria-label="Edit nickname">
+                            <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
+                                <path d="M12.146.146a.5.5 0 0 1 .708 0l2 2a.5.5 0 0 1 0 .708l-9.793 9.793a.5.5 0 0 1-.168.11l-3.5 1a.5.5 0 0 1-.617-.617l1-3.5a.5.5 0 0 1 .11-.168l9.793-9.793zm1.414 2.122-1.414-1.414L3.5 9.5 3 11l1.5-.5 8.56-8.732z"/>
+                            </svg>
+                        </button>
                     </div>
+                    ${origIdText ? `<div class="card-orig-username" title="Client ID: ${escapeHtml(user.username)}">${escapeHtml(origIdText)}</div>` : ''}
                     <div class="card-ts">${tsText}</div>
                 </div>
                 ${winLogoHtml}
@@ -1053,7 +1081,7 @@ const RunApp = (() => {
      * @returns {string} Cache key string.
      */
     function getCardRenderSignature(user, status, alive, tsText, showHint) {
-        return `${user.username}|${getDisplayUsername(user.username)}|${user.version || ''}|${user.ip || ''}|${status}|${alive ? 1 : 0}|${showHint ? 1 : 0}|${tsText}`;
+        return `${user.username}|${user.nickname || ''}|${getDisplayUsername(user.username)}|${user.version || ''}|${user.ip || ''}|${status}|${alive ? 1 : 0}|${showHint ? 1 : 0}|${tsText}`;
     }
 
     /**
@@ -1132,6 +1160,51 @@ const RunApp = (() => {
         }
         if ($('actionTargetMenu')?.classList.contains('open')) renderTargetDropdown();
         runState.isRendering = false;
+    }
+
+    /**
+     * Prompt administrator to set or clear a custom nickname for a specific client machine.
+     *
+     * @param {string} username - Target composite client username.
+     * @param {string} [currentNick=''] - Current nickname if set.
+     */
+    async function handleEditNickname(username, currentNick = '') {
+        const rawUser = runState.rows?.find(u => u.username === username);
+        const parsed = parseModernUsername(username);
+        const defaultPrompt = currentNick || (rawUser ? rawUser.nickname : '') || '';
+        const promptLabel = `Enter nickname for ${parsed.baseName}${parsed.id ? ' (' + parsed.id + ')' : ''}\n(Leave blank to clear):`;
+        const newNick = window.prompt(promptLabel, defaultPrompt);
+        if (newNick === null) return;
+        const trimmed = newNick.trim();
+        if (trimmed === defaultPrompt) return;
+
+        // Optimistic local update
+        if (rawUser) {
+            rawUser.nickname = trimmed;
+            runState.displayNameMap = buildDisplayUsernameMap(runState.rows);
+            renderGrid();
+            if (runState.popupUser && runState.popupUser.username === username) {
+                runState.popupUser.nickname = trimmed;
+                const displayName = getDisplayUsername(username);
+                if ($('popup-target-label')) $('popup-target-label').textContent = displayName;
+                const sidebarTarget = $('sidebar-action-target');
+                if (sidebarTarget) sidebarTarget.textContent = displayName;
+            }
+        }
+
+        if (!runState.isConnected) return;
+        try {
+            await fetch(`${VPS_URL}/api/client/nickname`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-password': runState.password
+                },
+                body: JSON.stringify({ username, nickname: trimmed })
+            });
+        } catch (e) {
+            console.error('[Nickname Error] Failed to update nickname:', e);
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1406,7 +1479,7 @@ const RunApp = (() => {
             const item = document.createElement('div');
             const isSelected = !!current && u.username === current.username;
             item.className = 'dropdown-item' + (isSelected ? ' active' : '');
-            item.textContent = u.username;
+            item.textContent = getDisplayUsername(u.username);
             item.dataset.username = u.username;
             item.addEventListener('click', () => {
                 closeTargetDropdown();
@@ -1427,9 +1500,10 @@ const RunApp = (() => {
     function openPopup(mode, user) {
         runState.popupUser = user;
         runState.selectedVis = !!user.visible;
-        if ($('popup-target-label')) $('popup-target-label').textContent = user.username;
+        const displayLabel = getDisplayUsername(user.username);
+        if ($('popup-target-label')) $('popup-target-label').textContent = displayLabel;
         const sidebarTarget = $('sidebar-action-target');
-        if (sidebarTarget) sidebarTarget.textContent = user.username;
+        if (sidebarTarget) sidebarTarget.textContent = displayLabel;
 
         document.body.classList.remove('view-run', 'view-frames');
         document.body.classList.add('view-action');
@@ -4478,6 +4552,14 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             });
 
             grid.addEventListener('click', e => {
+                const nickBtn = e.target.closest('.card-nickname-btn');
+                if (nickBtn) {
+                    e.stopPropagation();
+                    const username = nickBtn.dataset.username;
+                    const currentNick = nickBtn.dataset.nickname || '';
+                    if (username) handleEditNickname(username, currentNick);
+                    return;
+                }
                 const btn = e.target.closest('.card-btn');
                 if (!btn) return;
                 const card = e.target.closest('.user-card');

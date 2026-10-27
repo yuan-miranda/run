@@ -419,6 +419,11 @@ header {
     transition: opacity .15s;
 }
 
+.header-github-link {
+    padding: 0 14px;
+    margin-right: 8px;
+}
+
 .header-icon-link:hover {
     opacity: 1;
     background: none;
@@ -998,6 +1003,45 @@ body:not(.kb-mode) .user-card:hover .os-logo {
 .card-username.offline {
     color: var(--run-text-offline, var(--muted));
     font-weight: normal;
+}
+
+.card-nickname-btn {
+    background: none;
+    border: none;
+    color: var(--run-text-soft, var(--muted));
+    opacity: 0.35;
+    cursor: pointer;
+    padding: 3px 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    transition: opacity .15s, background-color .15s, color .15s;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.card-header:hover .card-nickname-btn,
+.user-card:hover .card-nickname-btn {
+    opacity: 0.8;
+}
+
+.card-nickname-btn:hover {
+    opacity: 1 !important;
+    background: var(--border);
+    color: var(--run-text, var(--text));
+}
+
+.card-orig-username {
+    color: var(--run-text-soft, var(--muted));
+    font-size: 11px;
+    opacity: 0.75;
+    letter-spacing: .02em;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: inherit;
 }
 
 .card-actions {
