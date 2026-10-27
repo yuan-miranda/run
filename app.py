@@ -235,11 +235,6 @@ def init_db() -> None:
         except sqlite3.OperationalError:
             pass
 
-        try:
-            conn.execute("ALTER TABLE clients ADD COLUMN nickname TEXT")
-        except sqlite3.OperationalError:
-            pass
-
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS blocked_ips (
@@ -1121,7 +1116,7 @@ def get_clients() -> Response:
     with get_db() as conn:
         rows = conn.execute(
             """
-            SELECT username, updated_at, visible, capture, version, ip, nickname
+            SELECT username, updated_at, visible, capture, version, ip
             FROM clients
             ORDER BY updated_at DESC
             """
@@ -1139,39 +1134,11 @@ def get_clients() -> Response:
                 "capture": bool(row["capture"]) if row["capture"] is not None else False,
                 "version": row["version"] if row["version"] is not None else "",
                 "ip": row["ip"] if "ip" in row.keys() and row["ip"] is not None else "",
-                "nickname": row["nickname"] if "nickname" in row.keys() and row["nickname"] is not None else "",
                 "online": row["username"] in online_usernames,
             }
             for row in rows
         ]
     )
-
-
-@app.post("/api/client/nickname")
-@require_password
-def set_client_nickname() -> Response:
-    """
-    Update or clear custom display nickname for a registered client machine.
-
-    Returns:
-        Response: JSON status response.
-    """
-    data = request.get_json(silent=True) or {}
-    username = data.get("username")
-    nickname = (data.get("nickname") or "").strip()
-
-    if not username or not is_safe_name(username):
-        return jsonify({"status": "error", "message": "Missing or invalid username"}), 400
-
-    if len(nickname) > 32:
-        return jsonify({"status": "error", "message": "Nickname must be 32 characters or less"}), 400
-
-    with get_db() as conn:
-        conn.execute("UPDATE clients SET nickname = ? WHERE username = ?", (nickname or None, username))
-
-    log_operation(username, "NICKNAME", f"Nickname set to '{nickname}'" if nickname else "Nickname cleared")
-    socketio.emit("client_nickname_updated", {"username": username, "nickname": nickname}, room="dashboard")
-    return jsonify({"status": "success", "username": username, "nickname": nickname})
 
 
 # ── REST API Routes: Screenshot Frames Management ────────────────────────────
