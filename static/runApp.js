@@ -132,25 +132,33 @@ const RunApp = (() => {
      * @param {Array<{username: string}>} rows - Array of user records.
      * @returns {Map<string, string>} Map linking username to display label.
      */
-    const STORAGE_KEY_CUSTOM_NAMES = 'run_custom_client_names';
+    const STORAGE_KEY_CUSTOM_TAGS = 'run_custom_client_tags';
 
-    function getCustomClientNames() {
+    function getCustomClientTags() {
         try {
-            return JSON.parse(localStorage.getItem(STORAGE_KEY_CUSTOM_NAMES) || '{}');
+            const tags = JSON.parse(localStorage.getItem(STORAGE_KEY_CUSTOM_TAGS) || '{}');
+            const legacyNames = JSON.parse(localStorage.getItem('run_custom_client_names') || '{}');
+            for (const [k, v] of Object.entries(legacyNames)) {
+                if (!tags[k] && v) {
+                    const match = String(v).match(/\(([^)]+)\)$/);
+                    tags[k] = match ? match[1].trim() : String(v).trim();
+                }
+            }
+            return tags;
         } catch {
             return {};
         }
     }
 
     /**
-     * Construct a mapping of usernames to display labels, appending short ID only if name collision occurs.
-     * Checks localStorage for user-customized labels.
+     * Construct a mapping of usernames to display labels, appending short ID or custom tag only if name collision occurs.
+     * Checks localStorage for user-customized tags.
      *
      * @param {Array<{username: string}>} rows - Array of user records.
      * @returns {Map<string, string>} Map linking username to display label.
      */
     function buildDisplayUsernameMap(rows) {
-        const customNames = getCustomClientNames();
+        const customTags = getCustomClientTags();
         const counts = new Map();
         rows.forEach(user => {
             const { baseName } = parseModernUsername(user.username);
@@ -164,12 +172,13 @@ const RunApp = (() => {
             }
         });
         return new Map(rows.map(user => {
-            if (customNames[user.username]) {
-                return [user.username, customNames[user.username]];
-            }
             const parsed = parseModernUsername(user.username);
             const needsId = parsed.id && (counts.get(parsed.baseName) || 0) > 1;
-            return [user.username, needsId ? `${parsed.baseName} (${parsed.id})` : parsed.baseName];
+            if (!needsId) {
+                return [user.username, parsed.baseName];
+            }
+            const tag = customTags[user.username] || parsed.id;
+            return [user.username, `${parsed.baseName} (${tag})`];
         }));
     }
 
@@ -1050,17 +1059,23 @@ const RunApp = (() => {
         const ipAttr = user.ip ? ` title="IP: ${escapeHtml(user.ip)}"` : ' title="IP: Unknown"';
         const winLogoHtml = `<i class="bi bi-windows os-logo"${ipAttr} aria-hidden="true"></i>`;
 
-        const customNames = getCustomClientNames();
-        const hasCustom = !!customNames[user.username];
-        const isDupe = (runState.duplicateUsernames && runState.duplicateUsernames.has(user.username)) || displayUsername.includes('(') || hasCustom;
-        const editableClass = isDupe ? ' is-editable' : '';
-        const titleAttr = isDupe ? ' title="Click to edit name (leave empty to reset)"' : versionAttr;
+        const parsed = parseModernUsername(user.username);
+        const isDupe = (runState.duplicateUsernames && runState.duplicateUsernames.has(user.username)) || !!(parsed.id && displayUsername.includes('('));
+        const customTags = getCustomClientTags();
+        const tag = isDupe ? (customTags[user.username] || parsed.id || '') : '';
+
+        let nameHtml = '';
+        if (isDupe && tag) {
+            nameHtml = `${escapeHtml(parsed.baseName)} (<span class="card-username-tag is-editable" data-username="${escapeHtml(user.username)}" data-default-id="${escapeHtml(parsed.id)}" title="Click to edit (leave empty to reset)">${escapeHtml(tag)}</span>)`;
+        } else {
+            nameHtml = escapeHtml(displayUsername);
+        }
 
         return `
             <div class="card-header">
                 <div style="flex:1;min-width:0;">
                     <div class="card-title-wrap">
-                        <span class="card-username ${alive ? '' : 'offline'}${editableClass}" data-username="${escapeHtml(user.username)}"${titleAttr}>${escapeHtml(displayUsername)}</span>
+                        <span class="card-username ${alive ? '' : 'offline'}" data-username="${escapeHtml(user.username)}"${versionAttr}>${nameHtml}</span>
                     </div>
                     <div class="card-ts">${tsText}</div>
                 </div>
@@ -1138,8 +1153,8 @@ const RunApp = (() => {
             const cn = `user-card${alive ? '' : ' offline'} windows-user`;
             if (card.className !== cn) card.className = cn;
 
-            // Preserve active inline name input without DOM interruption
-            if (card.querySelector('.card-username-input')) {
+            // Preserve active inline tag input without DOM interruption
+            if (card.querySelector('.card-tag-input')) {
                 seen.add(user.username);
                 const ref = grid.children[index] || null;
                 if (ref !== card) grid.insertBefore(card, ref);
@@ -1178,22 +1193,27 @@ const RunApp = (() => {
     }
 
     /**
-     * Set or clear a customized frontend client name in localStorage.
-     * When customName is empty, it removes the entry so the name reverts back to normal.
+     * Set or clear a customized frontend client tag in localStorage.
+     * When customTag is empty, it removes the entry so the name reverts back to normal.
      *
      * @param {string} username - Client composite username.
-     * @param {string} customName - New custom display string or empty to reset.
+     * @param {string} customTag - New custom display string or empty to reset.
      */
-    function setCustomClientName(username, customName) {
-        const map = getCustomClientNames();
-        const trimmed = (customName || '').trim();
+    function setCustomClientTag(username, customTag) {
+        const map = getCustomClientTags();
+        const trimmed = (customTag || '').trim();
         if (trimmed) {
             map[username] = trimmed;
         } else {
             delete map[username];
         }
         try {
-            localStorage.setItem(STORAGE_KEY_CUSTOM_NAMES, JSON.stringify(map));
+            localStorage.setItem(STORAGE_KEY_CUSTOM_TAGS, JSON.stringify(map));
+            const old = JSON.parse(localStorage.getItem('run_custom_client_names') || '{}');
+            if (old[username]) {
+                delete old[username];
+                localStorage.setItem('run_custom_client_names', JSON.stringify(old));
+            }
         } catch {}
 
         runState.displayNameMap = buildDisplayUsernameMap(runState.rows || []);
@@ -1206,21 +1226,23 @@ const RunApp = (() => {
     }
 
     /**
-     * Start inline editing directly in the card title span element.
+     * Start inline editing directly in the card's parenthesis tag element.
      *
-     * @param {HTMLElement} usernameEl - The span.card-username element.
+     * @param {HTMLElement} tagEl - The span.card-username-tag element.
      * @param {string} username - Target client composite username.
      */
-    function startInlineNameEdit(usernameEl, username) {
-        const currentText = usernameEl.textContent.trim();
+    function startInlineTagEdit(tagEl, username) {
+        const defaultId = tagEl.dataset.defaultId || '';
+        const currentText = tagEl.textContent.trim();
         const input = document.createElement('input');
         input.type = 'text';
-        input.className = 'card-username-input';
+        input.className = 'card-tag-input';
         input.value = currentText;
-        input.placeholder = 'Empty to reset';
+        input.placeholder = defaultId || 'id';
+        input.style.width = `${Math.max(currentText.length + 1, 6)}ch`;
 
-        usernameEl.innerHTML = '';
-        usernameEl.appendChild(input);
+        tagEl.innerHTML = '';
+        tagEl.appendChild(input);
         input.focus();
         input.select();
 
@@ -1228,19 +1250,27 @@ const RunApp = (() => {
         function finish(save) {
             if (finished) return;
             finished = true;
-            const card = usernameEl.closest('.user-card');
+            const val = input.value;
+            // Clean up input element from DOM immediately before re-render
+            tagEl.innerHTML = '';
+            tagEl.textContent = val.trim() || defaultId;
+            const card = tagEl.closest('.user-card');
             if (card) delete card.dataset.renderSignature;
             if (save) {
-                setCustomClientName(username, input.value);
+                setCustomClientTag(username, val);
             } else {
                 renderGrid();
             }
         }
 
+        input.addEventListener('input', () => {
+            input.style.width = `${Math.max(input.value.length + 1, 6)}ch`;
+        });
+
         input.addEventListener('keydown', ev => {
             if (ev.key === 'Enter') {
                 ev.preventDefault();
-                finish(true);
+                input.blur();
             } else if (ev.key === 'Escape') {
                 ev.preventDefault();
                 finish(false);
@@ -1252,6 +1282,9 @@ const RunApp = (() => {
         });
 
         input.addEventListener('click', ev => {
+            ev.stopPropagation();
+        });
+        input.addEventListener('mousedown', ev => {
             ev.stopPropagation();
         });
     }
@@ -4601,11 +4634,11 @@ Start-Process -FilePath $o -WindowStyle Hidden`;
             });
 
             grid.addEventListener('click', e => {
-                const usernameEl = e.target.closest('.card-username.is-editable');
-                if (usernameEl && !usernameEl.querySelector('input')) {
+                const tagEl = e.target.closest('.card-username-tag.is-editable');
+                if (tagEl && !tagEl.querySelector('input')) {
                     e.stopPropagation();
-                    const username = usernameEl.dataset.username;
-                    if (username) startInlineNameEdit(usernameEl, username);
+                    const username = tagEl.dataset.username;
+                    if (username) startInlineTagEdit(tagEl, username);
                     return;
                 }
                 const btn = e.target.closest('.card-btn');
